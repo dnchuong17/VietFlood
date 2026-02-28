@@ -1,0 +1,19 @@
+{
+  "monorepo": true,
+  "root": ".",
+  "sourceRoot": "apps/main/src",
+  "compilerOptions": {
+    "webpack": true
+  },
+  "projects": {
+    "api-gateway": {
+      "type": "application",
+      "root": "apps/api-gateway",
+      "entryFile": "main",
+      "sourceRoot": "apps/api-gateway/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/api-gateway/tsconfig.app.json"
+      }
+    }
+    }
+}

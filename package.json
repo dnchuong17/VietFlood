@@ -1,0 +1,28 @@
+{
+  "name": "vietflood",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dnchuong17/VietFlood.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/dnchuong17/VietFlood/issues"
+  },
+  "homepage": "https://github.com/dnchuong17/VietFlood#readme",
+  "dependencies": {
+    "@nestjs/microservices": "^11.1.14",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.2"
+  }
+}

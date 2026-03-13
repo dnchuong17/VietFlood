@@ -27,7 +27,7 @@ import { RefreshTokenEntity } from "./refesh_token/refresh_token.entity";
     JwtModule.register({
       global: true,
       secret: `${process.env.SECRETEKEY}`,
-      signOptions: { expiresIn: "300s" },
+      signOptions: { expiresIn: "800s" },
     }),
     RefreshTokenModule,
   ],

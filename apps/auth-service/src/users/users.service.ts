@@ -1,8 +1,13 @@
-import { Injectable } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { UserEntity } from "./users.entity";
 import { Repository } from "typeorm";
 import { LoggerService, RedisService } from "@dnchuong17/vietflood-common";
+import { UpdateUserDto } from "../DTO/update_user.dto";
 
 @Injectable()
 export class UsersService {
@@ -45,5 +50,62 @@ export class UsersService {
       where: [{ phone: phone }],
     });
     return user;
+  }
+
+  async findUserWithID(id: number) {
+    if (!id) {
+      this.logger.error("[FIND USER] - ID is undefined or invalid");
+      throw new BadRequestException("Invalid ID");
+    }
+
+    this.logger.debug(`[FIND USER] - Finding user via  ID: ${id}`);
+
+    const user = await this.userRepository.findOne({
+      where: { id: id },
+    });
+
+    if (!user) {
+      this.logger.error(`[FIND USER] - User not found for ID: ${id}`);
+      throw new BadRequestException(`User not found for ID: ${id}`);
+    }
+
+    this.logger.debug(
+      `[FIND USER] - User found: ${JSON.stringify({ id: user.id, username: user.username })}`,
+    );
+    delete user.password;
+
+    return user;
+  }
+
+  async updateUserProfile(id: number, updateUserDto: UpdateUserDto) {
+    if (!id) {
+      this.logger.error("[UPDATE USER] - ID is undefined or invalid");
+      throw new BadRequestException("Invalid ID");
+    }
+    this.logger.debug(`[UPDATE USER] - Updating user with ID: ${id}`);
+
+    const user = await this.userRepository.findOne({
+      where: { id },
+    });
+
+    if (!user) {
+      this.logger.error(`[UPDATE USER] - User not found for ID: ${id}`);
+      throw new NotFoundException(`User not found for ID: ${id}`);
+    }
+
+    const updatedUser = await this.userRepository.update(id, {
+      ...updateUserDto,
+    });
+    this.logger.debug(
+      `[UPDATE USER] - User updated successfully: ${JSON.stringify({
+        id: id,
+      })}`,
+    );
+
+    return {
+      success: true,
+      message: "Update user successfully",
+      userId: id,
+    };
   }
 }

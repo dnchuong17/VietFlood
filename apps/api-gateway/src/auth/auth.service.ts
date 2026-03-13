@@ -3,6 +3,7 @@ import { catchError, lastValueFrom, of, retry, timeout } from "rxjs";
 import { ClientProxy } from "@nestjs/microservices";
 import { RegisterDto } from "./Dto/register.dto";
 import { SigninDto } from "./Dto/signIn.dto";
+import { UpdateUserDto } from "./Dto/update_user.dto";
 
 @Injectable()
 export class AuthService {
@@ -44,6 +45,24 @@ export class AuthService {
           return of({ error: "auth service error!", details: error });
         }),
       ),
+    );
+    return data;
+  }
+
+  async updateProfile(userId: number, updateUserDto: UpdateUserDto) {
+    const data = await lastValueFrom(
+      this.auth_service
+        .send("update", {
+          userId,
+          updateUserDto,
+        })
+        .pipe(
+          timeout(5000),
+          retry(3),
+          catchError((error) => {
+            return of({ error: "auth service error!", details: error });
+          }),
+        ),
     );
     return data;
   }

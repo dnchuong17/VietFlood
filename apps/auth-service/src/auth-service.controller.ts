@@ -37,10 +37,26 @@ export class AuthServiceController {
   @MessagePattern("profile")
   async profile(@Payload() data) {
     try {
-      console.log(data);
       this.logger.debug("receive request profile");
-      return await data.user;
+      return await this.authService.profile(data.user.userId);
     } catch (error) {
+      throw new RpcException(error);
+    }
+  }
+
+  @MessagePattern("update")
+  async updateUser(@Payload() data: any) {
+    try {
+      console.log(data.userId);
+      this.logger.debug(
+        `[UPDATE USER] - receive request update for userId: ${data.userId}`,
+      );
+
+      return await this.authService.userUpdate(data.userId, data.updateUserDto);
+    } catch (error) {
+      this.logger.error(
+        `[UPDATE USER] - failed for userId: ${data?.userId}, error: ${error?.message}`,
+      );
       throw new RpcException(error);
     }
   }

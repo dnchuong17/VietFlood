@@ -14,6 +14,7 @@ import * as bcrypt from "bcrypt";
 import { plainToInstance } from "class-transformer";
 import { SigninDto } from "./DTO/signIn.dto";
 import { RefreshTokenService } from "./refesh_token/refresh_token.service";
+import { UpdateUserDto } from "./DTO/update_user.dto";
 
 @Injectable()
 export class AuthService {
@@ -106,5 +107,15 @@ export class AuthService {
     } else {
       throw new UnauthorizedException("Invalid username or password");
     }
+  }
+
+  async profile(userId: number) {
+    this.logger.debug(`[PROFILE] - Fetching profile for userId: ${userId}`);
+    return this.userService.findUserWithID(userId);
+  }
+
+  async userUpdate(userId: number, userUpdateDto: UpdateUserDto) {
+    this.logger.debug(`[UPDATE USER] - Updating profile for userId: ${userId}`);
+    return this.userService.updateUserProfile(userId, userUpdateDto);
   }
 }

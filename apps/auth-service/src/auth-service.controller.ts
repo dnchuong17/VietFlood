@@ -47,7 +47,6 @@ export class AuthServiceController {
   @MessagePattern("update")
   async updateUser(@Payload() data: any) {
     try {
-      console.log(data.userId);
       this.logger.debug(
         `[UPDATE USER] - receive request update for userId: ${data.userId}`,
       );
@@ -57,6 +56,20 @@ export class AuthServiceController {
       this.logger.error(
         `[UPDATE USER] - failed for userId: ${data?.userId}, error: ${error?.message}`,
       );
+      throw new RpcException(error);
+    }
+  }
+
+  @MessagePattern("delete")
+  async deleteUser(@Payload() data: any) {
+    try {
+      this.logger.debug(
+        `[DELETE USER] - receive request update for userId: ${data}`,
+      );
+
+      return await this.authService.deleteUser(data);
+    } catch (error) {
+      this.logger.error(`[DELETE USER] - failed for userId: ${data}`);
       throw new RpcException(error);
     }
   }

@@ -28,7 +28,6 @@ export class AuthController {
   @Post("update")
   @UseGuards(JwtAuthGuard)
   async updateProfile(@Req() req: any, @Body() updateUserDto: UpdateUserDto) {
-    console.log(req);
     return this.authService.updateProfile(req.user.userId, updateUserDto);
   }
 

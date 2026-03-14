@@ -9,8 +9,11 @@ async function bootstrap() {
   const port = Number(process.env.API_GATEWAY_PORT);
   logger.setServiceName("Api-gateway");
   logger.info("API Gateway is starting...");
-  app.enableCors();
-
+  app.enableCors({
+    origin: ["http://localhost:3000", "https://vietflood-fe.vercel.app"],
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+    credentials: true,
+  });
   await app.listen(port);
 
   logger.info(`API Gateway running on http://localhost:${port}`);

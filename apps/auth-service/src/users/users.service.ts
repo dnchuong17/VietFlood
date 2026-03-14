@@ -108,4 +108,35 @@ export class UsersService {
       userId: id,
     };
   }
+
+  async deleteUser(userId: number) {
+    if (!userId) {
+      this.logger.error("[DELETE USER] - ID is undefined or invalid");
+      throw new BadRequestException("Invalid ID");
+    }
+    this.logger.debug(`[UPDATE USER] - Updating user with ID: ${userId}`);
+
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      this.logger.error(`[DELETE USER] - User not found for ID: ${userId}`);
+      throw new NotFoundException(`User not found for ID: ${userId}`);
+    }
+
+    await this.userRepository.delete(user);
+
+    this.logger.debug(
+      `[DELETE USER] - User updated successfully: ${JSON.stringify({
+        id: userId,
+      })}`,
+    );
+
+    return {
+      success: true,
+      message: "Delete user successfully",
+      userId: userId,
+    };
+  }
 }

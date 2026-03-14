@@ -1,0 +1,216 @@
+{
+  "info": {
+    "_postman_id": "9acaa910-d898-4aa5-a908-504d4051e619",
+    "name": "VietFlood",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "37386912"
+  },
+  "item": [
+    {
+      "name": "Auth-service",
+      "item": [
+        {
+          "name": "register",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"lam@gmail.com\",\n  \"username\": \"lam123\",\n  \"password\": \"123456\",\n  \"phone\": \"0901234567\",\n  \"first_name\": \"Lam\",\n  \"middle_name\": \"Van\",\n  \"last_name\": \"Nguyen\",\n  \"date_of_birth\": \"2000-01-01\",\n  \"province\": \"Ho Chi Minh\",\n  \"district\": \"District 1\",\n  \"ward\": \"Ben Nghe\",\n  \"address_line\": \"123 Nguyen Hue\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:1712/auth/register",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "1712",
+              "path": [
+                "auth",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "sign_in",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"lam123\",\n  \"password\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:1712/auth/sign_in",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "1712",
+              "path": [
+                "auth",
+                "sign_in"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "API-gateway",
+      "item": [
+        {
+          "name": "sign in",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var token = pm.response.json().accessToken;",
+                  "if (token)",
+                  "    pm.environment.set(\"AUTH_TOKEN\", token);"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"lam123\",\n  \"password\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:8081/auth/sign_in",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "auth",
+                "sign_in"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "register",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"lam@gmail.com\",\n  \"username\": \"lam123\",\n  \"password\": \"123456\",\n  \"phone\": \"0901234567\",\n  \"first_name\": \"Lam\",\n  \"middle_name\": \"Van\",\n  \"last_name\": \"Nguyen\",\n  \"date_of_birth\": \"2000-01-01\",\n  \"province\": \"Ho Chi Minh\",\n  \"district\": \"District 1\",\n  \"ward\": \"Ben Nghe\",\n  \"address_line\": \"123 Nguyen Hue\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:8081/auth/register",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "auth",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "update profile",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"lam@gmail.com\",\n  \"username\": \"lam123\",\n  \"password\": \"123456\",\n  \"phone\": \"0901234567\",\n  \"first_name\": \"Lam\",\n  \"middle_name\": \"Van\",\n  \"last_name\": \"Nguyen\",\n  \"date_of_birth\": \"2000-01-01\",\n  \"province\": \"Ho Chi Minh\",\n  \"district\": \"District 1\",\n  \"ward\": \"Ben Nghe\",\n  \"address_line\": \"123 Nguyen Hue\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:8081/auth/register",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "auth",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "profile",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{AUTH_TOKEN}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{AUTH_TOKEN}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:8081/auth/profile",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "auth",
+                "profile"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

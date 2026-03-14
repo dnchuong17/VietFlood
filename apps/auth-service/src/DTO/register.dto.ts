@@ -10,7 +10,6 @@ export class RegisterDto {
   last_name!: string;
   date_of_birth!: string;
   province!: string;
-  district!: string;
   ward!: string;
   address_line!: string;
   role?: UserRole;

@@ -1,10 +1,10 @@
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  UpdateDateColumn,
+  Entity,
   Index,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from "typeorm";
 
 export enum UserRole {
@@ -53,9 +53,6 @@ export class UserEntity {
 
   @Column({ type: "varchar", length: 100 })
   ward!: string;
-
-  @Column({ type: "varchar", length: 100 })
-  district!: string;
 
   @Column({ type: "varchar", length: 100 })
   province!: string;

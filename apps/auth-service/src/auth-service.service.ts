@@ -109,6 +109,11 @@ export class AuthService {
     }
   }
 
+  async getAllUsers() {
+    this.logger.debug("[ALL USERS] - Getting all users");
+    return this.userService.getAllUsers();
+  }
+
   async profile(userId: number) {
     this.logger.debug(`[PROFILE] - Fetching profile for userId: ${userId}`);
     return this.userService.findUserWithID(userId);

@@ -50,6 +50,13 @@ export class AuthController {
     return this.authService.deleteUser(id);
   }
 
+  @Get("all")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("admin")
+  async getAllUsers() {
+    return this.authService.getAllUsers();
+  }
+
   @Post("refresh")
   async refresh(@Body() body: any) {
     return this.authService.refresh(body);

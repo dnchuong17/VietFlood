@@ -20,6 +20,13 @@ export class UsersService {
     this.logger.setServiceName(UsersService.name);
   }
 
+  async getAllUsers() {
+    this.logger.debug(`[GET ALL USERS] - Find all users`);
+
+    const users = await this.userRepository.find();
+    return users;
+  }
+
   async findAccountWithEmail(email: string) {
     this.logger.debug(`[FIND USER]-Find user via email ${email}`);
     const cacheUser = await this.redisHelper.get(email);

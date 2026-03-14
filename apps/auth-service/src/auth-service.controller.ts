@@ -44,6 +44,16 @@ export class AuthServiceController {
     }
   }
 
+  @MessagePattern("all")
+  async getAllUsers() {
+    try {
+      this.logger.debug("receive request get all users");
+      return await this.authService.getAllUsers();
+    } catch (error) {
+      throw new RpcException(error);
+    }
+  }
+
   @MessagePattern("update")
   async updateUser(@Payload() data: any) {
     try {

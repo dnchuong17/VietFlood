@@ -49,6 +49,19 @@ export class AuthService {
     return data;
   }
 
+  async getAllUsers() {
+    const data = await lastValueFrom(
+      this.auth_service.send("all", "").pipe(
+        timeout(5000),
+        retry(3),
+        catchError((error) => {
+          return of({ error: "auth service error!", details: error });
+        }),
+      ),
+    );
+    return data;
+  }
+
   async updateProfile(userId: number, updateUserDto: UpdateUserDto) {
     const data = await lastValueFrom(
       this.auth_service

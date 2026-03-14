@@ -1,9 +1,21 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Post,
+  Req,
+  UseGuards,
+} from "@nestjs/common";
 import { AuthService } from "./auth.service";
 import { SigninDto } from "./Dto/signIn.dto";
 import { RegisterDto } from "./Dto/register.dto";
 import { JwtAuthGuard } from "./guard/jwt-auth.guard";
 import { UpdateUserDto } from "./Dto/update_user.dto";
+import { RolesGuard } from "./guard/role.guard";
+import { Roles } from "./Decorators/role.decorator";
 
 @Controller("auth")
 export class AuthController {
@@ -29,6 +41,13 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async updateProfile(@Req() req: any, @Body() updateUserDto: UpdateUserDto) {
     return this.authService.updateProfile(req.user.userId, updateUserDto);
+  }
+
+  @Delete("delete/:id")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("admin")
+  async deleteUser(@Param("id", ParseIntPipe) id: number) {
+    return this.authService.deleteUser(id);
   }
 
   @Post("refresh")

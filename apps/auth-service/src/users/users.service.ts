@@ -114,7 +114,7 @@ export class UsersService {
       this.logger.error("[DELETE USER] - ID is undefined or invalid");
       throw new BadRequestException("Invalid ID");
     }
-    this.logger.debug(`[UPDATE USER] - Updating user with ID: ${userId}`);
+    this.logger.debug(`[DELETE USER] - Deleting user with ID: ${userId}`);
 
     const user = await this.userRepository.findOne({
       where: { id: userId },
@@ -125,10 +125,10 @@ export class UsersService {
       throw new NotFoundException(`User not found for ID: ${userId}`);
     }
 
-    await this.userRepository.delete(user);
+    await this.userRepository.delete({ id: userId });
 
     this.logger.debug(
-      `[DELETE USER] - User updated successfully: ${JSON.stringify({
+      `[DELETE USER] - User deleted successfully: ${JSON.stringify({
         id: userId,
       })}`,
     );

@@ -64,12 +64,12 @@ export class AuthServiceController {
   async deleteUser(@Payload() data: any) {
     try {
       this.logger.debug(
-        `[DELETE USER] - receive request update for userId: ${data}`,
+        `[DELETE USER] - receive request update for userId: ${data.userId}`,
       );
 
-      return await this.authService.deleteUser(data);
+      return await this.authService.deleteUser(data.userId);
     } catch (error) {
-      this.logger.error(`[DELETE USER] - failed for userId: ${data}`);
+      this.logger.error(`[DELETE USER] - failed for userId: ${data.userId}`);
       throw new RpcException(error);
     }
   }

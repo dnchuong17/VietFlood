@@ -70,7 +70,7 @@ export class AuthService {
   async deleteUser(userId: number) {
     const data = await lastValueFrom(
       this.auth_service
-        .send("update", {
+        .send("delete", {
           userId,
         })
         .pipe(

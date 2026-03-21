@@ -116,6 +116,45 @@ export class UsersService {
     };
   }
 
+  async updateUserById(userId: number, updateUserDto: UpdateUserDto) {
+    if (!userId) {
+      this.logger.error("[UPDATING USER BY ID] - ID is undefined or invalid");
+      throw new BadRequestException("Invalid ID");
+    }
+    this.logger.debug(
+      `[UPDATING USER BY ID] - Updating user with ID: ${userId}`,
+    );
+
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      this.logger.error(
+        `[UPDATING USER BY ID] - User not found for ID: ${userId}`,
+      );
+      throw new NotFoundException(`User not found for ID: ${userId}`);
+    }
+
+    const updatedUser = await this.userRepository.update(
+      { id: userId },
+      {
+        ...updateUserDto,
+      },
+    );
+    this.logger.debug(
+      `[UPDATE USER] - User updated successfully: ${JSON.stringify({
+        id: userId,
+      })}`,
+    );
+
+    return {
+      success: true,
+      message: "Update user successfully",
+      userId: userId,
+    };
+  }
+
   async deleteUser(userId: number) {
     if (!userId) {
       this.logger.error("[DELETE USER] - ID is undefined or invalid");

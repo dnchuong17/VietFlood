@@ -124,6 +124,13 @@ export class AuthService {
     return this.userService.updateUserProfile(userId, userUpdateDto);
   }
 
+  async userUpdateByID(userId: number, userUpdateDto: UpdateUserDto) {
+    this.logger.debug(
+      `[UPDATE USER BY ID] - Updating profile for userId: ${userId}`,
+    );
+    return this.userService.updateUserById(userId, userUpdateDto);
+  }
+
   async deleteUser(userId: number) {
     this.logger.debug(`[DELETE USER] - Deleting profile for userId: ${userId}`);
     return this.userService.deleteUser(userId);

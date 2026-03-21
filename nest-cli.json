@@ -1,14 +1,15 @@
 {
   "monorepo": true,
-  "root": ".",
-  "sourceRoot": "apps/main/src",
+  "root": "apps/api-gateway",
+  "sourceRoot": "apps/api-gateway/src",
   "compilerOptions": {
-    "webpack": false
+    "webpack": false,
+    "deleteOutDir": true
   },
   "projects": {
     "api-gateway": {
       "type": "application",
-      "root": "apps/api-gateway/src",
+      "root": "apps/api-gateway",
       "entryFile": "main",
       "sourceRoot": "apps/api-gateway/src",
       "compilerOptions": {
@@ -22,6 +23,15 @@
       "sourceRoot": "apps/auth-service/src",
       "compilerOptions": {
         "tsConfigPath": "apps/auth-service/tsconfig.app.json"
+      }
+    },
+    "reports-service": {
+      "type": "application",
+      "root": "apps/reports-service",
+      "entryFile": "main",
+      "sourceRoot": "apps/reports-service/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/reports-service/tsconfig.app.json"
       }
     }
   }

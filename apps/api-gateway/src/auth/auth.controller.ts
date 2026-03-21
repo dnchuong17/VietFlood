@@ -43,6 +43,16 @@ export class AuthController {
     return this.authService.updateProfile(req.user.userId, updateUserDto);
   }
 
+  @Post("update/user/:id")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("admin")
+  async updateUserById(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
+    return this.authService.updateUserById(id, updateUserDto);
+  }
+
   @Delete("delete/:id")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("admin")

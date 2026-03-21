@@ -80,6 +80,24 @@ export class AuthService {
     return data;
   }
 
+  async updateUserById(userId: number, updateUserDto: UpdateUserDto) {
+    const data = await lastValueFrom(
+      this.auth_service
+        .send("update", {
+          userId,
+          updateUserDto,
+        })
+        .pipe(
+          timeout(5000),
+          retry(3),
+          catchError((error) => {
+            return of({ error: "auth service error!", details: error });
+          }),
+        ),
+    );
+    return data;
+  }
+
   async deleteUser(userId: number) {
     const data = await lastValueFrom(
       this.auth_service

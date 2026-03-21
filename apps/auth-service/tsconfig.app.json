@@ -3,6 +3,7 @@
   "compilerOptions": {
     "declaration": false,
     "outDir": "../../dist/apps/auth-service",
+    "rootDir": "./src",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "useDefineForClassFields": false,

@@ -41,7 +41,6 @@ export class AdminSeed implements OnApplicationBootstrap {
       last_name: "Admin",
       date_of_birth: "2000-01-01",
       province: "system",
-      district: "system",
       ward: "system",
       address_line: "system",
     });

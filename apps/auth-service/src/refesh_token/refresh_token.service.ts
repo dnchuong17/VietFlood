@@ -83,13 +83,15 @@ export class RefreshTokenService {
 
     const newAccessToken = this.jwtService.sign(newAccessTokenPayload);
 
-    const newRefreshToken = this.jwtService.sign(
-      { id: user.id, username: user.username, role: user.role },
-      {
-        secret: process.env.REFRESH_SECRET,
-        expiresIn: "7d",
-      },
-    );
+    const newRefreshTokenPayload = {
+      sub: user.id,
+      username: user.username,
+      role: user.role,
+    };
+    const newRefreshToken = this.jwtService.sign(newRefreshTokenPayload, {
+      secret: process.env.REFRESH_SECRET,
+      expiresIn: "7d",
+    });
 
     return {
       access_token: newAccessToken,

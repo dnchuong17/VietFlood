@@ -12,6 +12,7 @@ export class RefreshTokenService {
   constructor(
     @InjectRepository(RefreshTokenEntity)
     private readonly refreshTokenRepository: Repository<RefreshTokenEntity>,
+    @InjectRepository(RefreshTokenEntity)
     private readonly userRepository: Repository<UserEntity>,
     private readonly jwtService: JwtService,
   ) {}
@@ -61,7 +62,7 @@ export class RefreshTokenService {
 
   async refreshToken(refreshToken: string) {
     const payload = this.jwtService.verify(refreshToken, {
-      secret: process.env.SECRETEKEY,
+      secret: process.env.REFRESH_SECRET,
     });
 
     const user = await this.userRepository.findOne({
@@ -87,7 +88,7 @@ export class RefreshTokenService {
     );
 
     const newRefreshToken = this.jwtService.sign(
-      { id: user.id, username: user.username, role: user.role },
+      { sub: user.id, username: user.username, role: user.role },
       {
         secret: process.env.REFRESH_SECRET,
         expiresIn: "7d",

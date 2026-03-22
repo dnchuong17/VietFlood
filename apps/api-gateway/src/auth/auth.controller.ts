@@ -6,6 +6,7 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Put,
   Req,
   UseGuards,
 } from "@nestjs/common";
@@ -16,6 +17,7 @@ import { JwtAuthGuard } from "./guard/jwt-auth.guard";
 import { UpdateUserDto } from "./Dto/update_user.dto";
 import { RolesGuard } from "./guard/role.guard";
 import { Roles } from "./Decorators/role.decorator";
+import { RefreshJwtAuthGuard } from "./guard/refresh-jwt-auth.guard";
 
 @Controller("auth")
 export class AuthController {
@@ -37,13 +39,13 @@ export class AuthController {
     return this.authService.profile(req.user);
   }
 
-  @Post("update")
+  @Put("update")
   @UseGuards(JwtAuthGuard)
   async updateProfile(@Req() req: any, @Body() updateUserDto: UpdateUserDto) {
     return this.authService.updateProfile(req.user.userId, updateUserDto);
   }
 
-  @Post("update/user/:id")
+  @Put("update/user/:id")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles("admin")
   async updateUserById(
@@ -70,6 +72,12 @@ export class AuthController {
   @Post("refresh")
   async refresh(@Body() body: any) {
     return this.authService.refresh(body);
+  }
+
+  @Post("refresh_token")
+  @UseGuards(RefreshJwtAuthGuard)
+  async refreshToken(@Body() body: any) {
+    return this.authService.refreshToken(body.refresh);
   }
 
   @Post("logout")

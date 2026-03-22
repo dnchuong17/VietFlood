@@ -128,6 +128,19 @@ export class AuthService {
     return data;
   }
 
+  async refreshToken(dataPayload: any) {
+    const data = await lastValueFrom(
+      this.auth_service.send("refresh_token", dataPayload).pipe(
+        timeout(5000),
+        retry(3),
+        catchError((error) => {
+          return of({ error: "auth service error!", details: error });
+        }),
+      ),
+    );
+    return data;
+  }
+
   async logout(dataPayload: any) {
     const data = await lastValueFrom(
       this.auth_service.send("logout", dataPayload).pipe(

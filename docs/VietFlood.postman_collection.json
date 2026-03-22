@@ -117,6 +117,53 @@
           "response": []
         },
         {
+          "name": "refresh_token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var token = pm.response.json().accessToken;",
+                  "if (token)",
+                  "    pm.environment.set(\"AUTH_TOKEN\", token);"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjMsInVzZXJuYW1lIjoiYWRtaW4iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NzQxNTIwODEsImV4cCI6MTc3NDc1Njg4MX0.UC1xpNSPmujdtNnWBQmRzQf-J2_IFxLnLKT-dk0J5Qc\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:8081/auth/refresh_token",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "auth",
+                "refresh_token"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "register",
           "request": {
             "method": "POST",
@@ -148,11 +195,28 @@
         {
           "name": "update profile",
           "request": {
-            "method": "POST",
-            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{AUTH_TOKEN}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{AUTH_TOKEN}}",
+                "type": "text",
+                "disabled": true
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"lam@gmail.com\",\n  \"username\": \"lam123\",\n  \"password\": \"123456\",\n  \"phone\": \"0901234567\",\n  \"first_name\": \"Lam\",\n  \"middle_name\": \"Van\",\n  \"last_name\": \"Nguyen\",\n  \"date_of_birth\": \"2000-01-01\",\n  \"province\": \"Ho Chi Minh\",\n  \"district\": \"District 1\",\n  \"ward\": \"Ben Nghe\",\n  \"address_line\": \"123 Nguyen Hue\"\n}",
+              "raw": "{\n  \"phone\": \"0901234568\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -160,7 +224,7 @@
               }
             },
             "url": {
-              "raw": "http://localhost:8081/auth/register",
+              "raw": "http://localhost:8081/auth/update",
               "protocol": "http",
               "host": [
                 "localhost"
@@ -168,7 +232,48 @@
               "port": "8081",
               "path": [
                 "auth",
-                "register"
+                "update"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "update profile Copy",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{AUTH_TOKEN}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"0901234568\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:8081/auth/update/user/5",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8081",
+              "path": [
+                "auth",
+                "update",
+                "user",
+                "5"
               ]
             }
           },
@@ -177,19 +282,20 @@
         {
           "name": "delete user",
           "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"lam@gmail.com\",\n  \"username\": \"lam123\",\n  \"password\": \"123456\",\n  \"phone\": \"0901234567\",\n  \"first_name\": \"Lam\",\n  \"middle_name\": \"Van\",\n  \"last_name\": \"Nguyen\",\n  \"date_of_birth\": \"2000-01-01\",\n  \"province\": \"Ho Chi Minh\",\n  \"district\": \"District 1\",\n  \"ward\": \"Ben Nghe\",\n  \"address_line\": \"123 Nguyen Hue\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{AUTH_TOKEN}}",
+                  "type": "string"
                 }
-              }
+              ]
             },
+            "method": "DELETE",
+            "header": [],
             "url": {
-              "raw": "http://localhost:8081/auth/register",
+              "raw": "http://localhost:8081/auth/delete/2",
               "protocol": "http",
               "host": [
                 "localhost"
@@ -197,7 +303,8 @@
               "port": "8081",
               "path": [
                 "auth",
-                "register"
+                "delete",
+                "2"
               ]
             }
           },

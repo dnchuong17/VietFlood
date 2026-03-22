@@ -114,6 +114,16 @@ export class AuthServiceController {
     }
   }
 
+  @MessagePattern("refresh_token")
+  async refreshToken(@Payload() data) {
+    try {
+      this.logger.debug("receive request refresh access token");
+      return await this.refreshTokenService.refreshToken(data);
+    } catch (error) {
+      throw new RpcException(error);
+    }
+  }
+
   @MessagePattern("logout")
   async logout(@Payload() data) {
     try {

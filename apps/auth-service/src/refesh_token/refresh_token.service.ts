@@ -6,6 +6,7 @@ import { JwtService } from "@nestjs/jwt";
 import { RefreshTokenDto } from "../DTO/refresh_token.dto";
 import * as bcrypt from "bcrypt";
 import { UserEntity } from "../users/users.entity";
+import { UsersService } from "../users/users.service";
 
 @Injectable()
 export class RefreshTokenService {
@@ -15,6 +16,7 @@ export class RefreshTokenService {
     @InjectRepository(RefreshTokenEntity)
     private readonly userRepository: Repository<UserEntity>,
     private readonly jwtService: JwtService,
+    private readonly userService: UsersService,
   ) {}
 
   async createRefreshToken(refreshDto: RefreshTokenDto) {
@@ -65,30 +67,24 @@ export class RefreshTokenService {
       secret: process.env.REFRESH_SECRET,
     });
 
-    const user = await this.userRepository.findOne({
-      where: { id: payload.sub.id },
-    });
+    const user = await this.userService.findUserWithID(payload.sub);
 
     if (!user) {
       throw new UnauthorizedException("User not found");
     }
 
-    const newAccessToken = this.jwtService.sign(
-      {
-        sub: user.id,
-        username: user.username,
-        role: user.role,
-        first_name: user.first_name,
-        last_name: user.last_name,
-      },
-      {
-        secret: process.env.SECRETEKEY,
-        expiresIn: "800s",
-      },
-    );
+    const newAccessTokenPayload = {
+      sub: user.id,
+      username: user.username,
+      role: user.role,
+      first_name: user.first_name,
+      last_name: user.last_name,
+    };
+
+    const newAccessToken = this.jwtService.sign(newAccessTokenPayload);
 
     const newRefreshToken = this.jwtService.sign(
-      { sub: user.id, username: user.username, role: user.role },
+      { id: user.id, username: user.username, role: user.role },
       {
         secret: process.env.REFRESH_SECRET,
         expiresIn: "7d",

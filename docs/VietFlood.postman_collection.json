@@ -73,314 +73,409 @@
       "name": "API-gateway",
       "item": [
         {
-          "name": "sign in",
-          "event": [
+          "name": "Auth",
+          "item": [
             {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "var token = pm.response.json().accessToken;",
-                  "if (token)",
-                  "    pm.environment.set(\"AUTH_TOKEN\", token);"
-                ],
-                "type": "text/javascript",
-                "packages": {},
-                "requests": {}
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"username\": \"lam123\",\n  \"password\": \"123456\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
+              "name": "sign in",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var token = pm.response.json().accessToken;",
+                      "if (token)",
+                      "    pm.environment.set(\"AUTH_TOKEN\", token);"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
                 }
-              }
-            },
-            "url": {
-              "raw": "http://localhost:8081/auth/sign_in",
-              "protocol": "http",
-              "host": [
-                "localhost"
               ],
-              "port": "8081",
-              "path": [
-                "auth",
-                "sign_in"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "refresh_token",
-          "event": [
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"lam123\",\n  \"password\": \"123456\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:8081/auth/sign_in",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8081",
+                  "path": [
+                    "auth",
+                    "sign_in"
+                  ]
+                }
+              },
+              "response": []
+            },
             {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "var token = pm.response.json().accessToken;",
-                  "if (token)",
-                  "    pm.environment.set(\"AUTH_TOKEN\", token);"
+              "name": "refresh_token",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "var token = pm.response.json().accessToken;",
+                      "if (token)",
+                      "    pm.environment.set(\"AUTH_TOKEN\", token);"
+                    ],
+                    "type": "text/javascript",
+                    "packages": {},
+                    "requests": {}
+                  }
+                }
+              ],
+              "request": {
+                "auth": {
+                  "type": "noauth"
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"refresh\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjMsInVzZXJuYW1lIjoiYWRtaW4iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NzQxNTIwODEsImV4cCI6MTc3NDc1Njg4MX0.UC1xpNSPmujdtNnWBQmRzQf-J2_IFxLnLKT-dk0J5Qc\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:8081/auth/refresh_token",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8081",
+                  "path": [
+                    "auth",
+                    "refresh_token"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "register",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"lam@gmail.com\",\n  \"username\": \"lam123\",\n  \"password\": \"123456\",\n  \"phone\": \"0901234567\",\n  \"first_name\": \"Lam\",\n  \"middle_name\": \"Van\",\n  \"last_name\": \"Nguyen\",\n  \"date_of_birth\": \"2000-01-01\",\n  \"province\": \"Ho Chi Minh\",\n  \"district\": \"District 1\",\n  \"ward\": \"Ben Nghe\",\n  \"address_line\": \"123 Nguyen Hue\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:8081/auth/register",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8081",
+                  "path": [
+                    "auth",
+                    "register"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "update profile",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{AUTH_TOKEN}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{AUTH_TOKEN}}",
+                    "type": "text",
+                    "disabled": true
+                  }
                 ],
-                "type": "text/javascript",
-                "packages": {},
-                "requests": {}
-              }
-            }
-          ],
-          "request": {
-            "auth": {
-              "type": "noauth"
-            },
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"refresh\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjMsInVzZXJuYW1lIjoiYWRtaW4iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NzQxNTIwODEsImV4cCI6MTc3NDc1Njg4MX0.UC1xpNSPmujdtNnWBQmRzQf-J2_IFxLnLKT-dk0J5Qc\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"0901234568\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:8081/auth/update",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8081",
+                  "path": [
+                    "auth",
+                    "update"
+                  ]
                 }
-              }
+              },
+              "response": []
             },
-            "url": {
-              "raw": "http://localhost:8081/auth/refresh_token",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8081",
-              "path": [
-                "auth",
-                "refresh_token"
-              ]
+            {
+              "name": "update profile Copy",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{AUTH_TOKEN}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"0901234568\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:8081/auth/update/user/5",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8081",
+                  "path": [
+                    "auth",
+                    "update",
+                    "user",
+                    "5"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "delete user",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{AUTH_TOKEN}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "http://localhost:8081/auth/delete/2",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8081",
+                  "path": [
+                    "auth",
+                    "delete",
+                    "2"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "profile",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{AUTH_TOKEN}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{AUTH_TOKEN}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:8081/auth/profile",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8081",
+                  "path": [
+                    "auth",
+                    "profile"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "get all users",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{AUTH_TOKEN}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{AUTH_TOKEN}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:8081/auth/all",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8081",
+                  "path": [
+                    "auth",
+                    "all"
+                  ]
+                }
+              },
+              "response": []
             }
-          },
-          "response": []
+          ]
         },
         {
-          "name": "register",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"lam@gmail.com\",\n  \"username\": \"lam123\",\n  \"password\": \"123456\",\n  \"phone\": \"0901234567\",\n  \"first_name\": \"Lam\",\n  \"middle_name\": \"Van\",\n  \"last_name\": \"Nguyen\",\n  \"date_of_birth\": \"2000-01-01\",\n  \"province\": \"Ho Chi Minh\",\n  \"district\": \"District 1\",\n  \"ward\": \"Ben Nghe\",\n  \"address_line\": \"123 Nguyen Hue\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
+          "name": "Report",
+          "item": [
+            {
+              "name": "create report",
+              "request": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{AUTH_TOKEN}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "category",
+                      "value": "flood",
+                      "type": "text",
+                      "uuid": "94950259-4613-4cdf-a40f-d50af7cdb218"
+                    },
+                    {
+                      "key": "description",
+                      "value": "Ngập cục bộ tại khu vực chợ.",
+                      "type": "text",
+                      "uuid": "39edc8c4-719c-4959-b565-4f84ef9a4e92"
+                    },
+                    {
+                      "key": "province",
+                      "value": "Đồng Nai",
+                      "type": "text",
+                      "uuid": "8a820f84-5ba6-41d3-833b-b9a19fd14a2e"
+                    },
+                    {
+                      "key": "ward",
+                      "value": "Xuân Phú",
+                      "type": "text",
+                      "uuid": "824c83c2-4d37-41fc-ac2f-852c31fe5fa8"
+                    },
+                    {
+                      "key": "addressLine",
+                      "value": "Khu vực chợ trung tâm",
+                      "type": "text",
+                      "uuid": "a331358f-ae3a-4992-9a10-de9bdb013217"
+                    },
+                    {
+                      "key": "userId",
+                      "value": "7",
+                      "type": "text",
+                      "uuid": "3329c34a-86a7-4cf3-9384-115b98f8e2df"
+                    },
+                    {
+                      "key": "files",
+                      "type": "file",
+                      "uuid": "4949efd6-2386-4152-99c9-817f7bebbd9a",
+                      "src": "/Users/macbook/Downloads/flood.jpg"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "http://localhost:8081/reports/create",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "8081",
+                  "path": [
+                    "reports",
+                    "create"
+                  ]
                 }
-              }
+              },
+              "response": []
             },
-            "url": {
-              "raw": "http://localhost:8081/auth/register",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8081",
-              "path": [
-                "auth",
-                "register"
-              ]
+            {
+              "name": "get all reports",
+              "request": {
+                "method": "GET",
+                "header": []
+              },
+              "response": []
             }
-          },
-          "response": []
-        },
-        {
-          "name": "update profile",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{AUTH_TOKEN}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "{{AUTH_TOKEN}}",
-                "type": "text",
-                "disabled": true
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"phone\": \"0901234568\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "http://localhost:8081/auth/update",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8081",
-              "path": [
-                "auth",
-                "update"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "update profile Copy",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{AUTH_TOKEN}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "PUT",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"phone\": \"0901234568\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "http://localhost:8081/auth/update/user/5",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8081",
-              "path": [
-                "auth",
-                "update",
-                "user",
-                "5"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "delete user",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{AUTH_TOKEN}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:8081/auth/delete/2",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8081",
-              "path": [
-                "auth",
-                "delete",
-                "2"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "profile",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{AUTH_TOKEN}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{AUTH_TOKEN}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "http://localhost:8081/auth/profile",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8081",
-              "path": [
-                "auth",
-                "profile"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "get all users",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{AUTH_TOKEN}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{AUTH_TOKEN}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "http://localhost:8081/auth/all",
-              "protocol": "http",
-              "host": [
-                "localhost"
-              ],
-              "port": "8081",
-              "path": [
-                "auth",
-                "all"
-              ]
-            }
-          },
-          "response": []
+          ]
         }
       ]
     }

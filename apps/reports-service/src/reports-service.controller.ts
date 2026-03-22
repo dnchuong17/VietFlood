@@ -22,6 +22,12 @@ export class ReportsController {
     return this.reportsService.getAllReports();
   }
 
+  @MessagePattern("get_all_by_users")
+  async getAllById(@Payload() payload: any) {
+    this.logger.debug(`[GET ALL REPORTS] - Fetching all reports`);
+    return this.reportsService.getAllReportsByUserId(payload);
+  }
+
   @MessagePattern("update")
   async update(@Payload() payload: any) {
     this.logger.debug(`[UPDATE REPORT] - ID: ${payload.id}`);
@@ -32,12 +38,17 @@ export class ReportsController {
         buffer: Buffer.from(file.buffer.data ?? file.buffer),
       })) ?? [];
 
-    return this.reportsService.updateReport(payload.id, payload.dto, files);
+    return this.reportsService.updateReport(
+      payload.id,
+      payload.userId,
+      payload.dto,
+      files,
+    );
   }
 
   @MessagePattern("delete")
   async delete(@Payload() payload) {
     this.logger.debug(`[DELETE REPORT] - ID: ${payload}`);
-    return this.reportsService.deleteReport(payload);
+    return this.reportsService.deleteReport(payload.id, payload.userId);
   }
 }

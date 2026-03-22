@@ -27,32 +27,13 @@ export class ReportsService {
     this.logger.setServiceName(ReportsService.name);
   }
 
-  async createReport(
-    createReportDto: CreateReportDto,
-    files?: Express.Multer.File[],
-  ) {
+  async createReport(createReportDto: CreateReportDto) {
     this.logger.debug("[CREATE REPORT] - Creating new report");
-
-    const uploadedFiles = files?.length
-      ? await Promise.all(
-          files.map((file) =>
-            this.cloudinaryService.uploadBuffer(file.buffer, {
-              folder: "vietflood/reports",
-              resource_type: "auto",
-            }),
-          ),
-        )
-      : [];
-
-    const evidences = uploadedFiles.map((item) => ({
-      url: item.secure_url,
-      publicId: item.public_id,
-      resourceType: item.resource_type,
-    }));
 
     const report = this.reportRepository.create({
       ...createReportDto,
-      evidences,
+      evidences: createReportDto.evidences ?? [],
+      images: (createReportDto.evidences ?? []).map((item) => item.url),
     });
 
     const savedReport = await this.reportRepository.save(report);
@@ -81,7 +62,15 @@ export class ReportsService {
 
     return this.reportRepository.find({
       order: { createdAt: "DESC" },
-      relations: ["user"],
+    });
+  }
+
+  async getAllReportsByUserId(userId: number) {
+    this.logger.debug("[GET ALL REPORTS] - Find all reports");
+
+    return this.reportRepository.find({
+      where: { userId: userId },
+      order: { createdAt: "DESC" },
     });
   }
 
@@ -114,6 +103,7 @@ export class ReportsService {
 
   async updateReport(
     id: number,
+    userId: number,
     updateReportDto: UpdateReportDto,
     files?: Express.Multer.File[],
   ) {
@@ -160,7 +150,6 @@ export class ReportsService {
 
     const updatedReport = await this.reportRepository.findOne({
       where: { id },
-      relations: ["user"],
     });
 
     await this.redisHelper.del(`report:${id}`);
@@ -177,7 +166,7 @@ export class ReportsService {
     };
   }
 
-  async deleteReport(id: number) {
+  async deleteReport(id: number, userId: number) {
     if (!id) {
       throw new BadRequestException("Invalid ID");
     }

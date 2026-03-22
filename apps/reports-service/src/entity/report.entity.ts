@@ -8,6 +8,12 @@ import {
 import { ReportCategory } from "../enums/report_type.enum";
 import { ReportStatus } from "../enums/status.enum";
 
+export type ReportEvidence = {
+  url: string;
+  publicId: string;
+  resourceType?: string;
+};
+
 @Entity("reports")
 export class ReportEntity {
   @PrimaryGeneratedColumn("increment")
@@ -28,12 +34,8 @@ export class ReportEntity {
   @Column("text", { array: true, nullable: true })
   images: string[];
 
-  @Column({ type: "jsonb", nullable: true })
-  evidences: {
-    url: string;
-    publicId: string;
-    resourceType?: string;
-  }[];
+  @Column({ type: "jsonb", nullable: true, default: [] })
+  evidences: ReportEvidence[];
 
   @Column()
   province: string;
@@ -72,6 +74,6 @@ export class ReportEntity {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @Column({ nullable: true })
+  @Column()
   userId: number;
 }

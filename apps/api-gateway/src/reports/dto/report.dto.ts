@@ -1,5 +1,3 @@
-import { ReportCategory } from "../enums/report_type.enum";
-
 class ReportEvidenceDto {
   url: string;
   publicId: string;
@@ -7,7 +5,7 @@ class ReportEvidenceDto {
 }
 
 export class CreateReportDto {
-  category: ReportCategory;
+  category: string[];
   waterLevel?: number;
   description: string;
   evidences?: ReportEvidenceDto[];

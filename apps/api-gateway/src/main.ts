@@ -9,7 +9,11 @@ async function bootstrap() {
   logger.setServiceName("Api-gateway");
   logger.info("API Gateway is starting...");
   app.enableCors({
-    origin: ["http://localhost:3000", "https://vietflood-fe.vercel.app"],
+    origin: [
+      "http://localhost:3000",
+      "https://vietflood-fe.vercel.app",
+      "http://localhost:3001",
+    ],
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     credentials: true,
   });

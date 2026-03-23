@@ -31,8 +31,13 @@ export class ReportsController {
   async createReport(
     @Body() createReportDto: CreateReportDto,
     @UploadedFiles() files: Express.Multer.File[],
+    @Req() req: any,
   ) {
-    return this.reportsService.createReport(createReportDto, files);
+    return this.reportsService.createReport(
+      createReportDto,
+      req.user.userId,
+      files,
+    );
   }
 
   @UseGuards(JwtAuthGuard)

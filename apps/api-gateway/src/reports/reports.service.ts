@@ -20,6 +20,7 @@ export class ReportsService {
 
   async createReport(
     createReportDto: CreateReportDto,
+    userId: number,
     files?: Express.Multer.File[],
   ) {
     this.logger.debug("[CREATE REPORT][GATEWAY] - Start upload files");
@@ -50,6 +51,7 @@ export class ReportsService {
         ? createReportDto.category
         : [],
       evidences: [...(createReportDto.evidences ?? []), ...uploadedEvidences],
+      userId,
     };
 
     const data = await lastValueFrom(

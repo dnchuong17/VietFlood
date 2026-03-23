@@ -13,7 +13,7 @@ export class ReportsController {
   @MessagePattern("create")
   async create(@Payload() payload: any) {
     this.logger.debug(`[CREATE REPORT] - Creating report`);
-    return this.reportsService.createReport(payload);
+    return this.reportsService.createReport(payload, payload.userId);
   }
 
   @MessagePattern("")

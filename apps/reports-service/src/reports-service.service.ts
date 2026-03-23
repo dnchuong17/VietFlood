@@ -27,7 +27,7 @@ export class ReportsService {
     this.logger.setServiceName(ReportsService.name);
   }
 
-  async createReport(createReportDto: CreateReportDto) {
+  async createReport(createReportDto: CreateReportDto, userId: number) {
     this.logger.debug("[CREATE REPORT] - Creating new report");
 
     const evidences =
@@ -42,6 +42,7 @@ export class ReportsService {
       category: createReportDto.category ?? [],
       evidences,
       images: evidences.map((item) => item.url),
+      userId: userId,
     });
 
     const savedReport = await this.reportRepository.save(report);

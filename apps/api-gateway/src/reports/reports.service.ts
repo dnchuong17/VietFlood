@@ -44,8 +44,11 @@ export class ReportsService {
         )
       : [];
 
-    const payload = {
+    const payload: CreateReportDto = {
       ...createReportDto,
+      category: Array.isArray(createReportDto.category)
+        ? createReportDto.category
+        : [],
       evidences: [...(createReportDto.evidences ?? []), ...uploadedEvidences],
     };
 

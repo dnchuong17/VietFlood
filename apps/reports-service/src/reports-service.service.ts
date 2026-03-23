@@ -30,10 +30,18 @@ export class ReportsService {
   async createReport(createReportDto: CreateReportDto) {
     this.logger.debug("[CREATE REPORT] - Creating new report");
 
+    const evidences =
+      createReportDto.evidences?.map((item) => ({
+        url: item.url,
+        publicId: item.publicId,
+        resourceType: item.resourceType,
+      })) ?? [];
+
     const report = this.reportRepository.create({
       ...createReportDto,
-      evidences: createReportDto.evidences ?? [],
-      images: (createReportDto.evidences ?? []).map((item) => item.url),
+      category: createReportDto.category ?? [],
+      evidences,
+      images: evidences.map((item) => item.url),
     });
 
     const savedReport = await this.reportRepository.save(report);
@@ -53,7 +61,9 @@ export class ReportsService {
       success: true,
       message: "Create report successfully",
       reportId: savedReport.id,
+      category: savedReport.category,
       evidences: savedReport.evidences,
+      images: savedReport.images,
     };
   }
 

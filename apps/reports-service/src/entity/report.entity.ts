@@ -5,7 +5,6 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from "typeorm";
-import { ReportCategory } from "../enums/report_type.enum";
 import { ReportStatus } from "../enums/status.enum";
 
 export type ReportEvidence = {
@@ -19,14 +18,8 @@ export class ReportEntity {
   @PrimaryGeneratedColumn("increment")
   id: number;
 
-  @Column({
-    type: "enum",
-    enum: ReportCategory,
-  })
-  category: ReportCategory;
-
-  @Column({ type: "float", nullable: true })
-  waterLevel: number;
+  @Column("text", { array: true, nullable: true })
+  category: string[];
 
   @Column({ type: "text" })
   description: string;

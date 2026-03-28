@@ -14,6 +14,7 @@ export class ReportsService {
     private readonly reportsClient: ClientProxy,
     private readonly logger: LoggerService,
     private readonly cloudinaryService: CloudinaryService,
+    @Inject("AUTH_SERVICE") private readonly auth_service: ClientProxy,
   ) {
     this.logger.setServiceName(ReportsService.name);
   }
@@ -71,20 +72,53 @@ export class ReportsService {
   }
 
   async getAllReports() {
-    const data = await lastValueFrom(
+    const reports = await lastValueFrom(
       this.reportsClient.send("", {}).pipe(
         timeout(5000),
         retry(3),
-        catchError((error) => {
-          return of({
+        catchError((error) =>
+          of({
             error: "reports service error!",
             details: error,
-          });
-        }),
+          }),
+        ),
       ),
     );
 
-    return data;
+    const users = await lastValueFrom(
+      this.auth_service.send("all", {}).pipe(
+        timeout(5000),
+        retry(3),
+        catchError((error) =>
+          of({
+            error: "auth service error!",
+            details: error,
+          }),
+        ),
+      ),
+    );
+
+    const typedUsers = users as User[];
+
+    const userMap = new Map<number, User>(typedUsers.map((u) => [u.id, u]));
+
+    return reports.map((report: any) => {
+      const user = userMap.get(report.userId) || null;
+      const { userId, ...rest } = report;
+
+      return {
+        ...rest,
+        user: user
+          ? {
+              username: user.username,
+              phone: user.phone,
+              name: [user.first_name, user.middle_name, user.last_name]
+                .filter(Boolean)
+                .join(" "),
+            }
+          : null,
+      };
+    });
   }
 
   async getAllReportsById(userId: number) {

@@ -36,6 +36,7 @@ export class AuthService {
     );
     return data;
   }
+
   async profile(user: any) {
     const data = await lastValueFrom(
       this.auth_service.send("profile", { user }).pipe(

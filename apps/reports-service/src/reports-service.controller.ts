@@ -8,7 +8,9 @@ export class ReportsController {
   constructor(
     private readonly reportsService: ReportsService,
     private readonly logger: LoggerService,
-  ) {}
+  ) {
+    logger.setServiceName(ReportsController.name);
+  }
 
   @MessagePattern("create")
   async create(@Payload() payload: any) {
@@ -25,7 +27,7 @@ export class ReportsController {
   @MessagePattern("get_all_by_users")
   async getAllById(@Payload() payload: any) {
     this.logger.debug(`[GET ALL REPORTS] - Fetching all reports`);
-    return this.reportsService.getAllReportsByUserId(payload);
+    return this.reportsService.getAllReportsByUserId(payload.userId);
   }
 
   @MessagePattern("update")

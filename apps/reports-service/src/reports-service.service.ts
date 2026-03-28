@@ -79,10 +79,12 @@ export class ReportsService {
   async getAllReportsByUserId(userId: number) {
     this.logger.debug("[GET ALL REPORTS] - Find all reports");
 
-    return this.reportRepository.find({
+    const report = await this.reportRepository.find({
       where: { userId: userId },
       order: { createdAt: "DESC" },
     });
+
+    return;
   }
 
   async findReportWithID(id: number) {

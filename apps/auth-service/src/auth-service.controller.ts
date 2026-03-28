@@ -54,6 +54,16 @@ export class AuthServiceController {
     }
   }
 
+  @MessagePattern("get_user")
+  async getUser(@Payload() data: any) {
+    try {
+      this.logger.debug("receive request get user by id");
+      return await this.getUser(data);
+    } catch (error) {
+      throw new RpcException(error);
+    }
+  }
+
   @MessagePattern("update")
   async updateUser(@Payload() data: any) {
     try {

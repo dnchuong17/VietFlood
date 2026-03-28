@@ -103,20 +103,18 @@ export class ReportsService {
     const userMap = new Map<number, User>(typedUsers.map((u) => [u.id, u]));
 
     return reports.map((report: any) => {
-      const user = userMap.get(report.userId) || null;
+      const user = userMap.get(report.userId);
       const { userId, ...rest } = report;
 
       return {
         ...rest,
-        user: user
-          ? {
-              username: user.username,
-              phone: user.phone,
-              name: [user.first_name, user.middle_name, user.last_name]
-                .filter(Boolean)
-                .join(" "),
-            }
-          : null,
+        user: {
+          username: user.username,
+          phone: user.phone,
+          name: [user.first_name, user.middle_name, user.last_name]
+            .filter(Boolean)
+            .join(" "),
+        },
       };
     });
   }

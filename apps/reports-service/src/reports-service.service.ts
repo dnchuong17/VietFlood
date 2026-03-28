@@ -76,7 +76,7 @@ export class ReportsService {
     });
   }
 
-  async getAllReportsByUserId(userId: number) {
+  async getAllReportsByUserId(userId: number): Promise<ReportEntity[]> {
     this.logger.debug("[GET ALL REPORTS] - Find all reports");
 
     const report = await this.reportRepository.find({
@@ -84,7 +84,7 @@ export class ReportsService {
       order: { createdAt: "DESC" },
     });
 
-    return;
+    return report;
   }
 
   async findReportWithID(id: number) {
@@ -118,47 +118,62 @@ export class ReportsService {
     id: number,
     userId: number,
     updateReportDto: UpdateReportDto,
-    files?: Express.Multer.File[],
   ) {
     if (!id) {
       throw new BadRequestException("Invalid ID");
     }
 
-    this.logger.debug(`[UPDATE REPORT] - Updating report with ID: ${id}`);
-
-    const existedReport = await this.reportRepository.findOne({
-      where: { id },
-    });
-
-    if (!existedReport) {
-      throw new NotFoundException(`Report not found for ID: ${id}`);
+    if (!userId) {
+      throw new BadRequestException("Invalid userId");
     }
 
-    const uploadedFiles = files?.length
-      ? await Promise.all(
-          files.map((file) =>
-            this.cloudinaryService.uploadBuffer(file.buffer, {
-              folder: "vietflood/reports",
-              resource_type: "auto",
-            }),
-          ),
-        )
-      : [];
+    this.logger.debug(
+      `[UPDATE REPORT] - Updating report with ID: ${id}, userId: ${userId}`,
+    );
 
-    const newEvidences = uploadedFiles.map((item) => ({
-      url: item.secure_url,
-      publicId: item.public_id,
-      resourceType: item.resource_type,
-    }));
+    const existedReports = await this.getAllReportsByUserId(userId);
+
+    if (!existedReports) {
+      throw new NotFoundException(`Reports not found for user: ${userId}`);
+    }
+
+    const existedReport = existedReports.find((report) => report.id === id);
+
+    if (!existedReport) {
+      throw new NotFoundException(
+        `Report with ID ${id} not found for user ${userId}`,
+      );
+    }
+
+    const incomingEvidences =
+      updateReportDto.evidences
+        ?.filter((item) => item?.url && item?.publicId)
+        .map((item) => ({
+          url: item.url,
+          publicId: item.publicId,
+          resourceType: item.resourceType,
+        })) ?? [];
+
+    const mergedEvidences =
+      incomingEvidences.length > 0
+        ? [...(existedReport.evidences ?? []), ...incomingEvidences]
+        : (existedReport.evidences ?? []);
+
+    const mergedCategory =
+      updateReportDto.category !== undefined
+        ? Array.isArray(updateReportDto.category)
+          ? updateReportDto.category
+          : []
+        : existedReport.category;
 
     const mergedReport = {
       ...existedReport,
       ...updateReportDto,
-      evidences:
-        newEvidences.length > 0
-          ? [...(existedReport.evidences ?? []), ...newEvidences]
-          : existedReport.evidences,
+      category: mergedCategory,
+      evidences: mergedEvidences,
+      images: mergedEvidences.map((item) => item.url),
     };
+
     await this.reportRepository.update(id, mergedReport);
 
     const updatedReport = await this.reportRepository.findOne({
@@ -176,6 +191,8 @@ export class ReportsService {
       message: "Update report successfully",
       reportId: id,
       evidences: updatedReport?.evidences ?? [],
+      images: updatedReport?.images ?? [],
+      report: updatedReport,
     };
   }
 

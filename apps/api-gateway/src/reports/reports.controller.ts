@@ -5,8 +5,8 @@ import {
   Get,
   Param,
   ParseIntPipe,
-  Patch,
   Post,
+  Put,
   Req,
   UploadedFiles,
   UseGuards,
@@ -54,8 +54,8 @@ export class ReportsController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Patch(":id/admin/:userId")
-  @UseInterceptors(FilesInterceptor("files", 5))
+  @Put("update/:id/admin/:userId")
+  @UseInterceptors(FilesInterceptor("files", 5, { storage: memoryStorage() }))
   @Roles("admin")
   async updateReport(
     @Param("id", ParseIntPipe) id: number,
@@ -67,8 +67,8 @@ export class ReportsController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Patch(":id")
-  @UseInterceptors(FilesInterceptor("files", 5))
+  @Put("update/:id")
+  @UseInterceptors(FilesInterceptor("files", 5, { storage: memoryStorage() }))
   async updateReportByUser(
     @Param("id", ParseIntPipe) id: number,
     @Req() req,
@@ -77,14 +77,14 @@ export class ReportsController {
   ) {
     return this.reportsService.updateReport(
       id,
-      req.user.id,
+      req.user.userId,
       updateReportDto,
       files,
     );
   }
 
   @UseGuards(JwtAuthGuard)
-  @Delete(":id/admin/:userId")
+  @Delete("update/:id/admin/:userId")
   @Roles("admin")
   async deleteReport(
     @Param("id", ParseIntPipe) id: number,

@@ -33,18 +33,10 @@ export class ReportsController {
   @MessagePattern("update")
   async update(@Payload() payload: any) {
     this.logger.debug(`[UPDATE REPORT] - ID: ${payload.id}`);
-
-    const files =
-      payload.files?.map((file: any) => ({
-        ...file,
-        buffer: Buffer.from(file.buffer.data ?? file.buffer),
-      })) ?? [];
-
     return this.reportsService.updateReport(
       payload.id,
       payload.userId,
       payload.dto,
-      files,
     );
   }
 

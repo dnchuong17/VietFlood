@@ -142,17 +142,40 @@ export class ReportsService {
     updateReportDto: UpdateReportDto,
     files?: Express.Multer.File[],
   ) {
+    const uploadedEvidences = files?.length
+      ? await Promise.all(
+          files.map(async (file) => {
+            const uploaded = await this.cloudinaryService.uploadBuffer(
+              file.buffer,
+              {
+                folder: "vietflood/reports",
+                resource_type: "auto",
+              },
+            );
+
+            return {
+              url: uploaded.secure_url,
+              publicId: uploaded.public_id,
+              resourceType: uploaded.resource_type,
+            };
+          }),
+        )
+      : [];
+
+    const dto = {
+      ...updateReportDto,
+      category: Array.isArray(updateReportDto.category)
+        ? updateReportDto.category
+        : typeof updateReportDto.category === "string"
+          ? [updateReportDto.category]
+          : updateReportDto.category,
+      evidences: [...(updateReportDto.evidences ?? []), ...uploadedEvidences],
+    };
+
     const payload = {
       id,
       userId,
-      dto: updateReportDto,
-      files:
-        files?.map((file) => ({
-          originalname: file.originalname,
-          mimetype: file.mimetype,
-          size: file.size,
-          buffer: file.buffer,
-        })) ?? [],
+      dto,
     };
 
     const data = await lastValueFrom(
@@ -162,7 +185,7 @@ export class ReportsService {
         catchError((error) => {
           return of({
             error: "reports service error!",
-            details: error,
+            details: error?.message ?? error,
           });
         }),
       ),

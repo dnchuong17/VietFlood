@@ -391,89 +391,302 @@
           "name": "Report",
           "item": [
             {
-              "name": "create report",
-              "request": {
-                "auth": {
-                  "type": "bearer",
-                  "bearer": [
-                    {
-                      "key": "token",
-                      "value": "{{AUTH_TOKEN}}",
-                      "type": "string"
+              "name": "admin",
+              "item": [
+                {
+                  "name": "get all reports",
+                  "request": {
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{AUTH_TOKEN}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "http://localhost:8081/reports",
+                      "protocol": "http",
+                      "host": [
+                        "localhost"
+                      ],
+                      "port": "8081",
+                      "path": [
+                        "reports"
+                      ]
                     }
-                  ]
+                  },
+                  "response": []
                 },
-                "method": "POST",
-                "header": [],
-                "body": {
-                  "mode": "formdata",
-                  "formdata": [
-                    {
-                      "key": "category",
-                      "value": "flood",
-                      "type": "text",
-                      "uuid": "94950259-4613-4cdf-a40f-d50af7cdb218"
+                {
+                  "name": "update report",
+                  "request": {
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{AUTH_TOKEN}}",
+                          "type": "string"
+                        }
+                      ]
                     },
-                    {
-                      "key": "description",
-                      "value": "Ngập cục bộ tại khu vực chợ.",
-                      "type": "text",
-                      "uuid": "39edc8c4-719c-4959-b565-4f84ef9a4e92"
+                    "method": "PUT",
+                    "header": [],
+                    "body": {
+                      "mode": "formdata",
+                      "formdata": [
+                        {
+                          "key": "category",
+                          "value": "flood",
+                          "type": "text",
+                          "uuid": "94950259-4613-4cdf-a40f-d50af7cdb218"
+                        },
+                        {
+                          "key": "description",
+                          "value": "Ngập cục bộ tại khu vực chợ.",
+                          "type": "text",
+                          "uuid": "39edc8c4-719c-4959-b565-4f84ef9a4e92"
+                        },
+                        {
+                          "key": "province",
+                          "value": "Đồng Nai",
+                          "type": "text",
+                          "uuid": "8a820f84-5ba6-41d3-833b-b9a19fd14a2e"
+                        },
+                        {
+                          "key": "ward",
+                          "value": "Xuân Phú",
+                          "type": "text",
+                          "uuid": "824c83c2-4d37-41fc-ac2f-852c31fe5fa8"
+                        },
+                        {
+                          "key": "addressLine",
+                          "value": "Khu vực chợ trung tâm",
+                          "type": "text",
+                          "uuid": "a331358f-ae3a-4992-9a10-de9bdb013217"
+                        },
+                        {
+                          "key": "files",
+                          "type": "file",
+                          "uuid": "4949efd6-2386-4152-99c9-817f7bebbd9a",
+                          "src": "/Users/macbook/Downloads/flood.jpg"
+                        }
+                      ]
                     },
-                    {
-                      "key": "province",
-                      "value": "Đồng Nai",
-                      "type": "text",
-                      "uuid": "8a820f84-5ba6-41d3-833b-b9a19fd14a2e"
-                    },
-                    {
-                      "key": "ward",
-                      "value": "Xuân Phú",
-                      "type": "text",
-                      "uuid": "824c83c2-4d37-41fc-ac2f-852c31fe5fa8"
-                    },
-                    {
-                      "key": "addressLine",
-                      "value": "Khu vực chợ trung tâm",
-                      "type": "text",
-                      "uuid": "a331358f-ae3a-4992-9a10-de9bdb013217"
-                    },
-                    {
-                      "key": "userId",
-                      "value": "7",
-                      "type": "text",
-                      "uuid": "3329c34a-86a7-4cf3-9384-115b98f8e2df"
-                    },
-                    {
-                      "key": "files",
-                      "type": "file",
-                      "uuid": "4949efd6-2386-4152-99c9-817f7bebbd9a",
-                      "src": "/Users/macbook/Downloads/flood.jpg"
+                    "url": {
+                      "raw": "http://localhost:8081/reports/update/35/admin/5",
+                      "protocol": "http",
+                      "host": [
+                        "localhost"
+                      ],
+                      "port": "8081",
+                      "path": [
+                        "reports",
+                        "update",
+                        "35",
+                        "admin",
+                        "5"
+                      ]
                     }
-                  ]
-                },
-                "url": {
-                  "raw": "http://localhost:8081/reports/create",
-                  "protocol": "http",
-                  "host": [
-                    "localhost"
-                  ],
-                  "port": "8081",
-                  "path": [
-                    "reports",
-                    "create"
-                  ]
+                  },
+                  "response": []
                 }
-              },
-              "response": []
+              ]
             },
             {
-              "name": "get all reports",
-              "request": {
-                "method": "GET",
-                "header": []
-              },
-              "response": []
+              "name": "user",
+              "item": [
+                {
+                  "name": "create report",
+                  "request": {
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{AUTH_TOKEN}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "POST",
+                    "header": [],
+                    "body": {
+                      "mode": "formdata",
+                      "formdata": [
+                        {
+                          "key": "category",
+                          "value": "flood",
+                          "type": "text",
+                          "uuid": "94950259-4613-4cdf-a40f-d50af7cdb218"
+                        },
+                        {
+                          "key": "description",
+                          "value": "Ngập cục bộ tại khu vực chợ.",
+                          "type": "text",
+                          "uuid": "39edc8c4-719c-4959-b565-4f84ef9a4e92"
+                        },
+                        {
+                          "key": "province",
+                          "value": "Đồng Nai",
+                          "type": "text",
+                          "uuid": "8a820f84-5ba6-41d3-833b-b9a19fd14a2e"
+                        },
+                        {
+                          "key": "ward",
+                          "value": "Xuân Phú",
+                          "type": "text",
+                          "uuid": "824c83c2-4d37-41fc-ac2f-852c31fe5fa8"
+                        },
+                        {
+                          "key": "addressLine",
+                          "value": "Khu vực chợ trung tâm",
+                          "type": "text",
+                          "uuid": "a331358f-ae3a-4992-9a10-de9bdb013217"
+                        },
+                        {
+                          "key": "userId",
+                          "value": "7",
+                          "type": "text",
+                          "uuid": "3329c34a-86a7-4cf3-9384-115b98f8e2df"
+                        },
+                        {
+                          "key": "files",
+                          "type": "file",
+                          "uuid": "4949efd6-2386-4152-99c9-817f7bebbd9a",
+                          "src": "/Users/macbook/Downloads/flood.jpg"
+                        }
+                      ]
+                    },
+                    "url": {
+                      "raw": "http://localhost:8081/reports/create",
+                      "protocol": "http",
+                      "host": [
+                        "localhost"
+                      ],
+                      "port": "8081",
+                      "path": [
+                        "reports",
+                        "create"
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "update report user",
+                  "request": {
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{AUTH_TOKEN}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "PUT",
+                    "header": [],
+                    "body": {
+                      "mode": "formdata",
+                      "formdata": [
+                        {
+                          "key": "category",
+                          "value": "flood",
+                          "type": "text",
+                          "uuid": "94950259-4613-4cdf-a40f-d50af7cdb218"
+                        },
+                        {
+                          "key": "description",
+                          "value": "Ngập cục bộ tại khu vực chợ.",
+                          "type": "text",
+                          "uuid": "39edc8c4-719c-4959-b565-4f84ef9a4e92"
+                        },
+                        {
+                          "key": "province",
+                          "value": "Đồng Nai",
+                          "type": "text",
+                          "uuid": "8a820f84-5ba6-41d3-833b-b9a19fd14a2e"
+                        },
+                        {
+                          "key": "ward",
+                          "value": "Xuân Phú",
+                          "type": "text",
+                          "uuid": "824c83c2-4d37-41fc-ac2f-852c31fe5fa8"
+                        },
+                        {
+                          "key": "addressLine",
+                          "value": "Khu vực chợ trung tâm",
+                          "type": "text",
+                          "uuid": "a331358f-ae3a-4992-9a10-de9bdb013217"
+                        },
+                        {
+                          "key": "files",
+                          "type": "file",
+                          "uuid": "4949efd6-2386-4152-99c9-817f7bebbd9a",
+                          "src": "/Users/macbook/Downloads/flood.jpg"
+                        },
+                        {
+                          "key": "category",
+                          "value": "incident",
+                          "type": "text",
+                          "uuid": "39c1eff9-2b16-4866-959c-9398a452eb67"
+                        }
+                      ]
+                    },
+                    "url": {
+                      "raw": "http://localhost:8081/reports/update/35",
+                      "protocol": "http",
+                      "host": [
+                        "localhost"
+                      ],
+                      "port": "8081",
+                      "path": [
+                        "reports",
+                        "update",
+                        "35"
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "get all reports for user",
+                  "request": {
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{AUTH_TOKEN}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "GET",
+                    "header": [],
+                    "url": {
+                      "raw": "http://localhost:8081/reports/user",
+                      "protocol": "http",
+                      "host": [
+                        "localhost"
+                      ],
+                      "port": "8081",
+                      "path": [
+                        "reports",
+                        "user"
+                      ]
+                    }
+                  },
+                  "response": []
+                }
+              ]
             }
           ]
         }

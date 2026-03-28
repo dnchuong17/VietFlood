@@ -242,7 +242,7 @@
               "response": []
             },
             {
-              "name": "update profile Copy",
+              "name": "update profile user for admin",
               "request": {
                 "auth": {
                   "type": "bearer",
@@ -266,7 +266,7 @@
                   }
                 },
                 "url": {
-                  "raw": "http://localhost:8081/auth/update/user/5",
+                  "raw": "http://localhost:8081/auth/update/user/7",
                   "protocol": "http",
                   "host": [
                     "localhost"
@@ -276,7 +276,7 @@
                     "auth",
                     "update",
                     "user",
-                    "5"
+                    "7"
                   ]
                 }
               },

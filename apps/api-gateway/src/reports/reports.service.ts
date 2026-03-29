@@ -194,41 +194,6 @@ export class ReportsService {
     return data;
   }
 
-  async updateReportByUser(
-    id: number,
-    userId: number,
-    updateReportDto: UpdateReportDto,
-    files?: Express.Multer.File[],
-  ) {
-    const payload = {
-      id,
-      userId,
-      dto: updateReportDto,
-      files:
-        files?.map((file) => ({
-          originalname: file.originalname,
-          mimetype: file.mimetype,
-          size: file.size,
-          buffer: file.buffer,
-        })) ?? [],
-    };
-
-    const data = await lastValueFrom(
-      this.reportsClient.send("update", payload).pipe(
-        timeout(10000),
-        retry(2),
-        catchError((error) => {
-          return of({
-            error: "reports service error!",
-            details: error,
-          });
-        }),
-      ),
-    );
-
-    return data;
-  }
-
   async deleteReport(id: number, userId: number) {
     const data = await lastValueFrom(
       this.reportsClient.send("delete", { id, userId }).pipe(

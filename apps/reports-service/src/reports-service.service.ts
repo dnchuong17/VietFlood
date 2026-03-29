@@ -211,6 +211,10 @@ export class ReportsService {
       throw new NotFoundException(`Report not found for ID: ${id}`);
     }
 
+    if (report.userId != userId) {
+      throw new NotFoundException(`Report not found for user: ${userId}`);
+    }
+
     const publicIds =
       report.evidences
         ?.map((item) => item.publicId)

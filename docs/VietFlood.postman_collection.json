@@ -685,6 +685,36 @@
                     }
                   },
                   "response": []
+                },
+                {
+                  "name": "delete report",
+                  "request": {
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{AUTH_TOKEN}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "DELETE",
+                    "header": [],
+                    "url": {
+                      "raw": "http://localhost:8081/reports/29",
+                      "protocol": "http",
+                      "host": [
+                        "localhost"
+                      ],
+                      "port": "8081",
+                      "path": [
+                        "reports",
+                        "29"
+                      ]
+                    }
+                  },
+                  "response": []
                 }
               ]
             }

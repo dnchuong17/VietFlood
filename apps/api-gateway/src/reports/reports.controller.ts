@@ -96,6 +96,6 @@ export class ReportsController {
   @UseGuards(JwtAuthGuard)
   @Delete(":id")
   async deleteReportByUser(@Param("id", ParseIntPipe) id: number, @Req() req) {
-    return this.reportsService.deleteReport(id, req.user.id);
+    return this.reportsService.deleteReport(id, req.user.userId);
   }
 }

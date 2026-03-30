@@ -104,10 +104,9 @@ export class ReportsService {
 
     return reports.map((report: any) => {
       const user = userMap.get(report.userId);
-      const { userId, ...rest } = report;
 
       return {
-        ...rest,
+        report,
         user: {
           username: user.username,
           phone: user.phone,

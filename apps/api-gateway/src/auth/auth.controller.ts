@@ -48,7 +48,7 @@ export class AuthController {
 
   @Put("update/user/:id")
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.RELIEF)
   async updateUserById(
     @Param("id", ParseIntPipe) id: number,
     @Body() updateUserDto: UpdateUserDto,
@@ -65,7 +65,7 @@ export class AuthController {
 
   @Get("all")
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.RELIEF)
   async getAllUsers() {
     return this.authService.getAllUsers();
   }

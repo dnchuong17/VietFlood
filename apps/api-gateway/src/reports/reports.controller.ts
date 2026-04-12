@@ -44,15 +44,8 @@ export class ReportsController {
 
   @Get("")
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
-  async getAllReports() {
-    return this.reportsService.getAllReports();
-  }
-
-  @Get("relief")
-  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.RELIEF)
-  async getAllReportsForRelief() {
+  async getAllReports() {
     return this.reportsService.getAllReports();
   }
 

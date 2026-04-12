@@ -40,7 +40,7 @@ export class UserEntity {
   first_name!: string;
 
   @Column({ type: "varchar", length: 60, nullable: true })
-  middle_name: string;
+  middle_name?: string;
 
   @Column({ type: "varchar", length: 60 })
   last_name!: string;

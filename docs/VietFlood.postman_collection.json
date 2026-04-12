@@ -24,12 +24,11 @@
               }
             },
             "url": {
-              "raw": "http://localhost:1712/auth/register",
+              "raw": "{{BASE_URL}}/auth/register",
               "protocol": "http",
               "host": [
-                "localhost"
+                "{{BASE_URL}}"
               ],
-              "port": "1712",
               "path": [
                 "auth",
                 "register"
@@ -53,12 +52,11 @@
               }
             },
             "url": {
-              "raw": "http://localhost:1712/auth/sign_in",
+              "raw": "{{BASE_URL}}/auth/sign_in",
               "protocol": "http",
               "host": [
-                "localhost"
+                "{{BASE_URL}}"
               ],
-              "port": "1712",
               "path": [
                 "auth",
                 "sign_in"
@@ -105,12 +103,11 @@
                   }
                 },
                 "url": {
-                  "raw": "http://localhost:8081/auth/sign_in",
+                  "raw": "{{BASE_URL}}/auth/sign_in",
                   "protocol": "http",
                   "host": [
-                    "localhost"
+                    "{{BASE_URL}}"
                   ],
-                  "port": "8081",
                   "path": [
                     "auth",
                     "sign_in"
@@ -120,7 +117,7 @@
               "response": []
             },
             {
-              "name": "refresh_token",
+              "name": "refresh_token (Public)",
               "event": [
                 {
                   "listen": "test",
@@ -152,12 +149,11 @@
                   }
                 },
                 "url": {
-                  "raw": "http://localhost:8081/auth/refresh_token",
+                  "raw": "{{BASE_URL}}/auth/refresh_token",
                   "protocol": "http",
                   "host": [
-                    "localhost"
+                    "{{BASE_URL}}"
                   ],
-                  "port": "8081",
                   "path": [
                     "auth",
                     "refresh_token"
@@ -181,12 +177,11 @@
                   }
                 },
                 "url": {
-                  "raw": "http://localhost:8081/auth/register",
+                  "raw": "{{BASE_URL}}/auth/register",
                   "protocol": "http",
                   "host": [
-                    "localhost"
+                    "{{BASE_URL}}"
                   ],
-                  "port": "8081",
                   "path": [
                     "auth",
                     "register"
@@ -227,12 +222,11 @@
                   }
                 },
                 "url": {
-                  "raw": "http://localhost:8081/auth/update",
+                  "raw": "{{BASE_URL}}/auth/update",
                   "protocol": "http",
                   "host": [
-                    "localhost"
+                    "{{BASE_URL}}"
                   ],
-                  "port": "8081",
                   "path": [
                     "auth",
                     "update"
@@ -242,7 +236,7 @@
               "response": []
             },
             {
-              "name": "update profile user for admin",
+              "name": "update profile user (ADMIN + RELIEF)",
               "request": {
                 "auth": {
                   "type": "bearer",
@@ -266,12 +260,11 @@
                   }
                 },
                 "url": {
-                  "raw": "http://localhost:8081/auth/update/user/7",
+                  "raw": "{{BASE_URL}}/auth/update/user/7",
                   "protocol": "http",
                   "host": [
-                    "localhost"
+                    "{{BASE_URL}}"
                   ],
-                  "port": "8081",
                   "path": [
                     "auth",
                     "update",
@@ -283,7 +276,7 @@
               "response": []
             },
             {
-              "name": "delete user",
+              "name": "delete user (ADMIN only)",
               "request": {
                 "auth": {
                   "type": "bearer",
@@ -298,12 +291,11 @@
                 "method": "DELETE",
                 "header": [],
                 "url": {
-                  "raw": "http://localhost:8081/auth/delete/2",
+                  "raw": "{{BASE_URL}}/auth/delete/2",
                   "protocol": "http",
                   "host": [
-                    "localhost"
+                    "{{BASE_URL}}"
                   ],
-                  "port": "8081",
                   "path": [
                     "auth",
                     "delete",
@@ -314,7 +306,7 @@
               "response": []
             },
             {
-              "name": "profile",
+              "name": "profile (Authenticated)",
               "request": {
                 "auth": {
                   "type": "bearer",
@@ -335,12 +327,11 @@
                   }
                 ],
                 "url": {
-                  "raw": "http://localhost:8081/auth/profile",
+                  "raw": "{{BASE_URL}}/auth/profile",
                   "protocol": "http",
                   "host": [
-                    "localhost"
+                    "{{BASE_URL}}"
                   ],
-                  "port": "8081",
                   "path": [
                     "auth",
                     "profile"
@@ -350,7 +341,7 @@
               "response": []
             },
             {
-              "name": "get all users",
+              "name": "get all users (ADMIN + RELIEF)",
               "request": {
                 "auth": {
                   "type": "bearer",
@@ -371,12 +362,11 @@
                   }
                 ],
                 "url": {
-                  "raw": "http://localhost:8081/auth/all",
+                  "raw": "{{BASE_URL}}/auth/all",
                   "protocol": "http",
                   "host": [
-                    "localhost"
+                    "{{BASE_URL}}"
                   ],
-                  "port": "8081",
                   "path": [
                     "auth",
                     "all"
@@ -394,7 +384,7 @@
               "name": "admin",
               "item": [
                 {
-                  "name": "get all reports",
+                  "name": "get all reports (ADMIN + RELIEF)",
                   "request": {
                     "auth": {
                       "type": "bearer",
@@ -409,12 +399,11 @@
                     "method": "GET",
                     "header": [],
                     "url": {
-                      "raw": "http://localhost:8081/reports",
+                      "raw": "{{BASE_URL}}/reports",
                       "protocol": "http",
                       "host": [
-                        "localhost"
+                        "{{BASE_URL}}"
                       ],
-                      "port": "8081",
                       "path": [
                         "reports"
                       ]
@@ -423,7 +412,7 @@
                   "response": []
                 },
                 {
-                  "name": "update report",
+                  "name": "update report (ADMIN only)",
                   "request": {
                     "auth": {
                       "type": "bearer",
@@ -479,12 +468,43 @@
                       ]
                     },
                     "url": {
-                      "raw": "http://localhost:8081/reports/update/35/admin/5",
+                      "raw": "{{BASE_URL}}/reports/update/35/admin/5",
                       "protocol": "http",
                       "host": [
-                        "localhost"
+                        "{{BASE_URL}}"
                       ],
-                      "port": "8081",
+                      "path": [
+                        "reports",
+                        "update",
+                        "35",
+                        "admin",
+                        "5"
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "delete report (ADMIN only)",
+                  "request": {
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{AUTH_TOKEN}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "DELETE",
+                    "header": [],
+                    "url": {
+                      "raw": "{{BASE_URL}}/reports/update/35/admin/5",
+                      "protocol": "http",
+                      "host": [
+                        "{{BASE_URL}}"
+                      ],
                       "path": [
                         "reports",
                         "update",
@@ -499,10 +519,99 @@
               ]
             },
             {
+              "name": "relief",
+              "item": [
+                {
+                  "name": "update report (ADMIN + RELIEF)",
+                  "request": {
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{AUTH_TOKEN}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "PUT",
+                    "header": [],
+                    "body": {
+                      "mode": "formdata",
+                      "formdata": [
+                        {
+                          "key": "category",
+                          "value": "flood",
+                          "type": "text"
+                        },
+                        {
+                          "key": "description",
+                          "value": "Ngập cục bộ tại khu vực chợ - đã xử lí.",
+                          "type": "text"
+                        },
+                        {
+                          "key": "status",
+                          "value": "resolved",
+                          "type": "text"
+                        }
+                      ]
+                    },
+                    "url": {
+                      "raw": "{{BASE_URL}}/reports/relief/35/user/5",
+                      "protocol": "http",
+                      "host": [
+                        "{{BASE_URL}}"
+                      ],
+                      "path": [
+                        "reports",
+                        "relief",
+                        "35",
+                        "user",
+                        "5"
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "delete report (ADMIN + RELIEF)",
+                  "request": {
+                    "auth": {
+                      "type": "bearer",
+                      "bearer": [
+                        {
+                          "key": "token",
+                          "value": "{{AUTH_TOKEN}}",
+                          "type": "string"
+                        }
+                      ]
+                    },
+                    "method": "DELETE",
+                    "header": [],
+                    "url": {
+                      "raw": "{{BASE_URL}}/reports/relief/35/user/5",
+                      "protocol": "http",
+                      "host": [
+                        "{{BASE_URL}}"
+                      ],
+                      "path": [
+                        "reports",
+                        "relief",
+                        "35",
+                        "user",
+                        "5"
+                      ]
+                    }
+                  },
+                  "response": []
+                }
+              ]
+            },
+            {
               "name": "user",
               "item": [
                 {
-                  "name": "create report",
+                  "name": "create report (Authenticated)",
                   "request": {
                     "auth": {
                       "type": "bearer",
@@ -564,12 +673,11 @@
                       ]
                     },
                     "url": {
-                      "raw": "http://localhost:8081/reports/create",
+                      "raw": "{{BASE_URL}}/reports/create",
                       "protocol": "http",
                       "host": [
-                        "localhost"
+                        "{{BASE_URL}}"
                       ],
-                      "port": "8081",
                       "path": [
                         "reports",
                         "create"
@@ -579,7 +687,7 @@
                   "response": []
                 },
                 {
-                  "name": "update report user",
+                  "name": "update report user (Authenticated)",
                   "request": {
                     "auth": {
                       "type": "bearer",
@@ -641,12 +749,11 @@
                       ]
                     },
                     "url": {
-                      "raw": "http://localhost:8081/reports/update/35",
+                      "raw": "{{BASE_URL}}/reports/update/35",
                       "protocol": "http",
                       "host": [
-                        "localhost"
+                        "{{BASE_URL}}"
                       ],
-                      "port": "8081",
                       "path": [
                         "reports",
                         "update",
@@ -657,7 +764,7 @@
                   "response": []
                 },
                 {
-                  "name": "get all reports for user",
+                  "name": "get all reports for user (Authenticated)",
                   "request": {
                     "auth": {
                       "type": "bearer",
@@ -672,12 +779,11 @@
                     "method": "GET",
                     "header": [],
                     "url": {
-                      "raw": "http://localhost:8081/reports/user",
+                      "raw": "{{BASE_URL}}/reports/user",
                       "protocol": "http",
                       "host": [
-                        "localhost"
+                        "{{BASE_URL}}"
                       ],
-                      "port": "8081",
                       "path": [
                         "reports",
                         "user"
@@ -687,7 +793,7 @@
                   "response": []
                 },
                 {
-                  "name": "delete report",
+                  "name": "delete report (Authenticated)",
                   "request": {
                     "auth": {
                       "type": "bearer",
@@ -702,12 +808,11 @@
                     "method": "DELETE",
                     "header": [],
                     "url": {
-                      "raw": "http://localhost:8081/reports/29",
+                      "raw": "{{BASE_URL}}/reports/29",
                       "protocol": "http",
                       "host": [
-                        "localhost"
+                        "{{BASE_URL}}"
                       ],
-                      "port": "8081",
                       "path": [
                         "reports",
                         "29"

@@ -6,7 +6,7 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { UserEntity } from "./users.entity";
 import { Repository } from "typeorm";
-import { LoggerService, RedisService } from "vietflood-common";
+import { LoggerService } from "vietflood-common";
 import { UpdateUserDto } from "../DTO/update_user.dto";
 
 @Injectable()
@@ -14,12 +14,10 @@ export class UsersService {
   constructor(
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
-    private readonly redisHelper: RedisService,
     private readonly logger: LoggerService,
   ) {
     this.logger.setServiceName(UsersService.name);
   }
-
   async getAllUsers() {
     this.logger.debug(`[GET ALL USERS] - Find all users`);
 
@@ -29,17 +27,9 @@ export class UsersService {
 
   async findAccountWithEmail(email: string) {
     this.logger.debug(`[FIND USER]-Find user via email ${email}`);
-    const cacheUser = await this.redisHelper.get(email);
-    if (cacheUser) {
-      this.logger.debug("Found user from cache");
-      return JSON.parse(cacheUser);
-    }
     const user = await this.userRepository.findOne({
       where: [{ email: email }],
     });
-    if (user) {
-      await this.redisHelper.set(user.email, JSON.stringify(user));
-    }
     return user;
   }
 

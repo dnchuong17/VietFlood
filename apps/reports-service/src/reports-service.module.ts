@@ -7,14 +7,12 @@ import {
   CloudinaryModule,
   CloudinaryService,
   LoggerService,
-  RedisModule,
 } from "vietflood-common";
 import { ReportEntity } from "./entity/report.entity";
 import { typeOrmConfigAsync } from "./config/typeorm.config";
 
 @Module({
   imports: [
-    RedisModule.forRoot(),
     CloudinaryModule,
     ConfigModule.forRoot({
       isGlobal: true,

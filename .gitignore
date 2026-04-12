@@ -19,6 +19,13 @@ lerna-debug.log*
 .env.test
 .env.production
 
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
 # temp directory
 .temp
 .tmp

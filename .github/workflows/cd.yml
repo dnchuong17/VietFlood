@@ -1,0 +1,79 @@
+name: Deploy to Azure App Service
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: docker.io
+  AZURE_WEBAPP_NAME: vietflood-app
+  AZURE_RESOURCE_GROUP: VietFlood
+  DOCKERHUB_USER: nguyenchuong1712  # Non-sensitive - can be in env
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [api-gateway, auth-service, reports-service]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}  # Only sensitive data uses secrets
+
+      - name: Build and push ${{ matrix.service }}
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./apps/${{ matrix.service }}/Dockerfile
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: |
+            ${{ env.DOCKERHUB_USER }}/vietflood-${{ matrix.service }}:${{ github.sha }}
+            ${{ env.DOCKERHUB_USER }}/vietflood-${{ matrix.service }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          package: ${{ github.workspace }}
+          publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE }}
+
+      - name: Restart Azure App Service
+        run: |
+          az webapp restart \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --name ${{ env.AZURE_WEBAPP_NAME }}
+
+      - name: Notify deployment
+        if: always()
+        run: |
+          echo "Deployment completed for commit ${{ github.sha }}"
+          echo "Services pushed: api-gateway, auth-service, reports-service"

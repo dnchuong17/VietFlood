@@ -3,7 +3,7 @@ import { MicroserviceOptions, Transport } from "@nestjs/microservices";
 import { AuthServiceModule } from "./auth-service.module";
 
 async function bootstrap() {
-  const rabbitmqUrl = process.env.RABBITMQ_URL;
+  const rabbitmqUrl = process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672';
   
   const app = await NestFactory.createMicroservice<MicroserviceOptions>(
     AuthServiceModule,

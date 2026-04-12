@@ -67,24 +67,34 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy Docker images to Azure App Service
+      - name: Deploy multi-container using Docker Compose
         run: |
-          # Configure Docker registry and pull latest image
+          # Deploy using docker-compose.prod.yml for multi-container setup
           az webapp config container set \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
-            --docker-custom-image-name "${{ env.DOCKERHUB_USER }}/vietflood-api-gateway:latest" \
-            --docker-registry-server-url "https://${{ env.REGISTRY }}" \
-            --docker-registry-server-user "${{ env.DOCKERHUB_USER }}" \
-            --docker-registry-server-password "${{ secrets.DOCKERHUB_TOKEN }}"
+            --multicontainer-config-type compose \
+            --multicontainer-config-file docker-compose.prod.yml
 
       - name: Configure Azure App Service Environment Variables
         run: |
-          # Set crucial environment variables from GitHub Secrets
+          # Set all required environment variables from GitHub Secrets
           az webapp config appsettings set \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
-            --settings RABBITMQ_URL='${{ secrets.RABBITMQ_URL }}' REDIS_HOST='${{ secrets.REDIS_HOST }}' REDIS_PASSWORD='${{ secrets.REDIS_PASSWORD }}'
+            --settings \
+              RABBITMQ_URL='${{ secrets.RABBITMQ_URL }}' \
+              DATABASE_URL='${{ secrets.DATABASE_URL }}' \
+              JWT_SECRET='${{ secrets.JWT_SECRET }}' \
+              REFRESH_SECRET='${{ secrets.REFRESH_SECRET }}' \
+              REDIS_PASSWORD='${{ secrets.REDIS_PASSWORD }}' \
+              REDIS_HOST='${{ secrets.REDIS_HOST }}' \
+              CORS_ORIGINS='${{ secrets.CORS_ORIGINS }}' \
+              CLOUDINARY_CLOUD_NAME='${{ secrets.CLOUDINARY_CLOUD_NAME }}' \
+              CLOUDINARY_API_KEY='${{ secrets.CLOUDINARY_API_KEY }}' \
+              CLOUDINARY_API_SECRET='${{ secrets.CLOUDINARY_API_SECRET }}' \
+              ADMIN_EMAIL='${{ secrets.ADMIN_EMAIL }}' \
+              ADMIN_PASSWORD='${{ secrets.ADMIN_PASSWORD }}'
 
       - name: Restart Azure App Service
         run: |

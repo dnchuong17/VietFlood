@@ -65,42 +65,11 @@ jobs:
       - name: Azure CLI login
         uses: azure/login@v1
         with:
-          # AZURE_CREDENTIALS format:
-          # {
-          #   "clientId": "appId from az cli",
-          #   "clientSecret": "password from az cli",
-          #   "tenantId": "tenant from az cli",
-          #   "subscriptionId": "your subscription id"
-          # }
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Configure Azure App Service Settings
-        run: |
-          # Set all required environment variables for the app service
-          az webapp config appsettings set \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --name ${{ env.AZURE_WEBAPP_NAME }} \
-            --settings \
-              NODE_ENV="production" \
-              API_GATEWAY_PORT="8081" \
-              JWT_SECRET="${{ secrets.JWT_SECRET }}" \
-              REFRESH_SECRET="${{ secrets.REFRESH_SECRET }}" \
-              DATABASE_URL="${{ secrets.DATABASE_URL }}" \
-              RABBITMQ_URL="${{ secrets.RABBITMQ_URL }}" \
-              REDIS_HOST="${{ secrets.REDIS_HOST }}" \
-              REDIS_PORT="${{ secrets.REDIS_PORT }}" \
-              REDIS_PASSWORD="${{ secrets.REDIS_PASSWORD }}" \
-              REDIS_DB="0" \
-              CORS_ORIGINS="${{ secrets.CORS_ORIGINS }}" \
-              CLOUDINARY_CLOUD_NAME="${{ secrets.CLOUDINARY_CLOUD_NAME }}" \
-              CLOUDINARY_API_KEY="${{ secrets.CLOUDINARY_API_KEY }}" \
-              CLOUDINARY_API_SECRET="${{ secrets.CLOUDINARY_API_SECRET }}" \
-              ADMIN_EMAIL="${{ secrets.ADMIN_EMAIL }}" \
-              ADMIN_PASSWORD="${{ secrets.ADMIN_PASSWORD }}"
 
       - name: Deploy Docker images to Azure App Service
         run: |
-          # Update Docker image for each service
+          # Configure Docker registry and pull latest image
           az webapp config container set \
             --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
@@ -118,7 +87,9 @@ jobs:
       - name: Deployment summary
         run: |
           echo "✅ Deployment completed successfully"
+          echo "Docker image: ${{ env.DOCKERHUB_USER }}/vietflood-api-gateway:latest"
           echo "Repository: ${{ github.repository }}"
           echo "Commit: ${{ github.sha }}"
           echo "Branch: ${{ github.ref_name }}"
-          echo "Services: ${{ env.SERVICES }}"
+          echo ""
+          echo "ℹ️  Environment variables are configured in Azure App Service settings"

@@ -8,7 +8,7 @@ COPY package*.json ./
 COPY .npmrc ./
 
 # Install all dependencies with cache optimization
-RUN npm ci --prefer-offline --no-audit --loglevel=error
+RUN npm ci --prefer-offline --no-audit --loglevel=error && npm cache clean --force
 
 # Copy source code
 COPY . .

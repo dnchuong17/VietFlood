@@ -36,6 +36,7 @@ jobs:
 
       - name: Build and push ${{ matrix.service }}
         uses: docker/build-push-action@v5
+        timeout-minutes: 60
         with:
           context: .
           file: ./apps/${{ matrix.service }}/Dockerfile
@@ -43,6 +44,8 @@ jobs:
           tags: |
             ${{ env.DOCKERHUB_USER }}/vietflood-${{ matrix.service }}:${{ github.sha }}
             ${{ env.DOCKERHUB_USER }}/vietflood-${{ matrix.service }}:latest
+          build-args: |
+            NODE_OPTIONS=--max-old-space-size=3072
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

@@ -1,6 +1,6 @@
 import { Controller } from "@nestjs/common";
 import { MessagePattern, Payload, RpcException } from "@nestjs/microservices";
-import { LoggerService } from "@dnchuong17/vietflood-common";
+import { LoggerService } from "vietflood-common";
 import { ReportsService } from "./reports-service.service";
 
 @Controller()

@@ -20,6 +20,8 @@ import { UpdateReportDto } from "./dto/update_report.dto";
 import { JwtAuthGuard } from "../auth/guard/jwt-auth.guard";
 import { Roles } from "../auth/Decorators/role.decorator";
 import { memoryStorage } from "multer";
+import { RolesGuard } from "../auth/guard/role.guard";
+import { UserRole } from "../auth/enum/userRole.enum";
 
 @Controller("reports")
 export class ReportsController {
@@ -40,10 +42,17 @@ export class ReportsController {
     );
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get("")
-  @Roles("admin")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
   async getAllReports() {
+    return this.reportsService.getAllReports();
+  }
+
+  @Get("relief")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.RELIEF)
+  async getAllReportsForRelief() {
     return this.reportsService.getAllReports();
   }
 
@@ -53,11 +62,24 @@ export class ReportsController {
     return this.reportsService.getAllReportsById(req.user.userId);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Put("update/:id/admin/:userId")
   @UseInterceptors(FilesInterceptor("files", 5, { storage: memoryStorage() }))
-  @Roles("admin")
+  @Roles(UserRole.ADMIN)
   async updateReport(
+    @Param("id", ParseIntPipe) id: number,
+    @Param("userId", ParseIntPipe) userId: number,
+    @Body() updateReportDto: UpdateReportDto,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    return this.reportsService.updateReport(id, userId, updateReportDto, files);
+  }
+
+  @Put("relief/:id/user/:userId")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseInterceptors(FilesInterceptor("files", 5, { storage: memoryStorage() }))
+  @Roles(UserRole.ADMIN, UserRole.RELIEF)
+  async updateReportForRelief(
     @Param("id", ParseIntPipe) id: number,
     @Param("userId", ParseIntPipe) userId: number,
     @Body() updateReportDto: UpdateReportDto,
@@ -83,10 +105,20 @@ export class ReportsController {
     );
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Delete("update/:id/admin/:userId")
-  @Roles("admin")
+  @Roles(UserRole.ADMIN)
   async deleteReport(
+    @Param("id", ParseIntPipe) id: number,
+    @Param("userId", ParseIntPipe) userId: number,
+  ) {
+    return this.reportsService.deleteReport(id, userId);
+  }
+
+  @Delete("relief/:id/user/:userId")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.RELIEF)
+  async deleteReportForRelief(
     @Param("id", ParseIntPipe) id: number,
     @Param("userId", ParseIntPipe) userId: number,
   ) {

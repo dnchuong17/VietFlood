@@ -12,7 +12,7 @@ import { UsersModule } from "../users/users.module";
     TypeOrmModule.forFeature([RefreshTokenEntity]),
     JwtModule.register({
       global: true,
-      secret: `${process.env.SECRETEKEY}`,
+      secret: process.env.JWT_SECRET,
       signOptions: { expiresIn: "800s" },
     }),
     UsersModule,

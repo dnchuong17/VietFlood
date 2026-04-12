@@ -8,7 +8,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { UserEntity } from "./users/users.entity";
 import { Repository } from "typeorm";
 import { JwtService } from "@nestjs/jwt";
-import { LoggerService } from "@dnchuong17/vietflood-common";
+import { LoggerService } from "vietflood-common";
 import { RegisterDto } from "./DTO/register.dto";
 import * as bcrypt from "bcrypt";
 import { plainToInstance } from "class-transformer";

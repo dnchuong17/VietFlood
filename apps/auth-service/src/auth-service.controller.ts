@@ -1,6 +1,6 @@
 import { Controller, UseGuards } from "@nestjs/common";
 import { AuthService } from "./auth-service.service";
-import { LoggerService } from "@dnchuong17/vietflood-common";
+import { LoggerService } from "vietflood-common";
 import { MessagePattern, Payload, RpcException } from "@nestjs/microservices";
 import { RefreshTokenService } from "./refesh_token/refresh_token.service";
 import { RefreshJwtAuthGuard } from "./guard/refresh-jwt-auth.guard";
@@ -58,7 +58,7 @@ export class AuthServiceController {
   async getUser(@Payload() data: any) {
     try {
       this.logger.debug("receive request get user by id");
-      return await this.getUser(data);
+      return await this.authService.getUserById(data.userId);
     } catch (error) {
       throw new RpcException(error);
     }

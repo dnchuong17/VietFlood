@@ -29,7 +29,9 @@ export class RolesGuard implements CanActivate {
     }
 
     if (!requiredRoles.includes(user.role)) {
-      throw new ForbiddenException("Only admin can perform this action");
+      throw new ForbiddenException(
+        `Only users with roles: ${requiredRoles.join(", ")}`,
+      );
     }
 
     return true;

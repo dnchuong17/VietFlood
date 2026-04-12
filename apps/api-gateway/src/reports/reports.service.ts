@@ -2,7 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { ClientProxy } from "@nestjs/microservices";
 import { lastValueFrom, of } from "rxjs";
 import { catchError, retry, timeout } from "rxjs/operators";
-import { CloudinaryService, LoggerService } from "@dnchuong17/vietflood-common";
+import { CloudinaryService, LoggerService } from "vietflood-common";
 
 import { CreateReportDto } from "./dto/report.dto";
 import { UpdateReportDto } from "./dto/update_report.dto";

@@ -22,3 +22,8 @@ lerna-debug.log*
 # temp directory
 .temp
 .tmp
+
+# Do not commit generated JS alongside TS source files
+/apps/**/src/**/*.js
+/apps/**/src/**/*.js.map
+/apps/**/src/**/*.d.ts

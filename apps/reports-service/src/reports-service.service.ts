@@ -9,7 +9,7 @@ import {
   CloudinaryService,
   LoggerService,
   RedisService,
-} from "@dnchuong17/vietflood-common";
+} from "vietflood-common";
 
 import { ReportEntity } from "./entity/report.entity";
 import { CreateReportDto } from "./dto/report.dto";

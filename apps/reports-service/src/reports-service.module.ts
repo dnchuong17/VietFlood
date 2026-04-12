@@ -8,7 +8,7 @@ import {
   CloudinaryService,
   LoggerService,
   RedisModule,
-} from "@dnchuong17/vietflood-common";
+} from "vietflood-common";
 import { ReportEntity } from "./entity/report.entity";
 import { typeOrmConfigAsync } from "./config/typeorm.config";
 
@@ -23,7 +23,6 @@ import { typeOrmConfigAsync } from "./config/typeorm.config";
     TypeOrmModule.forFeature([ReportEntity]),
   ],
   controllers: [ReportsController],
-
   providers: [ReportsService, LoggerService, CloudinaryService],
 })
 export class ReportsServiceModule {}

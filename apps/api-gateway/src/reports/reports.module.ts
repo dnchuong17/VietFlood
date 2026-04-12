@@ -3,7 +3,7 @@ import { ClientsModule, Transport } from "@nestjs/microservices";
 import { ReportsController } from "./reports.controller";
 import { ReportsService } from "./reports.service";
 import { JwtStrategy } from "../auth/strategy/jwt.strategy";
-import { CloudinaryService, LoggerService } from "@dnchuong17/vietflood-common";
+import { CloudinaryService, LoggerService } from "vietflood-common";
 import { AuthModule } from "../auth/auth.module";
 
 @Module({
@@ -13,7 +13,9 @@ import { AuthModule } from "../auth/auth.module";
         name: "REPORTS_SERVICE",
         transport: Transport.RMQ,
         options: {
-          urls: ["amqp://admin:admin@localhost:5672"],
+          urls: [
+            process.env.RABBITMQ_URL || "amqp://admin:admin@rabbitmq:5672",
+          ],
           queue: "reports_queue",
           queueOptions: {
             durable: true,
@@ -25,7 +27,9 @@ import { AuthModule } from "../auth/auth.module";
         name: "AUTH_SERVICE",
         transport: Transport.RMQ,
         options: {
-          urls: ["amqp://admin:admin@localhost:5672"],
+          urls: [
+            process.env.RABBITMQ_URL || "amqp://admin:admin@rabbitmq:5672",
+          ],
           queue: "auth_queue",
           queueOptions: {
             durable: true,

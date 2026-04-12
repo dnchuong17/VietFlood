@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { LoggerService } from "@dnchuong17/vietflood-common";
+import { LoggerService } from "vietflood-common";
 
 @Injectable()
 export class ApiGatewayService {

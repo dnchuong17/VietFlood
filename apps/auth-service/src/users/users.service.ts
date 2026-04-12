@@ -6,7 +6,7 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { UserEntity } from "./users.entity";
 import { Repository } from "typeorm";
-import { LoggerService, RedisService } from "@dnchuong17/vietflood-common";
+import { LoggerService, RedisService } from "vietflood-common";
 import { UpdateUserDto } from "../DTO/update_user.dto";
 
 @Injectable()

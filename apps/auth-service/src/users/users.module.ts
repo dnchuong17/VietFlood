@@ -3,7 +3,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { UsersService } from "./users.service";
 import { UsersController } from "./users.controller";
 import { UserEntity } from "./users.entity";
-import { LoggerService, RedisService } from "@dnchuong17/vietflood-common";
+import { LoggerService, RedisService } from "vietflood-common";
 
 @Module({
   imports: [TypeOrmModule.forFeature([UserEntity])],

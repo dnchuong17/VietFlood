@@ -4,7 +4,7 @@ import { Repository } from "typeorm";
 import * as bcrypt from "bcrypt";
 
 import { UserEntity, UserRole } from "../users/users.entity";
-import { LoggerService } from "@dnchuong17/vietflood-common";
+import { LoggerService } from "vietflood-common";
 
 @Injectable()
 export class AdminSeed implements OnApplicationBootstrap {

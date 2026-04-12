@@ -18,6 +18,7 @@ import { UpdateUserDto } from "./Dto/update_user.dto";
 import { RolesGuard } from "./guard/role.guard";
 import { Roles } from "./Decorators/role.decorator";
 import { RefreshJwtAuthGuard } from "./guard/refresh-jwt-auth.guard";
+import { UserRole } from "./enum/userRole.enum";
 
 @Controller("auth")
 export class AuthController {
@@ -47,7 +48,7 @@ export class AuthController {
 
   @Put("update/user/:id")
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("admin")
+  @Roles(UserRole.ADMIN)
   async updateUserById(
     @Param("id", ParseIntPipe) id: number,
     @Body() updateUserDto: UpdateUserDto,
@@ -57,16 +58,30 @@ export class AuthController {
 
   @Delete("delete/:id")
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("admin")
+  @Roles(UserRole.ADMIN)
   async deleteUser(@Param("id", ParseIntPipe) id: number) {
     return this.authService.deleteUser(id);
   }
 
   @Get("all")
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("admin")
+  @Roles(UserRole.ADMIN)
   async getAllUsers() {
     return this.authService.getAllUsers();
+  }
+
+  @Get("relief/users")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.RELIEF)
+  async getUsersForRelief() {
+    return this.authService.getAllUsers();
+  }
+
+  @Get("relief/users/:id")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.RELIEF)
+  async getUserForRelief(@Param("id", ParseIntPipe) id: number) {
+    return this.authService.getUserById(id);
   }
 
   @Post("refresh")

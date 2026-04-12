@@ -1,6 +1,6 @@
 import { NestFactory } from "@nestjs/core";
 import { ApiGatewayModule } from "./api-gateway.module";
-import { LoggerService } from "@dnchuong17/vietflood-common";
+import { LoggerService } from "vietflood-common";
 
 async function bootstrap() {
   const app = await NestFactory.create(ApiGatewayModule);

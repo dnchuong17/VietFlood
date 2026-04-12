@@ -78,6 +78,14 @@ jobs:
             --docker-registry-server-user "${{ env.DOCKERHUB_USER }}" \
             --docker-registry-server-password "${{ secrets.DOCKERHUB_TOKEN }}"
 
+      - name: Configure Azure App Service Environment Variables
+        run: |
+          # Set crucial environment variables from GitHub Secrets
+          az webapp config appsettings set \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --settings RABBITMQ_URL='${{ secrets.RABBITMQ_URL }}' REDIS_HOST='${{ secrets.REDIS_HOST }}' REDIS_PASSWORD='${{ secrets.REDIS_PASSWORD }}'
+
       - name: Restart Azure App Service
         run: |
           az webapp restart \

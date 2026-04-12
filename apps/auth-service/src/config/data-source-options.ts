@@ -11,6 +11,10 @@ const dataSourceOptions: DataSourceOptions = {
   migrations: ["db/migrations/*{.ts,.js}"],
   synchronize: true,
   logging: ["error", "schema"],
+  extra: {
+    max: 2,
+    min: 1,
+  },
 };
 
 export default dataSourceOptions;

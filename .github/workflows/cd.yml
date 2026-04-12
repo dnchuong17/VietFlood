@@ -76,26 +76,6 @@ jobs:
             --multicontainer-config-type compose \
             --multicontainer-config-file docker-compose.prod.yml
 
-      - name: Configure Azure App Service Environment Variables
-        run: |
-          # Set all required environment variables from GitHub Secrets
-          az webapp config appsettings set \
-            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
-            --name ${{ env.AZURE_WEBAPP_NAME }} \
-            --settings \
-              RABBITMQ_URL='${{ secrets.RABBITMQ_URL }}' \
-              DATABASE_URL='${{ secrets.DATABASE_URL }}' \
-              JWT_SECRET='${{ secrets.JWT_SECRET }}' \
-              REFRESH_SECRET='${{ secrets.REFRESH_SECRET }}' \
-              REDIS_PASSWORD='${{ secrets.REDIS_PASSWORD }}' \
-              REDIS_HOST='${{ secrets.REDIS_HOST }}' \
-              CORS_ORIGINS='${{ secrets.CORS_ORIGINS }}' \
-              CLOUDINARY_CLOUD_NAME='${{ secrets.CLOUDINARY_CLOUD_NAME }}' \
-              CLOUDINARY_API_KEY='${{ secrets.CLOUDINARY_API_KEY }}' \
-              CLOUDINARY_API_SECRET='${{ secrets.CLOUDINARY_API_SECRET }}' \
-              ADMIN_EMAIL='${{ secrets.ADMIN_EMAIL }}' \
-              ADMIN_PASSWORD='${{ secrets.ADMIN_PASSWORD }}'
-
       - name: Restart Azure App Service
         run: |
           az webapp restart \
@@ -110,4 +90,5 @@ jobs:
           echo "Commit: ${{ github.sha }}"
           echo "Branch: ${{ github.ref_name }}"
           echo ""
-          echo "ℹ️  Environment variables are configured in Azure App Service settings"
+          echo "ℹ️  Multi-container deployment with docker-compose"
+          echo "Services: api-gateway (port 80), auth-service, reports-service, redis"

@@ -8,7 +8,7 @@ services:
     environment:
       NODE_ENV: production
       API_GATEWAY_PORT: 8081
-      CORS_ORIGINS: http://localhost:3000,http://localhost:3001
+      CORS_ORIGINS: ${CORS_ORIGINS}
       DATABASE_URL: ${DATABASE_URL}
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -62,12 +62,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    command: >
-      redis-server
-        --requirepass ${REDIS_PASSWORD}
-        --appendonly yes
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]

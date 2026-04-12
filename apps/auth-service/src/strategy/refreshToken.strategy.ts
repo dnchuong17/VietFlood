@@ -10,7 +10,7 @@ export class RefreshTokenStrategy extends PassportStrategy(
     super({
       jwtFromRequest: ExtractJwt.fromBodyField("refresh"),
       ignoreExpiration: false,
-      secretOrKey: process.env.REFRESH_SECRET,
+      secretOrKey: process.env.REFRESH_SECRET || 'fallback-refresh-secret-key',
     });
   }
 

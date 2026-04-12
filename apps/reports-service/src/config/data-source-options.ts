@@ -12,7 +12,7 @@ const dataSourceOptions: DataSourceOptions = {
   synchronize: true,
   logging: ["error", "schema"],
   extra: {
-    max: 2,
+    max: 2, 
     min: 1,
   },
 };

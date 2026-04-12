@@ -49,6 +49,13 @@ export class ReportsController {
     return this.reportsService.getAllReports();
   }
 
+  @Get(":id")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.RELIEF)
+  async getReportById(@Param("id", ParseIntPipe) id: number) {
+    return this.reportsService.getAllReportsById(id);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get("user")
   async getAllReportsforUser(@Req() req: any) {

@@ -90,5 +90,4 @@ jobs:
           echo "Commit: ${{ github.sha }}"
           echo "Branch: ${{ github.ref_name }}"
           echo ""
-          echo "ℹ️  Multi-container deployment with docker-compose"
-          echo "Services: api-gateway (port 80), auth-service, reports-service, redis"
+          echo "ℹ️  Environment variables are configured in Azure App Service settings"

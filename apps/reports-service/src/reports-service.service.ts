@@ -8,6 +8,7 @@ import { Repository } from "typeorm";
 import {
   CloudinaryService,
   LoggerService,
+  RedisService,
 } from "vietflood-common";
 
 import { ReportEntity } from "./entity/report.entity";
@@ -19,6 +20,7 @@ export class ReportsService {
   constructor(
     @InjectRepository(ReportEntity)
     private readonly reportRepository: Repository<ReportEntity>,
+    private readonly redisHelper: RedisService,
     private readonly logger: LoggerService,
     private readonly cloudinaryService: CloudinaryService,
   ) {
@@ -43,6 +45,11 @@ export class ReportsService {
     });
 
     const savedReport = await this.reportRepository.save(report);
+
+    await this.redisHelper.set(
+      `report:${savedReport.id}`,
+      JSON.stringify(savedReport),
+    );
 
     this.logger.debug(
       `[CREATE REPORT] - Report created successfully: ${JSON.stringify({
@@ -86,6 +93,12 @@ export class ReportsService {
 
     this.logger.debug(`[FIND REPORT] - Finding report via ID: ${id}`);
 
+    const cacheReport = await this.redisHelper.get(`report:${id}`);
+    if (cacheReport) {
+      this.logger.debug(`[FIND REPORT] - Found report from cache: ${id}`);
+      return JSON.parse(cacheReport);
+    }
+
     const report = await this.reportRepository.findOne({
       where: { id },
       relations: ["user"],
@@ -94,6 +107,8 @@ export class ReportsService {
     if (!report) {
       throw new NotFoundException(`Report not found for ID: ${id}`);
     }
+
+    await this.redisHelper.set(`report:${id}`, JSON.stringify(report));
 
     return report;
   }
@@ -164,6 +179,12 @@ export class ReportsService {
       where: { id },
     });
 
+    await this.redisHelper.del(`report:${id}`);
+
+    if (updatedReport) {
+      await this.redisHelper.set(`report:${id}`, JSON.stringify(updatedReport));
+    }
+
     return {
       success: true,
       message: "Update report successfully",
@@ -203,6 +224,7 @@ export class ReportsService {
     }
 
     await this.reportRepository.delete({ id });
+    await this.redisHelper.del(`report:${id}`);
 
     return {
       success: true,

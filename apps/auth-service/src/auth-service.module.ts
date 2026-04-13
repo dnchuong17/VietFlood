@@ -5,7 +5,7 @@ import { ConfigModule } from "@nestjs/config";
 import { UsersModule } from "./users/users.module";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { typeOrmConfigAsync } from "./config/typeorm.config";
-import { LoggerService } from "vietflood-common";
+import { LoggerService, RedisModule } from "vietflood-common";
 import { JwtModule } from "@nestjs/jwt";
 import { UserEntity } from "./users/users.entity";
 import { AdminSeed } from "./admin/admin.seed";
@@ -23,6 +23,7 @@ import { RefreshTokenEntity } from "./refesh_token/refresh_token.entity";
     TypeOrmModule.forRootAsync(typeOrmConfigAsync),
     TypeOrmModule.forFeature([UserEntity, RefreshTokenEntity]),
     UsersModule,
+    RedisModule.forRoot(),
     JwtModule.register({
       global: true,
       secret: process.env.JWT_SECRET,

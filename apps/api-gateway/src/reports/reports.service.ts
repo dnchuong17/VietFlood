@@ -209,4 +209,34 @@ export class ReportsService {
 
     return data;
   }
+
+  async getTrackingClients() {
+    return lastValueFrom(
+      this.reportsClient.send("tracking_clients", {}).pipe(
+        timeout(5000),
+        retry(3),
+        catchError((error) =>
+          of({
+            error: "reports service error!",
+            details: error?.message ?? error,
+          }),
+        ),
+      ),
+    );
+  }
+
+  async getTrackingLocations() {
+    return lastValueFrom(
+      this.reportsClient.send("tracking_locations", {}).pipe(
+        timeout(5000),
+        retry(3),
+        catchError((error) =>
+          of({
+            error: "reports service error!",
+            details: error?.message ?? error,
+          }),
+        ),
+      ),
+    );
+  }
 }

@@ -11,6 +11,7 @@ import {
 } from "vietflood-common";
 import { ReportEntity } from "./entity/report.entity";
 import { typeOrmConfigAsync } from "./config/typeorm.config";
+import { TrackingModule } from "./tracking/tracking.module";
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { typeOrmConfigAsync } from "./config/typeorm.config";
     }),
     TypeOrmModule.forRootAsync(typeOrmConfigAsync),
     TypeOrmModule.forFeature([ReportEntity]),
+    TrackingModule,
   ],
   controllers: [ReportsController],
   providers: [ReportsService, LoggerService, CloudinaryService],

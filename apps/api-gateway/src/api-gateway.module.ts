@@ -5,6 +5,7 @@ import { ApiGatewayService } from "./api-gateway.service";
 import { LoggerService } from "vietflood-common";
 import { ConfigModule } from "@nestjs/config";
 import { ReportsModule } from "./reports/reports.module";
+import { TrackingModule } from "./tracking/tracking.module";
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { ReportsModule } from "./reports/reports.module";
     }),
     AuthModule,
     ReportsModule,
+    TrackingModule,
   ],
   controllers: [ApiGatewayController],
   providers: [ApiGatewayService, LoggerService],

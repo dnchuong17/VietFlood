@@ -19,19 +19,24 @@ RUN npm run build reports-service
 # Prune dev dependencies
 RUN npm prune --omit=dev
 
-# Remove cache and unnecessary files
-RUN rm -rf \
-    .npmrc \
-    .npm \
-    node_modules/.cache \
-    node_modules/.bin \
-    node_modules/*/build \
-    node_modules/*/doc \
-    node_modules/*/*.md \
-    node_modules/*/example \
-    node_modules/*/examples \
-    node_modules/*/test \
-    node_modules/*/tests
+# Preserve engine.io/build before cleanup (required by socket.io)
+RUN mkdir -p /tmp/engine.io && cp -r node_modules/engine.io/build /tmp/engine.io/ 2>/dev/null || true
+
+# Aggressive cleanup: remove all docs, tests, examples, and build dirs
+RUN find node_modules -maxdepth 2 \( \
+    -name '*.md' \
+    -o -name 'doc' \
+    -o -name 'docs' \
+    -o -name 'example' \
+    -o -name 'examples' \
+    -o -name 'test' \
+    -o -name 'tests' \
+    -o -name 'build' \
+    \) -type d -exec rm -rf {} + 2>/dev/null || true && \
+  rm -rf .npmrc .npm node_modules/.cache node_modules/.bin
+
+# Restore engine.io/build
+RUN mkdir -p node_modules/engine.io && cp -r /tmp/engine.io/build node_modules/engine.io/ 2>/dev/null || true && rm -rf /tmp/engine.io
 
 # Production stage - Ultra-minimal
 FROM node:20-alpine

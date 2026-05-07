@@ -1,6 +1,3 @@
-# =========================
-# 1. Build stage
-# =========================
 FROM node:20-alpine AS builder
 
 WORKDIR /app
@@ -15,9 +12,6 @@ COPY . .
 RUN npm run build api-gateway
 
 
-# =========================
-# 2. Production dependencies stage
-# =========================
 FROM node:20-alpine AS prod-deps
 
 WORKDIR /app
@@ -28,20 +22,15 @@ COPY .npmrc ./
 RUN npm ci --omit=dev --no-audit --loglevel=error \
     && npm cache clean --force
 
-# Chỉ xóa cache / binary không cần thiết, không xóa sâu trong package runtime
 RUN rm -rf \
     .npmrc \
     /root/.npm \
     node_modules/.cache \
     node_modules/.bin
 
-# Check bắt buộc để tránh lỗi thiếu engine.io khi deploy
-RUN node -e "require.resolve('socket.io'); require.resolve('engine.io'); console.log('Socket.IO deps OK')"
+RUN node -e "require('socket.io'); require('engine.io'); require('engine.io-parser'); console.log('Socket deps OK')"
 
 
-# =========================
-# 3. Runtime stage
-# =========================
 FROM node:20-alpine
 
 ENV NODE_ENV=production

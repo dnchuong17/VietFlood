@@ -56,6 +56,18 @@ export class ReportsController {
     }
   }
 
+  @MessagePattern("update_status")
+  async updateStatus(@Payload() payload: any) {
+    try {
+      this.logger.debug(
+        `[UPDATE STATUS] - ID: ${payload.id}, status: ${payload.status}`,
+      );
+      return this.reportsService.updateReportStatus(payload.id, payload.status);
+    } catch (error) {
+      throw new RpcException(error);
+    }
+  }
+
   @MessagePattern("delete")
   async delete(@Payload() payload) {
     try {

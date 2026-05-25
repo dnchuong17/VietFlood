@@ -14,6 +14,7 @@ import {
 import { ReportEntity } from "./entity/report.entity";
 import { CreateReportDto } from "./dto/report.dto";
 import { UpdateReportDto } from "./dto/update_report.dto";
+import { ReportStatus } from "./enums/status.enum";
 
 @Injectable()
 export class ReportsService {
@@ -192,6 +193,39 @@ export class ReportsService {
       evidences: updatedReport?.evidences ?? [],
       images: updatedReport?.images ?? [],
       report: updatedReport,
+    };
+  }
+
+  async updateReportStatus(id: number, status: ReportStatus) {
+    if (!id) {
+      throw new BadRequestException("Invalid ID");
+    }
+
+    this.logger.debug(
+      `[UPDATE STATUS] - Updating status of report ID: ${id} to "${status}"`,
+    );
+
+    const report = await this.reportRepository.findOne({ where: { id } });
+
+    if (!report) {
+      throw new NotFoundException(`Report not found for ID: ${id}`);
+    }
+
+    await this.reportRepository.update(id, { status });
+
+    await this.redisHelper.del(`report:${id}`);
+
+    const updatedReport = await this.reportRepository.findOne({ where: { id } });
+
+    if (updatedReport) {
+      await this.redisHelper.set(`report:${id}`, JSON.stringify(updatedReport));
+    }
+
+    return {
+      success: true,
+      message: "Update report status successfully",
+      reportId: id,
+      status: updatedReport?.status,
     };
   }
 

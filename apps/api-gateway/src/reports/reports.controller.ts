@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Put,
   Req,
@@ -17,6 +18,7 @@ import { FilesInterceptor } from "@nestjs/platform-express";
 import { ReportsService } from "./reports.service";
 import { CreateReportDto } from "./dto/report.dto";
 import { UpdateReportDto } from "./dto/update_report.dto";
+import { UpdateStatusDto } from "./dto/update_status.dto";
 import { JwtAuthGuard } from "../auth/guard/jwt-auth.guard";
 import { Roles } from "../auth/Decorators/role.decorator";
 import { memoryStorage } from "multer";
@@ -104,6 +106,16 @@ export class ReportsController {
       updateReportDto,
       files,
     );
+  }
+
+  @Patch(":id/status")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.RELIEF)
+  async updateReportStatus(
+    @Param("id", ParseIntPipe) id: number,
+    @Body() updateStatusDto: UpdateStatusDto,
+  ) {
+    return this.reportsService.updateReportStatus(id, updateStatusDto);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

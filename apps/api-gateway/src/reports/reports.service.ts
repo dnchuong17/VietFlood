@@ -6,6 +6,7 @@ import { CloudinaryService, LoggerService } from "vietflood-common";
 
 import { CreateReportDto } from "./dto/report.dto";
 import { UpdateReportDto } from "./dto/update_report.dto";
+import { UpdateStatusDto } from "./dto/update_status.dto";
 
 @Injectable()
 export class ReportsService {
@@ -187,6 +188,23 @@ export class ReportsService {
             details: error?.message ?? error,
           });
         }),
+      ),
+    );
+
+    return data;
+  }
+
+  async updateReportStatus(id: number, dto: UpdateStatusDto) {
+    const data = await lastValueFrom(
+      this.reportsClient.send("update_status", { id, status: dto.status }).pipe(
+        timeout(5000),
+        retry(3),
+        catchError((error) =>
+          of({
+            error: "reports service error!",
+            details: error?.message ?? error,
+          }),
+        ),
       ),
     );
 

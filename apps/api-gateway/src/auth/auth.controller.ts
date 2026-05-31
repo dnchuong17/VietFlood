@@ -34,6 +34,13 @@ export class AuthController {
     return this.authService.register(registerDto);
   }
 
+  @Post("register/admin")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async registerForAdmin(@Body() registerDto: RegisterDto) {
+    return this.authService.register(registerDto);
+  }
+
   @Get("profile")
   @UseGuards(JwtAuthGuard)
   profile(@Req() req: any) {

@@ -27,21 +27,89 @@ export class ReportsService {
   ) {
     this.logger.setServiceName(ReportsService.name);
   }
+
+  private toFiniteNumber(value: unknown): number | undefined {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+
+    if (typeof value === "string" && value.trim()) {
+      const parsed = Number.parseFloat(value);
+      return Number.isFinite(parsed) ? parsed : undefined;
+    }
+
+    return undefined;
+  }
+
+  private normalizeCoordinates(dto: Partial<CreateReportDto>) {
+    const coordinates: Pick<ReportEntity, "lat" | "lng"> = {} as Pick<
+      ReportEntity,
+      "lat" | "lng"
+    >;
+    const lat = this.toFiniteNumber(dto.lat);
+    const lng = this.toFiniteNumber(dto.lng);
+
+    if (lat !== undefined) {
+      coordinates.lat = lat;
+    }
+    if (lng !== undefined) {
+      coordinates.lng = lng;
+    }
+
+    return coordinates;
+  }
+
+  private normalizeEvidences(
+    evidences?: CreateReportDto["evidences"],
+  ): ReportEvidence[] {
+    const uniqueEvidences = new Map<string, ReportEvidence>();
+
+    for (const evidence of evidences ?? []) {
+      const url = evidence?.url?.trim();
+      const publicId = evidence?.publicId?.trim();
+      if (!url || !publicId || uniqueEvidences.has(url)) {
+        continue;
+      }
+
+      uniqueEvidences.set(url, {
+        url,
+        publicId,
+        resourceType: evidence.resourceType,
+      });
+    }
+
+    return Array.from(uniqueEvidences.values());
+  }
+
+  private mergeEvidences(
+    existing: ReportEvidence[] | undefined,
+    incoming: ReportEvidence[],
+  ): ReportEvidence[] {
+    return this.normalizeEvidences([...(existing ?? []), ...incoming]);
+  }
+
+  private evidenceUrls(evidences: ReportEvidence[]): string[] {
+    return evidences.map((item) => item.url);
+  }
+
   async createReport(createReportDto: CreateReportDto, userId: number) {
     this.logger.debug("[CREATE REPORT] - Creating new report");
 
-    const evidences =
-      createReportDto.evidences?.map((item) => ({
-        url: item.url,
-        publicId: item.publicId,
-        resourceType: item.resourceType,
-      })) ?? [];
+    const {
+      evidences: _evidences,
+      lat: _lat,
+      lng: _lng,
+      ...reportFields
+    } = createReportDto;
+    const evidences = this.normalizeEvidences(createReportDto.evidences);
+    const coordinates = this.normalizeCoordinates(createReportDto);
 
     const report = this.reportRepository.create({
-      ...createReportDto,
+      ...reportFields,
+      ...coordinates,
       category: createReportDto.category ?? [],
       evidences,
-      images: evidences.map((item) => item.url),
+      images: this.evidenceUrls(evidences),
       userId: userId,
     });
 
@@ -145,18 +213,18 @@ export class ReportsService {
       );
     }
 
-    const incomingEvidences =
-      updateReportDto.evidences
-        ?.filter((item) => item?.url && item?.publicId)
-        .map((item) => ({
-          url: item.url,
-          publicId: item.publicId,
-          resourceType: item.resourceType,
-        })) ?? [];
+    const {
+      evidences: _evidences,
+      lat: _lat,
+      lng: _lng,
+      ...updateFields
+    } = updateReportDto;
+    const incomingEvidences = this.normalizeEvidences(updateReportDto.evidences);
+    const coordinates = this.normalizeCoordinates(updateReportDto);
 
     const mergedEvidences =
       incomingEvidences.length > 0
-        ? [...(existedReport.evidences ?? []), ...incomingEvidences]
+        ? this.mergeEvidences(existedReport.evidences, incomingEvidences)
         : (existedReport.evidences ?? []);
 
     const mergedCategory =
@@ -168,10 +236,11 @@ export class ReportsService {
 
     const mergedReport = {
       ...existedReport,
-      ...updateReportDto,
+      ...updateFields,
+      ...coordinates,
       category: mergedCategory,
       evidences: mergedEvidences,
-      images: mergedEvidences.map((item) => item.url),
+      images: this.evidenceUrls(mergedEvidences),
     };
 
     await this.reportRepository.update(id, mergedReport);

@@ -14,7 +14,7 @@ async function bootstrap() {
       "http://172.16.25.252:3001",
       "http://localhost:3000",
       "http://localhost:3001",
-      "https://vietflood-fe.vercel.app",
+      "https://vflood.vercel.app",
       "https://viet-flood-app.vercel.app",
     ],
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",

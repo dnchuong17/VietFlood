@@ -94,6 +94,52 @@ describe("ReportsService payload normalization", () => {
     expect(repository.create.mock.calls[0][0]).not.toHaveProperty("lng");
   });
 
+  it("normalizes latitude and longitude aliases into canonical lat/lng", async () => {
+    const { repository, service } = createReportsServiceHarness();
+
+    await service.createReport(
+      {
+        category: ["flood"],
+        description: "Flooded street",
+        province: "Da Nang",
+        ward: "Hai Chau",
+        addressLine: "12 Bach Dang",
+        latitude: "16.0544" as never,
+        longitude: "108.2022" as never,
+      },
+      7,
+    );
+
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lat: 16.0544,
+        lng: 108.2022,
+      }),
+    );
+    expect(repository.create.mock.calls[0][0]).not.toHaveProperty("latitude");
+    expect(repository.create.mock.calls[0][0]).not.toHaveProperty("longitude");
+  });
+
+  it("drops incomplete or out-of-range coordinate pairs", async () => {
+    const { repository, service } = createReportsServiceHarness();
+
+    await service.createReport(
+      {
+        category: ["flood"],
+        description: "Flooded street",
+        province: "Da Nang",
+        ward: "Hai Chau",
+        addressLine: "12 Bach Dang",
+        lat: "16.0544" as never,
+        lng: "181" as never,
+      },
+      7,
+    );
+
+    expect(repository.create.mock.calls[0][0]).not.toHaveProperty("lat");
+    expect(repository.create.mock.calls[0][0]).not.toHaveProperty("lng");
+  });
+
   it("normalizes update coordinates and keeps one image URL per evidence", async () => {
     const { repository, service } = createReportsServiceHarness();
     repository.find.mockResolvedValue([

@@ -14,6 +14,8 @@ export class CreateReportDto {
   addressLine: string;
   lat?: number;
   lng?: number;
+  latitude?: number;
+  longitude?: number;
   userId?: number;
   createdBy?: string;
   isUrgent?: boolean;

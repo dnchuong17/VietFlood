@@ -7,5 +7,6 @@
     "moduleResolution": "node",
     "baseUrl": "./",
     "paths": {}
-  }
+  },
+  "exclude": ["node_modules", "dist", "**/*.spec.ts"]
 }

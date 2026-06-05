@@ -11,7 +11,7 @@ import {
   RedisService,
 } from "vietflood-common";
 
-import { ReportEntity } from "./entity/report.entity";
+import { ReportEntity, type ReportEvidence } from "./entity/report.entity";
 import { CreateReportDto } from "./dto/report.dto";
 import { UpdateReportDto } from "./dto/update_report.dto";
 import { ReportStatus } from "./enums/status.enum";

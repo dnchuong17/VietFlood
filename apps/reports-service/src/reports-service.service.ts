@@ -46,13 +46,19 @@ export class ReportsService {
       ReportEntity,
       "lat" | "lng"
     >;
-    const lat = this.toFiniteNumber(dto.lat);
-    const lng = this.toFiniteNumber(dto.lng);
+    const lat = this.toFiniteNumber(dto.lat) ?? this.toFiniteNumber(dto.latitude);
+    const lng =
+      this.toFiniteNumber(dto.lng) ?? this.toFiniteNumber(dto.longitude);
 
-    if (lat !== undefined) {
+    if (
+      lat !== undefined &&
+      lng !== undefined &&
+      lat >= -90 &&
+      lat <= 90 &&
+      lng >= -180 &&
+      lng <= 180
+    ) {
       coordinates.lat = lat;
-    }
-    if (lng !== undefined) {
       coordinates.lng = lng;
     }
 
@@ -99,6 +105,8 @@ export class ReportsService {
       evidences: _evidences,
       lat: _lat,
       lng: _lng,
+      latitude: _latitude,
+      longitude: _longitude,
       ...reportFields
     } = createReportDto;
     const evidences = this.normalizeEvidences(createReportDto.evidences);
@@ -217,6 +225,8 @@ export class ReportsService {
       evidences: _evidences,
       lat: _lat,
       lng: _lng,
+      latitude: _latitude,
+      longitude: _longitude,
       ...updateFields
     } = updateReportDto;
     const incomingEvidences = this.normalizeEvidences(updateReportDto.evidences);

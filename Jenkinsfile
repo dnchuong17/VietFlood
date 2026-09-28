@@ -17,6 +17,8 @@ pipeline {
     CONTAINER_PORT = '8081'
     ENV_FILE = '/opt/env/vietflood.env'
     DOCKER_NETWORK = 'jenkins_default'
+    REDIS_CONTAINER_NAME = 'vietflood-redis'
+    RABBITMQ_CONTAINER_NAME = 'vietflood-rabbitmq'
   }
 
   stages {
@@ -64,6 +66,80 @@ pipeline {
       }
     }
 
+    stage('Start Runtime Dependencies') {
+      steps {
+        sh '''
+          set -eu
+
+          if [ ! -f "$ENV_FILE" ]; then
+            echo "Missing env file: $ENV_FILE"
+            exit 1
+          fi
+
+          set -a
+          . "$ENV_FILE"
+          set +a
+
+          : "${REDIS_PASSWORD:?Missing REDIS_PASSWORD in $ENV_FILE}"
+          : "${RABBITMQ_DEFAULT_USER:?Missing RABBITMQ_DEFAULT_USER in $ENV_FILE}"
+          : "${RABBITMQ_DEFAULT_PASS:?Missing RABBITMQ_DEFAULT_PASS in $ENV_FILE}"
+
+          docker network inspect "$DOCKER_NETWORK" >/dev/null 2>&1 || docker network create "$DOCKER_NETWORK"
+
+          if docker ps -a --format '{{.Names}}' | grep -qx "$REDIS_CONTAINER_NAME"; then
+            docker start "$REDIS_CONTAINER_NAME" >/dev/null
+            docker network connect --alias redis "$DOCKER_NETWORK" "$REDIS_CONTAINER_NAME" 2>/dev/null || true
+          else
+            docker run -d \
+              --name "$REDIS_CONTAINER_NAME" \
+              --network "$DOCKER_NETWORK" \
+              --network-alias redis \
+              --restart unless-stopped \
+              redis:7-alpine \
+              redis-server --requirepass "$REDIS_PASSWORD" --appendonly yes
+          fi
+
+          if docker ps -a --format '{{.Names}}' | grep -qx "$RABBITMQ_CONTAINER_NAME"; then
+            docker start "$RABBITMQ_CONTAINER_NAME" >/dev/null
+            docker network connect --alias rabbitmq "$DOCKER_NETWORK" "$RABBITMQ_CONTAINER_NAME" 2>/dev/null || true
+          else
+            docker run -d \
+              --name "$RABBITMQ_CONTAINER_NAME" \
+              --network "$DOCKER_NETWORK" \
+              --network-alias rabbitmq \
+              --restart unless-stopped \
+              --env RABBITMQ_DEFAULT_USER \
+              --env RABBITMQ_DEFAULT_PASS \
+              rabbitmq:3-management-alpine
+          fi
+
+          echo "Waiting for Redis..."
+          for i in $(seq 1 30); do
+            if docker exec "$REDIS_CONTAINER_NAME" redis-cli -a "$REDIS_PASSWORD" ping >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+            if [ "$i" = "30" ]; then
+              echo "Redis is not ready"
+              exit 1
+            fi
+          done
+
+          echo "Waiting for RabbitMQ..."
+          for i in $(seq 1 60); do
+            if docker exec "$RABBITMQ_CONTAINER_NAME" rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+            if [ "$i" = "60" ]; then
+              echo "RabbitMQ is not ready"
+              exit 1
+            fi
+          done
+        '''
+      }
+    }
+
     stage('Check Host Port') {
       steps {
         sh '''
@@ -86,30 +162,11 @@ pipeline {
             "-p ${env.HOST_PORT}:${env.CONTAINER_PORT}",
             '--restart unless-stopped',
             "--env-file ${env.ENV_FILE}",
-            "-e API_GATEWAY_PORT=${env.CONTAINER_PORT}"
+            "-e API_GATEWAY_PORT=${env.CONTAINER_PORT}",
+            '-e REDIS_HOST=redis',
+            '-e REDIS_PORT=6379',
+            '-e REDIS_DB=0'
           ]
-
-          if (env.DATABASE_URL && env.DATABASE_URL.trim()) {
-            dockerRunArgs.add("-e DATABASE_URL=${env.DATABASE_URL}")
-          }
-          if (env.REDIS_HOST && env.REDIS_HOST.trim()) {
-            dockerRunArgs.add("-e REDIS_HOST=${env.REDIS_HOST}")
-          }
-          if (env.REDIS_PORT && env.REDIS_PORT.trim()) {
-            dockerRunArgs.add("-e REDIS_PORT=${env.REDIS_PORT}")
-          }
-          if (env.REDIS_PASSWORD && env.REDIS_PASSWORD.trim()) {
-            dockerRunArgs.add("-e REDIS_PASSWORD=${env.REDIS_PASSWORD}")
-          }
-          if (env.RABBITMQ_URL && env.RABBITMQ_URL.trim()) {
-            dockerRunArgs.add("-e RABBITMQ_URL=${env.RABBITMQ_URL}")
-          }
-          if (env.JWT_SECRET && env.JWT_SECRET.trim()) {
-            dockerRunArgs.add("-e JWT_SECRET=${env.JWT_SECRET}")
-          }
-          if (env.REFRESH_SECRET && env.REFRESH_SECRET.trim()) {
-            dockerRunArgs.add("-e REFRESH_SECRET=${env.REFRESH_SECRET}")
-          }
 
           dockerRunArgs.add("${env.IMAGE_NAME}:${env.TIMESTAMP}")
 

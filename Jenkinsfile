@@ -19,6 +19,8 @@ pipeline {
     DOCKER_NETWORK = 'jenkins_default'
     REDIS_CONTAINER_NAME = 'vietflood-redis'
     RABBITMQ_CONTAINER_NAME = 'vietflood-rabbitmq'
+    RABBITMQ_DEFAULT_USER = 'admin'
+    RABBITMQ_DEFAULT_PASS = 'admin'
   }
 
   stages {
@@ -81,8 +83,9 @@ pipeline {
           set +a
 
           : "${REDIS_PASSWORD:?Missing REDIS_PASSWORD in $ENV_FILE}"
-          : "${RABBITMQ_DEFAULT_USER:?Missing RABBITMQ_DEFAULT_USER in $ENV_FILE}"
-          : "${RABBITMQ_DEFAULT_PASS:?Missing RABBITMQ_DEFAULT_PASS in $ENV_FILE}"
+          RABBITMQ_DEFAULT_USER="${RABBITMQ_DEFAULT_USER:-admin}"
+          RABBITMQ_DEFAULT_PASS="${RABBITMQ_DEFAULT_PASS:-admin}"
+          export RABBITMQ_DEFAULT_USER RABBITMQ_DEFAULT_PASS
 
           docker network inspect "$DOCKER_NETWORK" >/dev/null 2>&1 || docker network create "$DOCKER_NETWORK"
 
@@ -165,7 +168,8 @@ pipeline {
             "-e API_GATEWAY_PORT=${env.CONTAINER_PORT}",
             '-e REDIS_HOST=redis',
             '-e REDIS_PORT=6379',
-            '-e REDIS_DB=0'
+            '-e REDIS_DB=0',
+            "-e RABBITMQ_URL=amqp://${env.RABBITMQ_DEFAULT_USER}:${env.RABBITMQ_DEFAULT_PASS}@rabbitmq:5672"
           ]
 
           dockerRunArgs.add("${env.IMAGE_NAME}:${env.TIMESTAMP}")

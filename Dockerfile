@@ -1,67 +1,48 @@
-# Build stage
-FROM node:20-alpine AS builder
-
+# Stage 1: install dependencies
+FROM node:20-alpine AS deps
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-COPY .npmrc ./
+COPY package*.json .npmrc ./
+RUN npm ci --no-audit --loglevel=error
 
-# Install all dependencies
-RUN npm ci --prefer-offline --no-audit --loglevel=error
+# Stage 2: build all NestJS services
+FROM node:20-alpine AS build
+WORKDIR /app
 
-# Copy source code
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build all services
-RUN npm run build:api-gateway && \
-    npm run build:auth-service && \
-    npm run build:reports-service
+RUN npm run build:api-gateway \
+  && npm run build:auth-service \
+  && npm run build:reports-service
 
-# Prune dev dependencies
-RUN npm prune --omit=dev
-
-# Production stage
-FROM node:20-alpine
-
-ENV NODE_ENV=production
-
+# Stage 3: production runtime
+FROM node:20-alpine AS runtime
 WORKDIR /app
 
-# Install dumb-init for proper signal handling
+ENV NODE_ENV=production
+ENV API_GATEWAY_PORT=8081
+
 RUN apk add --no-cache dumb-init
 
-# Copy package files
-COPY package*.json ./
-COPY .npmrc ./
+COPY package*.json .npmrc ./
+RUN npm ci --omit=dev --no-audit --loglevel=error \
+  && npm cache clean --force \
+  && rm -f .npmrc
 
-# Install production dependencies only
-RUN npm ci --prefer-offline --no-audit --omit=dev
+COPY --from=build /app/dist/apps/api-gateway ./dist/api-gateway
+COPY --from=build /app/dist/apps/auth-service ./dist/auth-service
+COPY --from=build /app/dist/apps/reports-service ./dist/reports-service
+COPY docker-entrypoint.sh /docker-entrypoint.sh
 
-# Copy all built services from builder
-COPY --from=builder /app/dist/apps/api-gateway ./dist/api-gateway
-COPY --from=builder /app/dist/apps/auth-service ./dist/auth-service
-COPY --from=builder /app/dist/apps/reports-service ./dist/reports-service
+RUN chmod +x /docker-entrypoint.sh
 
-# Copy startup script
-COPY ./docker-entrypoint.sh /
-
-# Clean up
-RUN rm -rf .npmrc && \
-    chmod +x /docker-entrypoint.sh
-
-# Health check for API Gateway (main entry point)
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:8081', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})" || exit 0
-
-# Expose the public HTTP entry point
 EXPOSE 8081
 
-# User
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD node -e "require('http').get('http://127.0.0.1:' + (process.env.API_GATEWAY_PORT || 8081), res => process.exit(res.statusCode >= 200 && res.statusCode < 500 ? 0 : 1)).on('error', () => process.exit(1))"
+
 USER nobody
 
-# Entrypoint
 ENTRYPOINT ["dumb-init", "--"]
-
-# Start all services
 CMD ["/docker-entrypoint.sh"]

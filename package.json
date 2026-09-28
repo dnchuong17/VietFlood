@@ -11,6 +11,7 @@
     "build:api-gateway": "nest build api-gateway",
     "build:auth-service": "nest build auth-service",
     "build:reports-service": "nest build reports-service",
+    "test": "vitest run",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix"
   },
   "repository": {
@@ -70,6 +71,7 @@
     "prettier": "^3.8.1",
     "ts-loader": "^9.5.4",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.56.1"
+    "typescript-eslint": "^8.56.1",
+    "vitest": "^5.0.2"
   }
 }

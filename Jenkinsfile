@@ -13,7 +13,8 @@ pipeline {
     REPO_URL = 'https://github.com/dnchuong17/VietFlood.git'
     IMAGE_NAME = 'vietflood-be'
     CONTAINER_NAME = 'vietflood-be-container'
-    PORT = '8081'
+    HOST_PORT = '8082'
+    CONTAINER_PORT = '8081'
     ENV_FILE = '/opt/env/vietflood.env'
     DOCKER_NETWORK = 'jenkins_default'
   }
@@ -63,6 +64,18 @@ pipeline {
       }
     }
 
+    stage('Check Host Port') {
+      steps {
+        sh '''
+          if docker ps --format '{{.Names}} {{.Ports}}' | grep -q "0.0.0.0:${HOST_PORT}->"; then
+            echo "Host port ${HOST_PORT} is already in use:"
+            docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Ports}}' | grep "0.0.0.0:${HOST_PORT}->" || true
+            exit 1
+          fi
+        '''
+      }
+    }
+
     stage('Run New Container') {
       steps {
         script {
@@ -70,10 +83,10 @@ pipeline {
             '-d',
             "--name ${env.CONTAINER_NAME}",
             "--network ${env.DOCKER_NETWORK}",
-            "-p ${env.PORT}:${env.PORT}",
+            "-p ${env.HOST_PORT}:${env.CONTAINER_PORT}",
             '--restart unless-stopped',
             "--env-file ${env.ENV_FILE}",
-            "-e API_GATEWAY_PORT=${env.PORT}"
+            "-e API_GATEWAY_PORT=${env.CONTAINER_PORT}"
           ]
 
           if (env.DATABASE_URL && env.DATABASE_URL.trim()) {

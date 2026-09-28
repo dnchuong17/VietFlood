@@ -13,7 +13,7 @@ pipeline {
     REPO_URL = 'https://github.com/dnchuong17/VietFlood.git'
     IMAGE_NAME = 'vietflood-be'
     CONTAINER_NAME = 'vietflood-be-container'
-    HOST_PORT = '8082'
+    HOST_PORT = '3004'
     CONTAINER_PORT = '8081'
     ENV_FILE = '/opt/env/vietflood.env'
     DOCKER_NETWORK = 'jenkins_default'

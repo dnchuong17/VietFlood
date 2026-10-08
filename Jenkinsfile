@@ -9,8 +9,6 @@ pipeline {
   }
 
   environment {
-    BE_DIR = '/home/project/vietflood'
-    REPO_URL = 'https://github.com/dnchuong17/VietFlood.git'
     IMAGE_NAME = 'vietflood-be'
     CONTAINER_NAME = 'vietflood-be-container'
     HOST_PORT = '3004'
@@ -19,8 +17,6 @@ pipeline {
     DOCKER_NETWORK = 'jenkins_default'
     REDIS_CONTAINER_NAME = 'vietflood-redis'
     RABBITMQ_CONTAINER_NAME = 'vietflood-rabbitmq'
-    RABBITMQ_DEFAULT_USER = 'admin'
-    RABBITMQ_DEFAULT_PASS = 'admin'
   }
 
   stages {
@@ -33,44 +29,23 @@ pipeline {
       }
     }
 
-    stage('Prepare Folder') {
+    stage('Checkout Source Code') {
       steps {
-        sh '''
-          rm -rf "$BE_DIR"
-          mkdir -p "$BE_DIR"
-        '''
-      }
-    }
-
-    stage('Clone Source Code') {
-      steps {
-        sh '''
-          echo "Cloning VietFlood repo..."
-          git clone "$REPO_URL" "$BE_DIR"
-        '''
+        deleteDir()
+        checkout scm
       }
     }
 
     stage('Build Docker Image') {
       steps {
-        dir("${env.BE_DIR}") {
-          sh 'docker build -t ${IMAGE_NAME}:${TIMESTAMP} -t ${IMAGE_NAME}:latest .'
-        }
-      }
-    }
-
-    stage('Stop & Remove Old Container') {
-      steps {
-        sh '''
-          docker stop "$CONTAINER_NAME" || true
-          docker rm "$CONTAINER_NAME" || true
-        '''
+        sh 'docker build -t ${IMAGE_NAME}:${TIMESTAMP} -t ${IMAGE_NAME}:latest .'
       }
     }
 
     stage('Start Runtime Dependencies') {
       steps {
         sh '''
+          set +x
           set -eu
 
           if [ ! -f "$ENV_FILE" ]; then
@@ -83,9 +58,8 @@ pipeline {
           set +a
 
           : "${REDIS_PASSWORD:?Missing REDIS_PASSWORD in $ENV_FILE}"
-          RABBITMQ_DEFAULT_USER="${RABBITMQ_DEFAULT_USER:-admin}"
-          RABBITMQ_DEFAULT_PASS="${RABBITMQ_DEFAULT_PASS:-admin}"
-          export RABBITMQ_DEFAULT_USER RABBITMQ_DEFAULT_PASS
+          : "${RABBITMQ_DEFAULT_USER:?Missing RABBITMQ_DEFAULT_USER in $ENV_FILE}"
+          : "${RABBITMQ_DEFAULT_PASS:?Missing RABBITMQ_DEFAULT_PASS in $ENV_FILE}"
 
           docker network inspect "$DOCKER_NETWORK" >/dev/null 2>&1 || docker network create "$DOCKER_NETWORK"
 
@@ -116,16 +90,26 @@ pipeline {
               rabbitmq:3-management-alpine
           fi
 
-          echo "Waiting for Redis..."
+          echo "Checking Redis..."
           for i in $(seq 1 30); do
-            if docker exec "$REDIS_CONTAINER_NAME" redis-cli -a "$REDIS_PASSWORD" ping >/dev/null 2>&1; then
+            redis_reply=$(docker exec "$REDIS_CONTAINER_NAME" redis-cli --no-auth-warning -a "$REDIS_PASSWORD" ping 2>&1 || true)
+            if [ "$redis_reply" = "PONG" ]; then
               break
             fi
-            sleep 2
+
+            case "$redis_reply" in
+              *WRONGPASS*|*NOAUTH*|*'AUTH failed'*)
+                echo "Redis authentication failed. The existing container may use a different password than $ENV_FILE. Preserve its data and reconcile the password before rerunning."
+                exit 1
+                ;;
+            esac
+
             if [ "$i" = "30" ]; then
-              echo "Redis is not ready"
+              redis_state=$(docker inspect -f '{{.State.Status}}' "$REDIS_CONTAINER_NAME" 2>/dev/null || true)
+              echo "Redis did not become ready (container state: ${redis_state:-unknown}). Check the container logs and Docker access."
               exit 1
             fi
+            sleep 2
           done
 
           echo "Waiting for RabbitMQ..."
@@ -139,6 +123,19 @@ pipeline {
               exit 1
             fi
           done
+          if ! docker exec "$RABBITMQ_CONTAINER_NAME" rabbitmqctl authenticate_user "$RABBITMQ_DEFAULT_USER" "$RABBITMQ_DEFAULT_PASS" >/dev/null 2>&1; then
+            echo "RabbitMQ authentication failed. Check that the existing container matches $ENV_FILE."
+            exit 1
+          fi
+        '''
+      }
+    }
+
+    stage('Stop & Remove Old Container') {
+      steps {
+        sh '''
+          docker stop "$CONTAINER_NAME" || true
+          docker rm "$CONTAINER_NAME" || true
         '''
       }
     }
@@ -157,25 +154,30 @@ pipeline {
 
     stage('Run New Container') {
       steps {
-        script {
-          def dockerRunArgs = [
-            '-d',
-            "--name ${env.CONTAINER_NAME}",
-            "--network ${env.DOCKER_NETWORK}",
-            "-p ${env.HOST_PORT}:${env.CONTAINER_PORT}",
-            '--restart unless-stopped',
-            "--env-file ${env.ENV_FILE}",
-            "-e API_GATEWAY_PORT=${env.CONTAINER_PORT}",
-            '-e REDIS_HOST=redis',
-            '-e REDIS_PORT=6379',
-            '-e REDIS_DB=0',
-            "-e RABBITMQ_URL=amqp://${env.RABBITMQ_DEFAULT_USER}:${env.RABBITMQ_DEFAULT_PASS}@rabbitmq:5672"
-          ]
+        sh '''
+          set +x
+          set -eu
+          set -a
+          . "$ENV_FILE"
+          set +a
+          : "${RABBITMQ_DEFAULT_USER:?Missing RABBITMQ_DEFAULT_USER in $ENV_FILE}"
+          : "${RABBITMQ_DEFAULT_PASS:?Missing RABBITMQ_DEFAULT_PASS in $ENV_FILE}"
+          RABBITMQ_URL="amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672"
+          export RABBITMQ_URL
 
-          dockerRunArgs.add("${env.IMAGE_NAME}:${env.TIMESTAMP}")
-
-          sh "docker run ${dockerRunArgs.join(' ')}"
-        }
+          docker run -d \
+            --name "$CONTAINER_NAME" \
+            --network "$DOCKER_NETWORK" \
+            -p "$HOST_PORT:$CONTAINER_PORT" \
+            --restart unless-stopped \
+            --env-file "$ENV_FILE" \
+            -e API_GATEWAY_PORT="$CONTAINER_PORT" \
+            -e REDIS_HOST=redis \
+            -e REDIS_PORT=6379 \
+            -e REDIS_DB=0 \
+            -e RABBITMQ_URL \
+            "$IMAGE_NAME:$TIMESTAMP"
+        '''
       }
     }
   }

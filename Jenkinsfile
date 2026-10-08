@@ -60,6 +60,7 @@ pipeline {
           : "${REDIS_PASSWORD:?Missing REDIS_PASSWORD in $ENV_FILE}"
           : "${RABBITMQ_DEFAULT_USER:?Missing RABBITMQ_DEFAULT_USER in $ENV_FILE}"
           : "${RABBITMQ_DEFAULT_PASS:?Missing RABBITMQ_DEFAULT_PASS in $ENV_FILE}"
+          : "${GOOGLE_API_KEY:?Missing GOOGLE_API_KEY in $ENV_FILE}"
 
           docker network inspect "$DOCKER_NETWORK" >/dev/null 2>&1 || docker network create "$DOCKER_NETWORK"
 
@@ -162,6 +163,7 @@ pipeline {
           set +a
           : "${RABBITMQ_DEFAULT_USER:?Missing RABBITMQ_DEFAULT_USER in $ENV_FILE}"
           : "${RABBITMQ_DEFAULT_PASS:?Missing RABBITMQ_DEFAULT_PASS in $ENV_FILE}"
+          : "${GOOGLE_API_KEY:?Missing GOOGLE_API_KEY in $ENV_FILE}"
           RABBITMQ_URL="amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672"
           export RABBITMQ_URL
 

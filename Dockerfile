@@ -22,6 +22,10 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV API_GATEWAY_PORT=8081
+ENV QDRANT_URL=https://qdrant.ndtd.indevs.in:443
+ENV QDRANT_COLLECTION=flood_kb_staging_2026_01
+ENV QDRANT_TEXT_FIELD=text
+ENV GEMINI_CHAT_MODEL=gemini-3.7-flash
 
 RUN apk add --no-cache dumb-init
 

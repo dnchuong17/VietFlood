@@ -29,3 +29,8 @@ embedding service. It can explain the report
 form and show status for reports owned by the signed-in user. Report submission
 and evidence uploads continue through the existing report endpoint.
 The staging collection's review flags are not used to filter chat retrieval.
+
+The Jenkins deployment reads secrets from `/opt/env/vietflood.env`; put a
+rotated `GOOGLE_API_KEY` there. The production Docker image defaults to the
+Qdrant URL, collection, `text` field, and Gemini model listed above. Values in
+the Jenkins env file can override these defaults through `docker run --env-file`.

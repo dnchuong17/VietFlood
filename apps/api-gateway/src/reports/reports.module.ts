@@ -42,6 +42,6 @@ import { AuthModule } from "../auth/auth.module";
   ],
   controllers: [ReportsController],
   providers: [ReportsService, JwtStrategy, LoggerService, CloudinaryService],
-  exports: [ClientsModule],
+  exports: [ClientsModule, ReportsService],
 })
 export class ReportsModule {}

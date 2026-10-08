@@ -7,6 +7,7 @@ import { ConfigModule } from "@nestjs/config";
 import { ReportsModule } from "./reports/reports.module";
 import { TrackingModule } from "./tracking/tracking.module";
 import { LocationsModule } from "./locations/locations.module";
+import { ChatModule } from "./chat/chat.module";
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { LocationsModule } from "./locations/locations.module";
     ReportsModule,
     TrackingModule,
     LocationsModule,
+    ChatModule,
   ],
   controllers: [ApiGatewayController],
   providers: [ApiGatewayService, LoggerService],

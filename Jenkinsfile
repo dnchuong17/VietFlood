@@ -60,7 +60,12 @@ pipeline {
           : "${REDIS_PASSWORD:?Missing REDIS_PASSWORD in $ENV_FILE}"
           : "${RABBITMQ_DEFAULT_USER:?Missing RABBITMQ_DEFAULT_USER in $ENV_FILE}"
           : "${RABBITMQ_DEFAULT_PASS:?Missing RABBITMQ_DEFAULT_PASS in $ENV_FILE}"
-          : "${GOOGLE_API_KEY:?Missing GOOGLE_API_KEY in $ENV_FILE}"
+          : "${DATABASE_URL:?Missing DATABASE_URL in $ENV_FILE}"
+          : "${CHAT_KEYRING_B64:?Missing CHAT_KEYRING_B64 in $ENV_FILE}"
+          : "${CHAT_KEY_CURRENT:?Missing CHAT_KEY_CURRENT in $ENV_FILE}"
+          : "${CHAT_DB_CA_BASE64:?Missing CHAT_DB_CA_BASE64 in $ENV_FILE}"
+          : "${CHAT_BACKUP_RETENTION_DAYS:?Record the verified Supabase backup retention in $ENV_FILE}"
+          : "${CHAT_BACKUP_VERIFIED_AT:?Record the backup verification date in $ENV_FILE}"
 
           docker network inspect "$DOCKER_NETWORK" >/dev/null 2>&1 || docker network create "$DOCKER_NETWORK"
 
@@ -132,6 +137,21 @@ pipeline {
       }
     }
 
+    stage('Migrate Chat History') {
+      steps {
+        sh '''
+          set +x
+          set -eu
+          docker run --rm \
+            --network "$DOCKER_NETWORK" \
+            --env-file "$ENV_FILE" \
+            --entrypoint node \
+            "$IMAGE_NAME:$TIMESTAMP" \
+            /app/scripts/migrate-chat-history.js
+        '''
+      }
+    }
+
     stage('Stop & Remove Old Container') {
       steps {
         sh '''
@@ -163,7 +183,9 @@ pipeline {
           set +a
           : "${RABBITMQ_DEFAULT_USER:?Missing RABBITMQ_DEFAULT_USER in $ENV_FILE}"
           : "${RABBITMQ_DEFAULT_PASS:?Missing RABBITMQ_DEFAULT_PASS in $ENV_FILE}"
-          : "${GOOGLE_API_KEY:?Missing GOOGLE_API_KEY in $ENV_FILE}"
+          : "${CHAT_KEYRING_B64:?Missing CHAT_KEYRING_B64 in $ENV_FILE}"
+          : "${CHAT_KEY_CURRENT:?Missing CHAT_KEY_CURRENT in $ENV_FILE}"
+          : "${CHAT_DB_CA_BASE64:?Missing CHAT_DB_CA_BASE64 in $ENV_FILE}"
           RABBITMQ_URL="amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672"
           export RABBITMQ_URL
 

@@ -34,6 +34,11 @@ export RABBITMQ_URL="${RABBITMQ_URL:-amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_
 require_env DATABASE_URL
 require_env JWT_SECRET
 require_env REFRESH_SECRET
+require_env CHAT_KEYRING_B64
+require_env CHAT_KEY_CURRENT
+if [ "$NODE_ENV" = "production" ]; then
+  require_env CHAT_DB_CA_BASE64
+fi
 
 case "$REDIS_PORT" in
   ''|*[!0-9]*)

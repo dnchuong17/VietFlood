@@ -42,6 +42,8 @@ RUN apk add --no-cache dumb-init
 COPY --from=builder /app/dist/apps/api-gateway ./dist
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=prod-deps /app/package.json ./
+COPY db/migrations/20261009_chat_history.sql ./db/migrations/20261009_chat_history.sql
+COPY scripts/migrate-chat-history.js scripts/rotate-chat-history-key.js ./scripts/
 
 EXPOSE 8081
 

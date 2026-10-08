@@ -25,7 +25,6 @@ ENV API_GATEWAY_PORT=8081
 ENV QDRANT_URL=https://qdrant.ndtd.indevs.in:443
 ENV QDRANT_COLLECTION=flood_kb_staging_2026_01
 ENV QDRANT_TEXT_FIELD=text
-ENV GEMINI_CHAT_MODEL=gemini-3.7-flash
 
 RUN apk add --no-cache dumb-init
 
@@ -38,6 +37,8 @@ COPY --from=build /app/dist/apps/api-gateway ./dist/api-gateway
 COPY --from=build /app/dist/apps/auth-service ./dist/auth-service
 COPY --from=build /app/dist/apps/reports-service ./dist/reports-service
 COPY docker-entrypoint.sh /docker-entrypoint.sh
+COPY db/migrations/20261009_chat_history.sql ./db/migrations/20261009_chat_history.sql
+COPY scripts/migrate-chat-history.js scripts/rotate-chat-history-key.js ./scripts/
 
 RUN chmod +x /docker-entrypoint.sh
 

@@ -7,16 +7,14 @@ describe("QdrantKnowledgeService", () => {
   const logger = { setServiceName: vi.fn(), warn: vi.fn() };
 
   beforeEach(() => {
-    process.env.QDRANT_URL;
-    process.env.QDRANT_COLLECTION;
-    process.env.QDRANT_TEXT_FIELD;
+    vi.stubEnv("QDRANT_URL", "http://qdrant.test");
+    vi.stubEnv("QDRANT_COLLECTION", "flood_kb_staging_2026_01");
+    vi.stubEnv("QDRANT_TEXT_FIELD", "");
   });
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
-    delete process.env.QDRANT_URL;
-    delete process.env.QDRANT_COLLECTION;
-    delete process.env.QDRANT_TEXT_FIELD;
+    vi.unstubAllEnvs();
   });
 
   it("inspects the payload, creates a text index, and ranks matching passages", async () => {

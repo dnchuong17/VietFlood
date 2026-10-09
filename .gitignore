@@ -19,6 +19,9 @@ lerna-debug.log*
 .env.test
 .env.production
 
+# Local Supabase database CA; Jenkins receives CHAT_DB_CA_BASE64 separately
+/certs/prod-ca-2021.crt
+
 # IDE
 .idea/
 .vscode/

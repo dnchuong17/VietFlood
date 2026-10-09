@@ -181,6 +181,17 @@ describe("ChatService", () => {
     expect(knowledge.search).not.toHaveBeenCalled();
   });
 
+  it('routes "bây giờ lũ ở đâu" only to verified report summaries', async () => {
+    reports.getRecentVerifiedFloodAreas.mockResolvedValue([]);
+
+    const result = await service.reply(7, { message: "Bây giờ lũ ở đâu?" });
+
+    expect(result.answer).toContain("Trong 24 giờ qua");
+    expect(reports.getRecentVerifiedFloodAreas).toHaveBeenCalledOnce();
+    expect(knowledge.search).not.toHaveBeenCalled();
+    expect(gemini.answer).not.toHaveBeenCalled();
+  });
+
   it("does not imply no flooding when there are no verified community reports", async () => {
     reports.getRecentVerifiedFloodAreas.mockResolvedValue([]);
     const result = await service.reply(7, { message: "lũ ở đâu?" });
@@ -197,6 +208,16 @@ describe("ChatService", () => {
       .rejects.toBeInstanceOf(ServiceUnavailableException);
     expect(knowledge.search).not.toHaveBeenCalled();
     expect(history.create).not.toHaveBeenCalled();
+  });
+
+  it("logs safe report RPC timeout diagnostics without logging error details", async () => {
+    reports.getRecentVerifiedFloodAreas.mockRejectedValue(new Error("TimeoutError: private payload timed out"));
+
+    await expect(service.reply(7, { message: "Bây giờ lũ ở đâu?" }))
+      .rejects.toBeInstanceOf(ServiceUnavailableException);
+
+    expect(logger.warn).toHaveBeenCalledWith("Recent flood report RPC timed out");
+    expect(JSON.stringify(logger.warn.mock.calls)).not.toContain("private payload");
   });
 
   it("keeps general flood location questions on the knowledge path", async () => {
@@ -222,6 +243,29 @@ describe("ChatService", () => {
     expect(result.answer).toContain("Lũ quét xảy ra nhanh");
     expect(result.answer).not.toContain("https://");
     expect(sessions.get(result.sessionId)?.turns[0].kind).toBe("knowledge");
+  });
+
+  it("shortens local passages at a sentence boundary within 400 characters", async () => {
+    const firstSentence = "A".repeat(120) + ".";
+    knowledge.search.mockResolvedValue([`${firstSentence} ${"B".repeat(500)}`]);
+
+    const result = await service.reply(7, { message: "Cách phòng lũ?" });
+    const excerpt = result.answer.slice("Theo kho kiến thức VietFlood: ".length);
+
+    expect(excerpt).toBe(firstSentence);
+    expect(excerpt.length).toBeLessThanOrEqual(400);
+  });
+
+  it("shortens an overlong first sentence at a word boundary with an ellipsis", async () => {
+    const passage = `${"từ ".repeat(150)}cuối cùng trong câu dài không có dấu kết thúc`;
+    knowledge.search.mockResolvedValue([passage]);
+
+    const result = await service.reply(7, { message: "Cách phòng lũ?" });
+    const excerpt = result.answer.slice("Theo kho kiến thức VietFlood: ".length);
+
+    expect(excerpt.length).toBeLessThanOrEqual(400);
+    expect(excerpt.endsWith("…")).toBe(true);
+    expect(excerpt).not.toMatch(/\s…$/u);
   });
 
   it("uses Gemini only with passages from the approved collection", async () => {

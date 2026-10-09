@@ -179,6 +179,8 @@ export class ReportsService {
       .where("report.status = :status", { status: ReportStatus.VERIFIED })
       .andWhere(":category = ANY(report.category)", { category: "flood" })
       .andWhere("report.createdAt >= :since", { since })
+      .andWhere("report.province IS NOT NULL AND BTRIM(report.province) <> ''")
+      .andWhere("report.ward IS NOT NULL AND BTRIM(report.ward) <> ''")
       .groupBy("report.province")
       .addGroupBy("report.ward")
       .orderBy("latestAt", "DESC")

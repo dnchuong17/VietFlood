@@ -68,6 +68,8 @@ describe("ReportsService payload normalization", () => {
     expect(query.addSelect).not.toHaveBeenCalledWith("report.addressLine", expect.anything());
     expect(query.where).toHaveBeenCalledWith("report.status = :status", { status: "verified" });
     expect(query.andWhere).toHaveBeenCalledWith(":category = ANY(report.category)", { category: "flood" });
+    expect(query.andWhere).toHaveBeenCalledWith("report.province IS NOT NULL AND BTRIM(report.province) <> ''");
+    expect(query.andWhere).toHaveBeenCalledWith("report.ward IS NOT NULL AND BTRIM(report.ward) <> ''");
     expect(query.take).toHaveBeenCalledWith(5);
     const cutoff = query.andWhere.mock.calls.find(([sql]) => sql === "report.createdAt >= :since")?.[1].since;
     expect(cutoff.getTime()).toBeGreaterThan(Date.now() - 24 * 60 * 60 * 1000 - 1000);

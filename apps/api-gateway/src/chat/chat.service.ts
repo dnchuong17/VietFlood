@@ -44,6 +44,7 @@ function isVerifiedFloodArea(value: unknown): value is VerifiedFloodArea {
 }
 
 const MAX_TURNS = 10;
+const MAX_LOCAL_EXCERPT_LENGTH = 400;
 const REQUESTS_PER_MINUTE = 20;
 const REPORT_STATUS_LABELS: Record<string, string> = {
   pending: "chờ xử lý",
@@ -189,14 +190,14 @@ export class ChatService {
         this.logger.warn("Approved knowledge lookup failed; using local fallback");
       }
     }
-    const excerpt = (passages[0] ?? "")
+    const cleanedPassage = (passages[0] ?? "")
       .replace(/https?:\/\/\S+/giu, "")
       .replace(/<[^>]+>/gu, "")
       .replace(/\[[^\]]+\]\([^)]*\)/gu, "")
       .replace(/[#*`_]/gu, "")
       .replace(/\s+/gu, " ")
-      .trim()
-      .slice(0, 900);
+      .trim();
+    const excerpt = this.truncateLocalExcerpt(cleanedPassage);
     const urgent = /đang (kẹt|ngập|bị cuốn)|cứu tôi|cấp cứu|khẩn cấp/iu.test(message);
     if (generated) {
       return {
@@ -211,6 +212,18 @@ export class ChatService {
       answer: `${urgent ? "Hãy tới nơi an toàn và gọi cứu hộ/cấp cứu ngay. " : ""}Theo kho kiến thức VietFlood: ${excerpt}`,
       kind: "knowledge",
     };
+  }
+
+  private truncateLocalExcerpt(passage: string): string {
+    if (passage.length <= MAX_LOCAL_EXCERPT_LENGTH) return passage;
+    const excerpt = passage.slice(0, MAX_LOCAL_EXCERPT_LENGTH);
+    const sentenceEnds = [...excerpt.matchAll(/[.!?](?=\s|$)/gu)];
+    const sentenceEnd = sentenceEnds[sentenceEnds.length - 1]?.index;
+    if (sentenceEnd !== undefined) return excerpt.slice(0, sentenceEnd + 1).trim();
+
+    const wordEnd = excerpt.lastIndexOf(" ");
+    if (wordEnd > 0) return `${excerpt.slice(0, wordEnd).trimEnd()}…`;
+    return `${Array.from(excerpt).slice(0, MAX_LOCAL_EXCERPT_LENGTH - 1).join("")}…`;
   }
 
   private isFollowUpQuestion(message: string): boolean {
@@ -236,8 +249,11 @@ export class ChatService {
     let areas: unknown;
     try {
       areas = await this.reports.getRecentVerifiedFloodAreas();
-    } catch {
-      this.logger.warn("Recent flood report lookup failed");
+    } catch (error) {
+      const reason = error instanceof Error ? `${error.name} ${error.message}` : "";
+      this.logger.warn(/timeout|timed out|etimedout/iu.test(reason)
+        ? "Recent flood report RPC timed out"
+        : "Recent flood report RPC failed");
       throw new ServiceUnavailableException("Recent flood reports are unavailable");
     }
 

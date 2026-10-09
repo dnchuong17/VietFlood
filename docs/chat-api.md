@@ -144,7 +144,7 @@ Response:
 }
 ```
 
-`role` là `user` hoặc `assistant`. `kind` cho biết loại câu trả lời: `knowledge`, `first_aid`, `report_guide`, `report_status`, `fallback` hoặc `legacy`. Khi tải trang cũ hơn, gửi `nextCursor` vào đúng endpoint cùng `sessionId`, rồi **prepend** các `items` nhận được vào danh sách đang hiển thị. Dừng khi `nextCursor` là `null`.
+`role` là `user` hoặc `assistant`. `kind` cho biết loại nội dung: `knowledge`, `small_talk`, `first_aid`, `report_guide`, `report_status`, `fallback` hoặc `legacy`. Khi tải trang cũ hơn, gửi `nextCursor` vào đúng endpoint cùng `sessionId`, rồi **prepend** các `items` nhận được vào danh sách đang hiển thị. Dừng khi `nextCursor` là `null`.
 
 Ví dụ:
 
@@ -168,6 +168,7 @@ const olderPage = await fetch(
 ## 5. Hành vi của câu trả lời
 
 - Câu hỏi về an toàn lũ dùng đoạn văn bản từ kho kiến thức VietFlood; khi không tìm thấy thông tin phù hợp, API trả lời rõ điều đó. Một số hướng dẫn sơ cứu đã rà soát được trả trực tiếp.
+- Lời chào, cảm ơn, tiếng cười và câu trêu đùa nhẹ được trả lời bằng các quy tắc cục bộ ngắn gọn, không truy vấn kho kiến thức.
 - Chat có thể hướng dẫn cách dùng biểu mẫu báo cáo hoặc đọc trạng thái báo cáo của chính người dùng. Việc gửi báo cáo và tải ảnh/video vẫn thực hiện qua API báo cáo hiện có.
 - Nội dung `answer` là văn bản để hiển thị trong giao diện. Mặc định câu trả lời bằng tiếng Việt.
 

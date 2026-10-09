@@ -14,6 +14,7 @@ import { ChatCryptoService, ChatRole, EncryptedMessage } from "./chat-crypto.ser
 
 export type ChatKind =
   | "knowledge"
+  | "small_talk"
   | "first_aid"
   | "report_guide"
   | "report_status"

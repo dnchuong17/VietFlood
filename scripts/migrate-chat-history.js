@@ -20,10 +20,15 @@ async function main() {
   const pool = new Pool({ connectionString: parsedUrl.toString(), ssl, max: 1 });
   const client = await pool.connect();
   try {
-    const sql = readFileSync(path.join(__dirname, "../db/migrations/20261009_chat_history.sql"), "utf8");
     await client.query("BEGIN");
     await client.query("SELECT pg_advisory_xact_lock(20261009)");
-    await client.query(sql);
+    for (const migration of [
+      "20261009_chat_history.sql",
+      "20261009_chat_small_talk_kind.sql",
+    ]) {
+      const sql = readFileSync(path.join(__dirname, `../db/migrations/${migration}`), "utf8");
+      await client.query(sql);
+    }
     await client.query("COMMIT");
     process.stdout.write("Chat history migration applied\n");
   } catch (error) {

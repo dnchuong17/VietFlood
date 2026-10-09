@@ -24,6 +24,8 @@ describe.skipIf(!testUrl || !isolated)("ChatHistoryRepository isolated PostgreSQ
     await pool.query("CREATE TABLE IF NOT EXISTS public.users (id integer PRIMARY KEY)");
     const migration = readFileSync(resolve("db/migrations/20261009_chat_history.sql"), "utf8");
     await pool.query(migration);
+    const smallTalkMigration = readFileSync(resolve("db/migrations/20261009_chat_small_talk_kind.sql"), "utf8");
+    await pool.query(smallTalkMigration);
     await pool.query("INSERT INTO public.users (id) VALUES ($1), ($2) ON CONFLICT DO NOTHING", [owner, stranger]);
     vi.stubEnv("DATABASE_URL", testUrl);
     vi.stubEnv("CHAT_KEY_CURRENT", "V1");

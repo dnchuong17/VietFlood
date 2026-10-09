@@ -13,6 +13,7 @@ import { ReportsService } from "../reports/reports.service";
 import { ChatRequestDto } from "./dto/chat.dto";
 import { ChatHistoryRepository, ChatKind, ChatTurn } from "./chat-history.repository";
 import { firstAidFallback } from "./first-aid-guidance";
+import { smallTalkReply } from "./small-talk";
 import { QdrantKnowledgeService } from "./qdrant-knowledge.service";
 
 type ReportSummary = {
@@ -67,9 +68,15 @@ export class ChatService {
       answer = this.reportGuide();
       kind = "report_guide";
     } else {
-      const result = await this.knowledgeAnswer(message);
-      answer = result.answer;
-      kind = result.kind;
+      const smallTalk = smallTalkReply(message);
+      if (smallTalk) {
+        answer = smallTalk;
+        kind = "small_talk";
+      } else {
+        const result = await this.knowledgeAnswer(message);
+        answer = result.answer;
+        kind = result.kind;
+      }
     }
 
     if (input.sessionId) {
@@ -129,7 +136,7 @@ export class ChatService {
 
     if (passages.length === 0) {
       return {
-        answer: "Tôi chưa tìm thấy thông tin đáng tin cậy về câu hỏi này trong kho kiến thức VietFlood. Vui lòng hỏi cụ thể hơn hoặc liên hệ lực lượng hỗ trợ địa phương nếu đây là tình huống khẩn cấp.",
+        answer: this.outOfScopeReply(message),
         kind: "fallback",
       };
     }
@@ -143,13 +150,18 @@ export class ChatService {
       .trim()
       .slice(0, 900);
     if (!excerpt) {
-      return { answer: "Tôi chưa tìm thấy đoạn kiến thức phù hợp để trả lời.", kind: "fallback" };
+      return { answer: this.outOfScopeReply(message), kind: "fallback" };
     }
     const urgent = /đang (kẹt|ngập|bị cuốn)|cứu tôi|cấp cứu|khẩn cấp/iu.test(message);
     return {
       answer: `${urgent ? "Hãy tới nơi an toàn và gọi cứu hộ/cấp cứu ngay. " : ""}Theo kho kiến thức VietFlood: ${excerpt}`,
       kind: "knowledge",
     };
+  }
+
+  private outOfScopeReply(message: string): string {
+    const urgent = /đang (kẹt|ngập|bị cuốn)|cứu tôi|cấp cứu|khẩn cấp/iu.test(message);
+    return `${urgent ? "Nếu bạn đang gặp nguy hiểm, hãy tới nơi an toàn và gọi lực lượng cứu hộ/cấp cứu địa phương ngay. " : ""}Mình là trợ lý VietFlood, tập trung vào an toàn lũ, sơ cứu cơ bản và báo cáo trên VietFlood. Bạn có thể hỏi như “Cần chuẩn bị gì trước lũ?” hoặc “Trạng thái báo cáo của tôi thế nào?”.`;
   }
 
   private isStatusQuestion(message: string, turns: ChatTurn[]): boolean {

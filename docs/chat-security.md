@@ -28,6 +28,55 @@ marked `Cache-Control: private, no-store` on history routes.
 
 ## Configuration and deployment
 
+### One-time Jenkins environment checklist
+
+The unified Jenkins image runs the gateway, auth service, and reports service.
+Put these entries together in the protected `/opt/env/vietflood.env` on the
+Jenkins agent. Use real values for placeholders; do not commit this file.
+
+```ini
+# Existing application services
+DATABASE_URL=<Supabase PostgreSQL URL>
+JWT_SECRET=<existing access-token signing secret>
+REFRESH_SECRET=<existing refresh-token signing secret>
+REDIS_PASSWORD=<Redis password>
+RABBITMQ_DEFAULT_USER=<RabbitMQ username>
+RABBITMQ_DEFAULT_PASS=<RabbitMQ password>
+CLOUDINARY_CLOUD_NAME=<Cloudinary cloud name>
+CLOUDINARY_API_KEY=<Cloudinary API key>
+CLOUDINARY_API_SECRET=<Cloudinary API secret>
+ADMIN_EMAIL=<admin email>
+ADMIN_PASSWORD=<admin password>
+
+# Persistent chat
+CHAT_KEYRING_B64=<base64 of JSON mapping key versions to base64 32-byte keys>
+CHAT_KEY_CURRENT=v1
+CHAT_DB_CA_BASE64=<base64 of the Supabase root certificate PEM>
+CHAT_HISTORY_ENABLED=true
+CHAT_BACKUP_RETENTION_DAYS=7
+CHAT_BACKUP_VERIFIED_AT=<YYYY-MM-DD after backup settings are checked>
+
+# Flood knowledge
+QDRANT_URL=https://qdrant.ndtd.indevs.in:443
+QDRANT_COLLECTION=flood_kb_staging_2026_01
+QDRANT_TEXT_FIELD=text
+```
+
+Add `QDRANT_API_KEY` only if the Qdrant host requires one. Jenkins creates
+`RABBITMQ_URL` and sets `REDIS_HOST`, `REDIS_PORT`, `REDIS_DB`, and
+`API_GATEWAY_PORT`; they do not need entries in the protected file. The
+current chatbot does not call Gemini, so `GOOGLE_API_KEY` and
+`GEMINI_CHAT_MODEL` are not needed for chat. `CHAT_TEST_DATABASE_URL` and
+`CHAT_TEST_DATABASE_ISOLATED` are only for disposable integration tests.
+`NPM_TOKEN`, if required to fetch private GitHub Packages, is a build
+credential and is not consumed by the runtime env file.
+
+The `CHAT_BACKUP_RETENTION_DAYS` example above reflects this project's
+reported seven-day restore window. Record `CHAT_BACKUP_VERIFIED_AT` only after
+checking the actual backup/PITR window, encryption, and who can download or
+restore backups in the Supabase project. The local `.env` does not configure
+the Jenkins agent.
+
 Set these server-side environment variables in Jenkins' protected
 `/opt/env/vietflood.env` or a dedicated secret store:
 
@@ -114,6 +163,9 @@ verified. Rotate the previously shared Gemini key and refresh token before
 rollout.
 
 ## Restore runbook
+
+For the pre-release backup verification checklist and a step-by-step recovery
+procedure, see the [chat history backup and recovery runbook](chat-backup-runbook.md).
 
 1. Set `CHAT_HISTORY_ENABLED=false` in the runtime environment and restart or
    otherwise block all chat routes while recovery runs. Do not reopen chat on

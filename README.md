@@ -6,7 +6,9 @@ The API gateway exposes authenticated `POST /chat`, `GET /chat/sessions`,
 `GET /chat/sessions/:id/messages`, and `DELETE /chat/sessions/:id`.
 See the [Chat API guide](docs/chat-api.md) for examples and pagination, and
 the [Chat security and operations guide](docs/chat-security.md) for database,
-encryption, deployment, and recovery instructions.
+encryption, deployment, and key rotation. Operators can use the
+[chat backup and recovery runbook](docs/chat-backup-runbook.md) to verify backup
+settings and recover persistent history.
 
 Conversations belong to the verified JWT user and remain in Supabase
 PostgreSQL until hard deletion. Message bodies are encrypted before storage.

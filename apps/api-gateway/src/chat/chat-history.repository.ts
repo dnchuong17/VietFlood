@@ -15,6 +15,7 @@ import { ChatCryptoService, ChatRole, EncryptedMessage } from "./chat-crypto.ser
 export type ChatKind =
   | "knowledge"
   | "small_talk"
+  | "community_reports"
   | "first_aid"
   | "report_guide"
   | "report_status"
@@ -240,6 +241,28 @@ export class ChatHistoryRepository implements OnModuleInit, OnModuleDestroy {
         [sessionId, userId, limit],
       );
       return result.rows.reverse().map((row) => this.messageFromRow(row, userId, sessionId));
+    });
+  }
+
+  async recentKnowledgeAnswers(
+    userId: number,
+    sessionId: string,
+    limit = 2,
+  ): Promise<ChatTurn[]> {
+    return this.safe(async () => {
+      const result = await this.pool.query<MessageRow>(
+        `SELECT m.id, m.sequence, m.role, m.kind, m.ciphertext, m.nonce,
+                m.auth_tag, m.key_id, m.created_at
+         FROM private_chat.messages m
+         JOIN private_chat.sessions s ON s.id = m.session_id
+         WHERE m.session_id = $1 AND s.user_id = $2
+           AND m.role = 'assistant' AND m.kind = 'knowledge'
+         ORDER BY m.sequence DESC LIMIT $3`,
+        [sessionId, userId, limit],
+      );
+      return result.rows
+        .reverse()
+        .map((row) => this.messageFromRow(row, userId, sessionId));
     });
   }
 

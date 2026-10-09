@@ -163,6 +163,43 @@ export class ReportsService {
     return report;
   }
 
+  async getRecentVerifiedFloodAreas(): Promise<{
+    province: string;
+    ward: string;
+    reportCount: number;
+    latestAt: string;
+  }[]> {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const rows = await this.reportRepository
+      .createQueryBuilder("report")
+      .select("report.province", "province")
+      .addSelect("report.ward", "ward")
+      .addSelect("COUNT(*)", "reportCount")
+      .addSelect("MAX(report.createdAt)", "latestAt")
+      .where("report.status = :status", { status: ReportStatus.VERIFIED })
+      .andWhere(":category = ANY(report.category)", { category: "flood" })
+      .andWhere("report.createdAt >= :since", { since })
+      .groupBy("report.province")
+      .addGroupBy("report.ward")
+      .orderBy("latestAt", "DESC")
+      .addOrderBy("province", "ASC")
+      .addOrderBy("ward", "ASC")
+      .take(5)
+      .getRawMany<{
+        province: string;
+        ward: string;
+        reportCount: string | number;
+        latestAt: Date | string;
+      }>();
+
+    return rows.map((row) => ({
+      province: row.province,
+      ward: row.ward,
+      reportCount: Number(row.reportCount),
+      latestAt: new Date(row.latestAt).toISOString(),
+    }));
+  }
+
   async findReportWithID(id: number) {
     if (!id) {
       throw new BadRequestException("Invalid ID");

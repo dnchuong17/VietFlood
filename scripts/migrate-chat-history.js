@@ -25,6 +25,7 @@ async function main() {
     for (const migration of [
       "20261009_chat_history.sql",
       "20261009_chat_small_talk_kind.sql",
+      "20261009_chat_community_reports_kind.sql",
     ]) {
       const sql = readFileSync(path.join(__dirname, `../db/migrations/${migration}`), "utf8");
       await client.query(sql);

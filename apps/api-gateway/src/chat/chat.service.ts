@@ -15,6 +15,7 @@ import { ChatHistoryRepository, ChatKind, ChatTurn } from "./chat-history.reposi
 import { firstAidFallback } from "./first-aid-guidance";
 import { smallTalkReply } from "./small-talk";
 import { QdrantKnowledgeService } from "./qdrant-knowledge.service";
+import { GeminiChatService } from "./gemini-chat.service";
 
 type ReportSummary = {
   id: number;
@@ -22,6 +23,25 @@ type ReportSummary = {
   severity?: number;
   isUrgent?: boolean;
 };
+type VerifiedFloodArea = {
+  province: string;
+  ward: string;
+  reportCount: number;
+  latestAt: string;
+};
+
+function isVerifiedFloodArea(value: unknown): value is VerifiedFloodArea {
+  if (!value || typeof value !== "object") return false;
+  const area = value as Record<string, unknown>;
+  return (
+    typeof area.province === "string" &&
+    typeof area.ward === "string" &&
+    Number.isInteger(area.reportCount) &&
+    Number(area.reportCount) > 0 &&
+    typeof area.latestAt === "string" &&
+    !Number.isNaN(Date.parse(area.latestAt))
+  );
+}
 
 const MAX_TURNS = 10;
 const REQUESTS_PER_MINUTE = 20;
@@ -40,6 +60,7 @@ export class ChatService {
     private readonly knowledge: QdrantKnowledgeService,
     private readonly history: ChatHistoryRepository,
     private readonly logger: LoggerService,
+    private readonly gemini: GeminiChatService,
   ) {
     this.logger.setServiceName(ChatService.name);
   }
@@ -67,13 +88,16 @@ export class ChatService {
     } else if (this.isReportGuideQuestion(message)) {
       answer = this.reportGuide();
       kind = "report_guide";
+    } else if (this.isFloodLocationQuestion(message)) {
+      answer = await this.floodLocationReply();
+      kind = "community_reports";
     } else {
       const smallTalk = smallTalkReply(message);
       if (smallTalk) {
         answer = smallTalk;
         kind = "small_talk";
       } else {
-        const result = await this.knowledgeAnswer(message);
+        const result = await this.knowledgeAnswer(userId, sessionId, message);
         answer = result.answer;
         kind = result.kind;
       }
@@ -129,19 +153,43 @@ export class ChatService {
       throw new ServiceUnavailableException("Chat history is unavailable");
   }
 
-  private async knowledgeAnswer(message: string): Promise<{ answer: string; kind: ChatKind }> {
+  private async knowledgeAnswer(
+    userId: number,
+    sessionId: string,
+    message: string,
+  ): Promise<{ answer: string; kind: ChatKind }> {
     const reviewedFirstAid = firstAidFallback(message);
     if (reviewedFirstAid) return { answer: reviewedFirstAid, kind: "first_aid" };
-    const passages = await this.knowledge.search(message);
 
-    if (passages.length === 0) {
+    const isFollowUp = this.isFollowUpQuestion(message);
+    const priorAnswers = isFollowUp
+      ? await this.history.recentKnowledgeAnswers(userId, sessionId, 2)
+      : [];
+    if (isFollowUp && priorAnswers.length === 0) {
       return {
-        answer: this.outOfScopeReply(message),
+        answer: "Mình chưa thấy ngữ cảnh trước đó trong cuộc trò chuyện này. Bạn muốn hỏi tiếp về chủ đề nào?",
         kind: "fallback",
       };
     }
-    // Staging passages stay inside VietFlood. They must not be sent to Gemini.
-    const excerpt = passages[0]
+
+    const passages = await this.knowledge.search(message);
+
+    let generated: string | null = null;
+    if (this.gemini.isConfigured()) {
+      try {
+        const approvedPassages = await this.knowledge.searchApproved(message);
+        if (approvedPassages.length > 0) {
+          const knowledgeContext = priorAnswers.map((turn) => ({
+            role: "assistant" as const,
+            content: turn.content,
+          }));
+          generated = await this.gemini.answer(message, approvedPassages, knowledgeContext);
+        }
+      } catch {
+        this.logger.warn("Approved knowledge lookup failed; using local fallback");
+      }
+    }
+    const excerpt = (passages[0] ?? "")
       .replace(/https?:\/\/\S+/giu, "")
       .replace(/<[^>]+>/gu, "")
       .replace(/\[[^\]]+\]\([^)]*\)/gu, "")
@@ -149,19 +197,73 @@ export class ChatService {
       .replace(/\s+/gu, " ")
       .trim()
       .slice(0, 900);
+    const urgent = /đang (kẹt|ngập|bị cuốn)|cứu tôi|cấp cứu|khẩn cấp/iu.test(message);
+    if (generated) {
+      return {
+        answer: `${urgent ? "Hãy tới nơi an toàn và gọi cứu hộ/cấp cứu ngay. " : ""}${generated}`,
+        kind: "knowledge",
+      };
+    }
     if (!excerpt) {
       return { answer: this.outOfScopeReply(message), kind: "fallback" };
     }
-    const urgent = /đang (kẹt|ngập|bị cuốn)|cứu tôi|cấp cứu|khẩn cấp/iu.test(message);
     return {
       answer: `${urgent ? "Hãy tới nơi an toàn và gọi cứu hộ/cấp cứu ngay. " : ""}Theo kho kiến thức VietFlood: ${excerpt}`,
       kind: "knowledge",
     };
   }
 
+  private isFollowUpQuestion(message: string): boolean {
+    const text = message.trim().toLocaleLowerCase("vi");
+    return /^(?:vậy còn|thế còn|còn về|còn|vậy|thế|và|nếu vậy|trong trường hợp đó|trường hợp đó|điều đó|cái đó|như vậy|như thế|nó|how about|what about|and then|in that case|what if)(?:\s|$|[?!,.])/iu.test(text) ||
+      /^(?:bao lâu|ở đâu|khi nào|thế nào|làm sao|có an toàn không|có được không|cần bao nhiêu|how long|where|when|how about it|is it safe|what should i do)\??[!. ]*$/iu.test(text) ||
+      /\b(?:điều này|việc đó|chuyện đó|nội dung trên|that|those|it|they)\b/iu.test(text);
+  }
+
   private outOfScopeReply(message: string): string {
     const urgent = /đang (kẹt|ngập|bị cuốn)|cứu tôi|cấp cứu|khẩn cấp/iu.test(message);
     return `${urgent ? "Nếu bạn đang gặp nguy hiểm, hãy tới nơi an toàn và gọi lực lượng cứu hộ/cấp cứu địa phương ngay. " : ""}Mình là trợ lý VietFlood, tập trung vào an toàn lũ, sơ cứu cơ bản và báo cáo trên VietFlood. Bạn có thể hỏi như “Cần chuẩn bị gì trước lũ?” hoặc “Trạng thái báo cáo của tôi thế nào?”.`;
+  }
+
+  private isFloodLocationQuestion(message: string): boolean {
+    const text = message.trim().toLocaleLowerCase("vi");
+    if (/thường|hay xảy ra|mùa lũ|hằng năm|lịch sử/u.test(text)) return false;
+    return /^(?:(?:hiện(?:nay|tại)|bây giờ|hôm nay)\s+)?(?:lũ(?:\s+lụt)?|ngập)(?:\s+đang)?\s+(?:ở đâu|khu vực nào|chỗ nào)\??[!. ]*$/u.test(text) ||
+      /^(?:(?:hiện(?:nay|tại)|bây giờ|hôm nay)\s+)?(?:điểm ngập|khu vực ngập|vị trí ngập)(?:\s+(?:ở đâu|hiện nay|hiện tại))?\??[!. ]*$/u.test(text);
+  }
+
+  private async floodLocationReply(): Promise<string> {
+    let areas: unknown;
+    try {
+      areas = await this.reports.getRecentVerifiedFloodAreas();
+    } catch {
+      this.logger.warn("Recent flood report lookup failed");
+      throw new ServiceUnavailableException("Recent flood reports are unavailable");
+    }
+
+    if (!Array.isArray(areas)) {
+      this.logger.warn("Recent flood report response was invalid");
+      throw new ServiceUnavailableException("Recent flood reports are unavailable");
+    }
+    const validAreas = areas.filter(isVerifiedFloodArea);
+    if (validAreas.length !== areas.length) {
+      this.logger.warn("Recent flood report response was invalid");
+      throw new ServiceUnavailableException("Recent flood reports are unavailable");
+    }
+
+    if (validAreas.length === 0) {
+      return "Trong 24 giờ qua, VietFlood chưa ghi nhận báo cáo lũ nào đã được xác minh. Điều này không có nghĩa là chắc chắn không có lũ; hãy kiểm tra cảnh báo từ cơ quan chức năng tại địa phương.";
+    }
+
+    const locations = validAreas.slice(0, 5).map((area) => {
+      const latestAt = new Date(area.latestAt).toLocaleString("vi-VN", {
+        timeZone: "Asia/Ho_Chi_Minh",
+        dateStyle: "short",
+        timeStyle: "short",
+      });
+      return `${area.ward}, ${area.province} (${area.reportCount} báo cáo; gần nhất ${latestAt})`;
+    });
+    return `Trong 24 giờ qua, VietFlood ghi nhận báo cáo lũ đã xác minh tại: ${locations.join("; ")}. Đây là báo cáo cộng đồng, không phải cảnh báo thời gian thực; hãy theo dõi thông báo từ cơ quan chức năng địa phương.`;
   }
 
   private isStatusQuestion(message: string, turns: ChatTurn[]): boolean {

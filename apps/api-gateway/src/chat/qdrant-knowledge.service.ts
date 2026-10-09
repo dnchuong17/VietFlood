@@ -75,15 +75,29 @@ function terms(text: string): string[] {
 
 @Injectable()
 export class QdrantKnowledgeService {
-  private textField?: string;
-  private initialization?: Promise<string>;
+  private readonly textFields = new Map<string, string>();
+  private readonly initializations = new Map<string, Promise<string>>();
 
   constructor(private readonly logger: LoggerService) {
     this.logger.setServiceName(QdrantKnowledgeService.name);
   }
 
   async search(question: string): Promise<string[]> {
-    const field = await this.ensureTextField();
+    return this.searchCollection(
+      question,
+      process.env.QDRANT_COLLECTION?.trim() || "flood_kb_staging_2026_01",
+    );
+  }
+
+  async searchApproved(question: string): Promise<string[]> {
+    const collection = process.env.QDRANT_CHAT_COLLECTION?.trim();
+    const localCollection = process.env.QDRANT_COLLECTION?.trim() || "flood_kb_staging_2026_01";
+    if (!collection || collection === localCollection) return [];
+    return this.searchCollection(question, collection);
+  }
+
+  private async searchCollection(question: string, collection: string): Promise<string[]> {
+    const field = await this.ensureTextField(collection);
     const queryTerms = terms(question).slice(0, 8);
     if (queryTerms.length === 0) return [];
 
@@ -101,6 +115,7 @@ export class QdrantKnowledgeService {
         with_payload: true,
         with_vector: false,
       },
+      collection,
     );
 
     const candidates = (response.result?.points ?? []).map((point) => {
@@ -113,10 +128,14 @@ export class QdrantKnowledgeService {
       );
       return { content: content.trim(), score };
     });
+    const minimumScore = Math.ceil(queryTerms.length * 0.6);
 
     const unique = new Map<string, { content: string; score: number }>();
     for (const candidate of candidates
-      .filter((candidate) => candidate.content && candidate.score > 0)
+      .filter(
+        (candidate) =>
+          candidate.content && candidate.score >= minimumScore,
+      )
       .sort((left, right) => right.score - left.score)) {
       if (!unique.has(candidate.content))
         unique.set(candidate.content, candidate);
@@ -127,22 +146,25 @@ export class QdrantKnowledgeService {
       .map((candidate) => candidate.content.slice(0, 1800));
   }
 
-  private async ensureTextField(): Promise<string> {
-    if (this.textField) return this.textField;
-    this.initialization ??= this.initialize().catch((error) => {
-      this.initialization = undefined;
-      throw error;
-    });
-    return this.initialization;
+  private async ensureTextField(collection: string): Promise<string> {
+    const cached = this.textFields.get(collection);
+    if (cached) return cached;
+    if (!this.initializations.has(collection)) {
+      this.initializations.set(collection, this.initialize(collection).catch((error) => {
+        this.initializations.delete(collection);
+        throw error;
+      }));
+    }
+    return this.initializations.get(collection)!;
   }
 
-  private async initialize(): Promise<string> {
-    const collection = await this.request<QdrantCollection>("", "GET");
+  private async initialize(collection: string): Promise<string> {
+    const response = await this.request<QdrantCollection>("", "GET", undefined, collection);
     const sample = await this.request<QdrantScroll>("/points/scroll", "POST", {
       limit: 1,
       with_payload: true,
       with_vector: false,
-    });
+    }, collection);
     const payload = sample.result?.points?.[0]?.payload;
     const configured = process.env.QDRANT_TEXT_FIELD?.trim();
     const field =
@@ -154,32 +176,24 @@ export class QdrantKnowledgeService {
         }));
 
     if (!field) {
-      this.logger.warn(
-        "Qdrant text field unavailable; configure QDRANT_TEXT_FIELD",
-      );
-      throw new ServiceUnavailableException(
-        "Knowledge base text field is not configured",
-      );
+      this.logger.warn("Qdrant text field unavailable; configure QDRANT_TEXT_FIELD");
+      throw new ServiceUnavailableException("Knowledge base text field is not configured");
     }
 
     if (payload && typeof valueAtPath(payload, field) !== "string") {
-      throw new ServiceUnavailableException(
-        "Configured Qdrant text field is not present in the collection",
-      );
+      throw new ServiceUnavailableException("Configured Qdrant text field is not present in the collection");
     }
 
-    const schema = collection.result?.payload_schema?.[field];
-    const isTextIndex =
-      schema === "text" ||
-      (typeof schema === "object" && schema?.data_type === "text");
+    const schema = response.result?.payload_schema?.[field];
+    const isTextIndex = schema === "text" || (typeof schema === "object" && schema?.data_type === "text");
     if (!isTextIndex) {
       await this.request("/index?wait=true", "PUT", {
         field_name: field,
         field_schema: { type: "text", tokenizer: "word", lowercase: true },
-      });
+      }, collection);
     }
 
-    this.textField = field;
+    this.textFields.set(collection, field);
     return field;
   }
 
@@ -187,10 +201,9 @@ export class QdrantKnowledgeService {
     suffix: string,
     method: "GET" | "POST" | "PUT",
     body?: object,
+    collection = process.env.QDRANT_COLLECTION?.trim() || "flood_kb_staging_2026_01",
   ): Promise<T> {
     const url = process.env.QDRANT_URL?.replace(/\/$/, "");
-    const collection =
-      process.env.QDRANT_COLLECTION || "flood_kb_staging_2026_01";
     if (!url)
       throw new ServiceUnavailableException("Knowledge base is not configured");
 

@@ -106,4 +106,48 @@ describe("QdrantKnowledgeService", () => {
     const service = new QdrantKnowledgeService(logger as never);
     expect(await service.search("Ngập lụt")).toEqual(["Ngập lụt"]);
   });
+
+  it("does not return passages that match only one of several query terms", async () => {
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ result: { payload_schema: { text: { data_type: "text" } } } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ result: { points: [{ id: 1, payload: { text: "Ngập lụt tại miền Trung" } }] } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ result: { points: [{ id: 1, payload: { text: "Kế hoạch báo cáo ngập lụt" } }] } }),
+      }) as never;
+    const service = new QdrantKnowledgeService(logger as never);
+
+    expect(await service.search("ngập quận huyện nào" )).toEqual([]);
+  });
+
+  it("queries only the configured approved collection for Gemini retrieval", async () => {
+    vi.stubEnv("QDRANT_CHAT_COLLECTION", "curated_flood_kb");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ result: { payload_schema: { text: { data_type: "text" } } } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ result: { points: [{ id: 1, payload: { text: "Lũ quét an toàn" } }] } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ result: { points: [{ id: 1, payload: { text: "Lũ quét an toàn" } }] } }),
+      });
+    globalThis.fetch = fetchMock as never;
+    const service = new QdrantKnowledgeService(logger as never);
+
+    expect(await service.searchApproved("Lũ quét an toàn")).toEqual(["Lũ quét an toàn"]);
+    expect(fetchMock.mock.calls.every(([url]) => String(url).includes("/collections/curated_flood_kb"))).toBe(true);
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("flood_kb_staging_2026_01"))).toBe(false);
+  });
 });

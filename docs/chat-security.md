@@ -59,14 +59,19 @@ CHAT_BACKUP_VERIFIED_AT=<YYYY-MM-DD after backup settings are checked>
 # Flood knowledge
 QDRANT_URL=https://qdrant.ndtd.indevs.in:443
 QDRANT_COLLECTION=flood_kb_staging_2026_01
+QDRANT_CHAT_COLLECTION=<separate curated collection; leave unset to disable Gemini>
 QDRANT_TEXT_FIELD=text
+GOOGLE_API_KEY=<Gemini Paid API key; leave unset to disable Gemini>
+GEMINI_CHAT_MODEL=gemini-3.8-flash
 ```
 
 Add `QDRANT_API_KEY` only if the Qdrant host requires one. Jenkins creates
 `RABBITMQ_URL` and sets `REDIS_HOST`, `REDIS_PORT`, `REDIS_DB`, and
-`API_GATEWAY_PORT`; they do not need entries in the protected file. The
-current chatbot does not call Gemini, so `GOOGLE_API_KEY` and
-`GEMINI_CHAT_MODEL` are not needed for chat. `CHAT_TEST_DATABASE_URL` and
+`API_GATEWAY_PORT`; they do not need entries in the protected file. Gemini
+generation stays disabled unless both `QDRANT_CHAT_COLLECTION` and
+`GOOGLE_API_KEY` are configured. Keep the approved collection separate from
+the staging `QDRANT_COLLECTION`; do not copy staging passages into it without
+review. `CHAT_TEST_DATABASE_URL` and
 `CHAT_TEST_DATABASE_ISOLATED` are only for disposable integration tests.
 `NPM_TOKEN`, if required to fetch private GitHub Packages, is a build
 credential and is not consumed by the runtime env file.
@@ -90,6 +95,8 @@ Set these server-side environment variables in Jenkins' protected
 | `CHAT_BACKUP_RETENTION_DAYS` | Actual verified backup/PITR retention in days, recorded before release. |
 | `CHAT_BACKUP_VERIFIED_AT` | Date the plan, backup encryption, and access permissions were checked. |
 | `QDRANT_URL`, `QDRANT_COLLECTION`, `QDRANT_TEXT_FIELD` | Local flood knowledge retrieval; current field is `text`. |
+| `QDRANT_CHAT_COLLECTION` | Separate curated Qdrant collection whose passages may be sent to Gemini; unset disables generation. |
+| `GOOGLE_API_KEY`, `GEMINI_CHAT_MODEL` | Server-side Gemini Paid API credentials and model; generation is disabled if the key or approved collection is absent. Never expose the key to a client. |
 
 Generate a 32-byte key with a cryptographically secure random generator. Keep
 the unencoded key and the encoded keyring in the secret store; base64 is only
@@ -144,15 +151,34 @@ is unrecoverable. Redis retains the per-user rate-limit key for about two
 minutes. Report-status replies can be stored in history, but are excluded from
 any future model context.
 
-**The current chatbot sends no user messages, account data, report data, or
-staging Qdrant passages to Gemini.** Flood answers use local extractive
-retrieval; first-aid and report guidance are local. If Gemini is approved for
-a future production path, that change must explicitly review transmission of
-the current user question, up to 10 eligible preceding chat messages, selected
-knowledge passages, and the system prompt. Exclude report-status replies and
-account data, obtain approval for staging passages, and document the provider's
-retention settings before enabling it. Do not log chat content, JWTs, refresh
-tokens, passwords, API keys, ciphertext keys, or raw database errors.
+When Gemini is enabled, the gateway sends the current question and up to four
+retrieved passages from `QDRANT_CHAT_COLLECTION` to the Gemini Paid API. On
+clear follow-up questions only, it may also send up to two prior assistant
+answers whose stored kind is `knowledge`. It never sends prior user messages,
+report content, account data, report-status or community-report answers, or
+passages from the staging `QDRANT_COLLECTION`. The system instruction asks the
+model to use only approved passages, treat question/source text as data, and
+decline unsupported claims. First-aid, report guidance/status, small talk, and
+current flood-location answers remain local. Missing configuration, empty
+approved retrieval, and Gemini errors fall back to the existing local
+extractive answer or safe no-information response. The existing chat rate
+limit also applies to Gemini calls.
+
+Use a Gemini Paid API project and do not opt in to Google log or dataset
+sharing. Under Google's current terms, paid prompts and responses are not used
+to improve Google products, but limited retention may apply for abuse
+monitoring; zero-data-retention is a separate approved configuration. Review
+Google's current [zero data retention](https://ai.google.dev/gemini-api/docs/zdr?hl=en)
+and [logs and datasets](https://ai.google.dev/gemini-api/docs/logs-datasets)
+documentation before changing provider or retention settings. Do not log chat
+content, prompts, passages, model responses, JWTs, refresh tokens, passwords,
+API keys, ciphertext keys, or raw database errors.
+
+For current flood-location questions, the gateway requests a Reports service
+aggregate of verified flood reports created during the previous 24 hours. The
+query returns only province, ward, count, and latest report time. It does not
+send addresses, coordinates, descriptions, evidence, report IDs, or user IDs to
+the chat service or a model provider.
 
 Before release, record the **actual** Supabase plan, daily backup and PITR
 retention windows, encryption, and who can download/restore backups. The

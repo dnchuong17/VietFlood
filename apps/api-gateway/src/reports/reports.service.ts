@@ -8,6 +8,13 @@ import { CreateReportDto } from "./dto/report.dto";
 import { UpdateReportDto } from "./dto/update_report.dto";
 import { UpdateStatusDto } from "./dto/update_status.dto";
 
+export type RecentVerifiedFloodArea = {
+  province: string;
+  ward: string;
+  reportCount: number;
+  latestAt: string;
+};
+
 @Injectable()
 export class ReportsService {
   constructor(
@@ -134,6 +141,14 @@ export class ReportsService {
     );
 
     return data;
+  }
+
+  async getRecentVerifiedFloodAreas(): Promise<RecentVerifiedFloodArea[]> {
+    return lastValueFrom(
+      this.reportsClient
+        .send<RecentVerifiedFloodArea[]>("chat_verified_flood_areas", {})
+        .pipe(timeout(5000)),
+    );
   }
 
   async updateReport(

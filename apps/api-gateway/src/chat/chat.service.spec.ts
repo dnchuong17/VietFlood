@@ -25,8 +25,12 @@ describe("ChatService", () => {
       }),
     })),
   };
-  const reports = { getAllReportsById: vi.fn() };
-  const knowledge = { search: vi.fn() };
+  const reports = {
+    getAllReportsById: vi.fn(),
+    getRecentVerifiedFloodAreas: vi.fn(),
+  };
+  const knowledge = { search: vi.fn(), searchApproved: vi.fn() };
+  const gemini = { isConfigured: vi.fn(() => false), answer: vi.fn() };
   const history = {
     access: vi.fn(async (userId: number, id: string) => {
       const session = sessions.get(id);
@@ -34,6 +38,10 @@ describe("ChatService", () => {
     }),
     recent: vi.fn(async (_userId: number, id: string, limit: number) =>
       sessions.get(id)?.turns.slice(-limit) ?? []),
+    recentKnowledgeAnswers: vi.fn(async (_userId: number, id: string, limit = 2) =>
+      (sessions.get(id)?.turns ?? [])
+        .filter((turn) => turn.role === "assistant" && turn.kind === "knowledge")
+        .slice(-limit)),
     create: vi.fn(async (userId: number, id: string, message: string, answer: string, kind: ChatTurn["kind"]) => {
       sessions.set(id, { userId, turns: [
         { role: "user", content: message, kind },
@@ -76,12 +84,15 @@ describe("ChatService", () => {
     cache.clear();
     requestCount = 0;
     vi.clearAllMocks();
+    vi.stubEnv("GOOGLE_API_KEY", "");
+    vi.stubEnv("QDRANT_CHAT_COLLECTION", "");
     service = new ChatService(
       redis as never,
       reports as never,
       knowledge as never,
       history as never,
       logger as never,
+      gemini as never,
     );
   });
 
@@ -142,12 +153,210 @@ describe("ChatService", () => {
     expect(knowledge.search).not.toHaveBeenCalled();
   });
 
+  it("answers typoed capability questions without querying flood knowledge", async () => {
+    const result = await service.reply(7, { message: "hỗ tợ gì" });
+    expect(result.answer).toContain("sơ cứu cơ bản");
+    expect(history.create).toHaveBeenCalledWith(7, result.sessionId, "hỗ tợ gì", result.answer, "small_talk");
+    expect(knowledge.search).not.toHaveBeenCalled();
+  });
+
+  it("answers current flood location questions from verified area summaries", async () => {
+    reports.getRecentVerifiedFloodAreas.mockResolvedValue([
+      {
+        province: "Đà Nẵng",
+        ward: "Hải Châu",
+        reportCount: 2,
+        latestAt: "2026-10-09T06:00:00.000Z",
+        addressLine: "1 private road",
+        description: "private report detail",
+      },
+    ]);
+    const result = await service.reply(7, { message: "lũ ở đâu?" });
+
+    expect(result.answer).toContain("Hải Châu, Đà Nẵng");
+    expect(result.answer).toContain("2 báo cáo");
+    expect(result.answer).not.toContain("private");
+    expect(history.create).toHaveBeenCalledWith(7, result.sessionId, "lũ ở đâu?", result.answer, "community_reports");
+    expect(reports.getRecentVerifiedFloodAreas).toHaveBeenCalledOnce();
+    expect(knowledge.search).not.toHaveBeenCalled();
+  });
+
+  it("does not imply no flooding when there are no verified community reports", async () => {
+    reports.getRecentVerifiedFloodAreas.mockResolvedValue([]);
+    const result = await service.reply(7, { message: "lũ ở đâu?" });
+
+    expect(result.answer).toContain("không có nghĩa là chắc chắn không có lũ");
+    expect(history.create).toHaveBeenCalledWith(7, result.sessionId, "lũ ở đâu?", result.answer, "community_reports");
+    expect(knowledge.search).not.toHaveBeenCalled();
+  });
+
+  it("returns a service error instead of inventing flood locations when reports are unavailable", async () => {
+    reports.getRecentVerifiedFloodAreas.mockRejectedValue(new Error("reports service offline"));
+
+    await expect(service.reply(7, { message: "lũ ở đâu?" }))
+      .rejects.toBeInstanceOf(ServiceUnavailableException);
+    expect(knowledge.search).not.toHaveBeenCalled();
+    expect(history.create).not.toHaveBeenCalled();
+  });
+
+  it("keeps general flood location questions on the knowledge path", async () => {
+    knowledge.search.mockResolvedValue(["Các vùng thường có lũ quét gồm vùng núi dốc."]);
+    const result = await service.reply(7, { message: "Những vùng nào thường có lũ?" });
+
+    expect(result.answer).toContain("vùng núi dốc");
+    expect(knowledge.search).toHaveBeenCalledOnce();
+    expect(reports.getRecentVerifiedFloodAreas).not.toHaveBeenCalled();
+  });
+
+  it("does not let a greeting swallow a substantive flood question", async () => {
+    knowledge.search.mockResolvedValue(["Lũ quét có thể xảy ra nhanh sau mưa lớn."]);
+    const result = await service.reply(7, { message: "Hi, lũ quét nguy hiểm thế nào?" });
+
+    expect(result.answer).toContain("Lũ quét có thể xảy ra nhanh");
+    expect(knowledge.search).toHaveBeenCalledOnce();
+  });
+
   it("uses a local passage and strips links from the response", async () => {
     knowledge.search.mockResolvedValue(["Lũ quét xảy ra nhanh. https://example.com/source"]);
     const result = await service.reply(7, { message: "Lũ quét là gì?" });
     expect(result.answer).toContain("Lũ quét xảy ra nhanh");
     expect(result.answer).not.toContain("https://");
     expect(sessions.get(result.sessionId)?.turns[0].kind).toBe("knowledge");
+  });
+
+  it("uses Gemini only with passages from the approved collection", async () => {
+    vi.stubEnv("GOOGLE_API_KEY", "test-secret");
+    vi.stubEnv("QDRANT_CHAT_COLLECTION", "flood_kb_approved");
+    gemini.isConfigured.mockReturnValue(true);
+    knowledge.search.mockResolvedValue(["staging passage"]);
+    knowledge.searchApproved.mockResolvedValue(["approved passage"]);
+    gemini.answer.mockResolvedValue("Câu trả lời đã tổng hợp.");
+
+    const result = await service.reply(7, { message: "Cách chuẩn bị trước lũ?" });
+
+    expect(knowledge.searchApproved).toHaveBeenCalledWith("Cách chuẩn bị trước lũ?");
+    expect(gemini.answer).toHaveBeenCalledWith("Cách chuẩn bị trước lũ?", ["approved passage"], []);
+    expect(result.answer).toBe("Câu trả lời đã tổng hợp.");
+    expect(history.create).toHaveBeenCalledWith(7, result.sessionId, "Cách chuẩn bị trước lũ?", result.answer, "knowledge");
+  });
+
+  it("passes only two prior assistant knowledge answers for a follow-up", async () => {
+    vi.stubEnv("GOOGLE_API_KEY", "test-secret");
+    vi.stubEnv("QDRANT_CHAT_COLLECTION", "flood_kb_approved");
+    gemini.isConfigured.mockReturnValue(true);
+    knowledge.search.mockResolvedValue(["local passage"]);
+    knowledge.searchApproved.mockResolvedValue(["approved passage"]);
+    gemini.answer.mockResolvedValue("Câu trả lời tiếp nối.");
+    const first = await service.reply(7, { message: "Cần chuẩn bị gì trước lũ?" });
+    sessions.get(first.sessionId)!.turns = [
+      { role: "user", content: "do not send this", kind: "knowledge" },
+      { role: "assistant", content: "Trả lời cũ nhất", kind: "knowledge" },
+      { role: "user", content: "private report question", kind: "report_status" },
+      { role: "assistant", content: "Chi tiết báo cáo riêng", kind: "report_status" },
+      { role: "assistant", content: "Trả lời kiến thức gần nhất 1", kind: "knowledge" },
+      { role: "assistant", content: "Trả lời kiến thức gần nhất 2", kind: "knowledge" },
+    ];
+
+    await service.reply(7, { message: "Còn nước uống thì sao?", sessionId: first.sessionId });
+
+    expect(gemini.answer).toHaveBeenLastCalledWith("Còn nước uống thì sao?", ["approved passage"], [
+      { role: "assistant", content: "Trả lời kiến thức gần nhất 1" },
+      { role: "assistant", content: "Trả lời kiến thức gần nhất 2" },
+    ]);
+    expect(history.recentKnowledgeAnswers).toHaveBeenCalledWith(7, first.sessionId, 2);
+  });
+
+  it("finds knowledge context beyond the ordinary recent-turn window", async () => {
+    vi.stubEnv("GOOGLE_API_KEY", "test-secret");
+    vi.stubEnv("QDRANT_CHAT_COLLECTION", "flood_kb_approved");
+    gemini.isConfigured.mockReturnValue(true);
+    knowledge.search.mockResolvedValue(["local passage"]);
+    knowledge.searchApproved.mockResolvedValue(["approved passage"]);
+    gemini.answer.mockResolvedValue("Câu trả lời tiếp nối.");
+    const first = await service.reply(7, { message: "Những việc cần làm trước lũ?" });
+    sessions.get(first.sessionId)!.turns = [
+      { role: "assistant", content: "Ngữ cảnh knowledge xa hơn", kind: "knowledge" },
+      ...Array.from({ length: 14 }, (_, index) => ({
+        role: index % 2 === 0 ? "user" as const : "assistant" as const,
+        content: `Nội dung khác ${index}`,
+        kind: "small_talk" as const,
+      })),
+      { role: "assistant", content: "Ngữ cảnh knowledge mới hơn", kind: "knowledge" },
+      ...Array.from({ length: 12 }, (_, index) => ({
+        role: index % 2 === 0 ? "user" as const : "assistant" as const,
+        content: `Nội dung xen giữa ${index}`,
+        kind: "small_talk" as const,
+      })),
+    ];
+
+    await service.reply(7, { message: "Còn nước uống thì sao?", sessionId: first.sessionId });
+
+    expect(history.recent).toHaveBeenCalledWith(7, first.sessionId, 10);
+    expect(gemini.answer).toHaveBeenLastCalledWith("Còn nước uống thì sao?", ["approved passage"], [
+      { role: "assistant", content: "Ngữ cảnh knowledge xa hơn" },
+      { role: "assistant", content: "Ngữ cảnh knowledge mới hơn" },
+    ]);
+  });
+
+  it.each(["Còn nước uống thì sao?", "Thế còn trẻ em?", "What about children?", "Bao lâu?"])(
+    "recognizes follow-up phrasing: %s",
+    async (message) => {
+      vi.stubEnv("GOOGLE_API_KEY", "test-secret");
+      vi.stubEnv("QDRANT_CHAT_COLLECTION", "flood_kb_approved");
+      gemini.isConfigured.mockReturnValue(true);
+      knowledge.search.mockResolvedValue(["local passage"]);
+      knowledge.searchApproved.mockResolvedValue(["approved passage"]);
+      gemini.answer.mockResolvedValue("Câu trả lời tiếp nối.");
+      const first = await service.reply(7, { message: "Cần chuẩn bị gì trước lũ?" });
+
+      await service.reply(7, { message, sessionId: first.sessionId });
+
+      expect(history.recentKnowledgeAnswers).toHaveBeenCalledWith(7, first.sessionId, 2);
+      expect(gemini.answer).toHaveBeenLastCalledWith(
+        message,
+        ["approved passage"],
+        [{ role: "assistant", content: "Câu trả lời tiếp nối." }],
+      );
+    },
+  );
+
+  it("asks for context instead of searching when a follow-up has no prior knowledge answer", async () => {
+    const result = await service.reply(7, { message: "What about children?" });
+
+    expect(result.answer).toContain("chưa thấy ngữ cảnh trước đó");
+    expect(result.answer).toContain("chủ đề nào");
+    expect(result.sessionId).toBeTruthy();
+    expect(knowledge.search).not.toHaveBeenCalled();
+    expect(knowledge.searchApproved).not.toHaveBeenCalled();
+    expect(gemini.answer).not.toHaveBeenCalled();
+    expect(history.create).toHaveBeenCalledWith(7, result.sessionId, "What about children?", result.answer, "fallback");
+  });
+
+  it("does not call Gemini without an approved passage and falls back locally", async () => {
+    vi.stubEnv("GOOGLE_API_KEY", "test-secret");
+    vi.stubEnv("QDRANT_CHAT_COLLECTION", "flood_kb_approved");
+    gemini.isConfigured.mockReturnValue(true);
+    knowledge.search.mockResolvedValue(["staging local passage"]);
+    knowledge.searchApproved.mockResolvedValue([]);
+
+    const result = await service.reply(7, { message: "Cách chuẩn bị trước lũ?" });
+
+    expect(gemini.answer).not.toHaveBeenCalled();
+    expect(result.answer).toContain("staging local passage");
+  });
+
+  it("falls back locally when Gemini returns no answer", async () => {
+    vi.stubEnv("GOOGLE_API_KEY", "test-secret");
+    vi.stubEnv("QDRANT_CHAT_COLLECTION", "flood_kb_approved");
+    gemini.isConfigured.mockReturnValue(true);
+    knowledge.search.mockResolvedValue(["local passage"]);
+    knowledge.searchApproved.mockResolvedValue(["approved passage"]);
+    gemini.answer.mockResolvedValue(null);
+
+    const result = await service.reply(7, { message: "Cách chuẩn bị trước lũ?" });
+
+    expect(result.answer).toContain("local passage");
+    expect(result.answer).not.toContain("approved passage");
   });
 
   it("returns safe errors for knowledge and database failures without logging content", async () => {

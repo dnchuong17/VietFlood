@@ -26,6 +26,8 @@ describe.skipIf(!testUrl || !isolated)("ChatHistoryRepository isolated PostgreSQ
     await pool.query(migration);
     const smallTalkMigration = readFileSync(resolve("db/migrations/20261009_chat_small_talk_kind.sql"), "utf8");
     await pool.query(smallTalkMigration);
+    const communityReportsMigration = readFileSync(resolve("db/migrations/20261009_chat_community_reports_kind.sql"), "utf8");
+    await pool.query(communityReportsMigration);
     await pool.query("INSERT INTO public.users (id) VALUES ($1), ($2) ON CONFLICT DO NOTHING", [owner, stranger]);
     vi.stubEnv("DATABASE_URL", testUrl);
     vi.stubEnv("CHAT_KEY_CURRENT", "V1");
@@ -71,6 +73,27 @@ describe.skipIf(!testUrl || !isolated)("ChatHistoryRepository isolated PostgreSQ
     await expect(repository.append(owner, id, "must rollback", "must rollback", "invalid" as never))
       .rejects.toBeInstanceOf(ServiceUnavailableException);
     expect((await repository.recent(owner, id, 50)).some((item) => item.content === "must rollback")).toBe(false);
+    await repository.delete(owner, id);
+  });
+
+  it("loads only the newest assistant knowledge answers across a long session", async () => {
+    const id = randomUUID();
+    await repository.create(owner, id, "question 0", "knowledge answer 0", "knowledge");
+    for (let i = 1; i < 8; i++) {
+      const kind = i % 2 === 0 ? "knowledge" : "small_talk";
+      await repository.append(owner, id, `question ${i}`, `answer ${i}`, kind);
+    }
+    for (let i = 8; i < 16; i++) {
+      await repository.append(owner, id, `question ${i}`, `answer ${i}`, "small_talk");
+    }
+
+    const answers = await repository.recentKnowledgeAnswers(owner, id, 2);
+
+    expect(answers).toEqual([
+      { role: "assistant", content: "answer 4", kind: "knowledge" },
+      { role: "assistant", content: "answer 6", kind: "knowledge" },
+    ]);
+    expect(await repository.recentKnowledgeAnswers(stranger, id, 2)).toEqual([]);
     await repository.delete(owner, id);
   });
 

@@ -10,6 +10,7 @@ function createReportsServiceHarness() {
     findOne: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
+    createQueryBuilder: vi.fn(),
   };
   const redis = {
     set: vi.fn(),
@@ -37,6 +38,39 @@ function createReportsServiceHarness() {
 describe("ReportsService payload normalization", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("returns only grouped areas from recent verified flood reports", async () => {
+    const { repository, service } = createReportsServiceHarness();
+    const query = {
+      select: vi.fn().mockReturnThis(),
+      addSelect: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      groupBy: vi.fn().mockReturnThis(),
+      addGroupBy: vi.fn().mockReturnThis(),
+      orderBy: vi.fn().mockReturnThis(),
+      addOrderBy: vi.fn().mockReturnThis(),
+      take: vi.fn().mockReturnThis(),
+      getRawMany: vi.fn().mockResolvedValue([
+        { province: "Đà Nẵng", ward: "Hải Châu", reportCount: "2", latestAt: new Date("2026-10-09T06:00:00.000Z") },
+      ]),
+    };
+    repository.createQueryBuilder.mockReturnValue(query);
+
+    const result = await service.getRecentVerifiedFloodAreas();
+
+    expect(result).toEqual([
+      { province: "Đà Nẵng", ward: "Hải Châu", reportCount: 2, latestAt: "2026-10-09T06:00:00.000Z" },
+    ]);
+    expect(query.select).toHaveBeenCalledWith("report.province", "province");
+    expect(query.addSelect).toHaveBeenCalledWith("report.ward", "ward");
+    expect(query.addSelect).not.toHaveBeenCalledWith("report.addressLine", expect.anything());
+    expect(query.where).toHaveBeenCalledWith("report.status = :status", { status: "verified" });
+    expect(query.andWhere).toHaveBeenCalledWith(":category = ANY(report.category)", { category: "flood" });
+    expect(query.take).toHaveBeenCalledWith(5);
+    const cutoff = query.andWhere.mock.calls.find(([sql]) => sql === "report.createdAt >= :since")?.[1].since;
+    expect(cutoff.getTime()).toBeGreaterThan(Date.now() - 24 * 60 * 60 * 1000 - 1000);
   });
 
   it("normalizes multipart coordinate strings and deduplicates create evidences by URL", async () => {

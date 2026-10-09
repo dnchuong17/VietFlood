@@ -37,7 +37,7 @@ Không gửi thêm field ngoài hai field trên. Response thành công:
 }
 ```
 
-Lưu `sessionId` để gửi tiếp tin nhắn và để tải/xóa hội thoại. Hội thoại gắn với tài khoản từ JWT. Mỗi lần gửi thành công, API lưu cả tin nhắn người dùng và câu trả lời. Tối đa 10 message gần nhất được dùng làm ngữ cảnh trả lời.
+Lưu `sessionId` để gửi tiếp tin nhắn và để tải/xóa hội thoại. Hội thoại gắn với tài khoản từ JWT. Mỗi lần gửi thành công, API lưu cả tin nhắn người dùng và câu trả lời. Nếu câu hỏi là câu tiếp nối, tối đa hai câu trả lời kiến thức trước đó của trợ lý có thể giúp làm rõ ngữ cảnh; tin nhắn cũ của người dùng không được gửi đến mô hình.
 
 ### Gửi tin nhắn bằng TypeScript
 
@@ -144,7 +144,7 @@ Response:
 }
 ```
 
-`role` là `user` hoặc `assistant`. `kind` cho biết loại nội dung: `knowledge`, `small_talk`, `first_aid`, `report_guide`, `report_status`, `fallback` hoặc `legacy`. Khi tải trang cũ hơn, gửi `nextCursor` vào đúng endpoint cùng `sessionId`, rồi **prepend** các `items` nhận được vào danh sách đang hiển thị. Dừng khi `nextCursor` là `null`.
+`role` là `user` hoặc `assistant`. `kind` cho biết loại nội dung: `knowledge`, `small_talk`, `community_reports`, `first_aid`, `report_guide`, `report_status`, `fallback` hoặc `legacy`. Khi tải trang cũ hơn, gửi `nextCursor` vào đúng endpoint cùng `sessionId`, rồi **prepend** các `items` nhận được vào danh sách đang hiển thị. Dừng khi `nextCursor` là `null`.
 
 Ví dụ:
 
@@ -167,10 +167,12 @@ const olderPage = await fetch(
 
 ## 5. Hành vi của câu trả lời
 
-- Câu hỏi về an toàn lũ dùng đoạn văn bản từ kho kiến thức VietFlood; khi không tìm thấy thông tin phù hợp, API trả lời rõ điều đó. Một số hướng dẫn sơ cứu đã rà soát được trả trực tiếp.
+- Câu hỏi về an toàn lũ dùng nội dung phù hợp từ kho kiến thức VietFlood. Khi backend bật Gemini, câu trả lời có thể được tổng hợp từ collection đã duyệt; nếu Gemini không khả dụng, API dùng câu trả lời trích xuất cục bộ. Nếu không có đoạn đủ liên quan, API nêu phạm vi hỗ trợ và gợi ý câu hỏi cụ thể. Một số hướng dẫn sơ cứu đã rà soát được trả trực tiếp.
 - Lời chào, cảm ơn, tiếng cười và câu trêu đùa nhẹ được trả lời bằng các quy tắc cục bộ ngắn gọn, không truy vấn kho kiến thức.
+- Câu hỏi về địa điểm ngập gần đây dùng báo cáo flood đã xác minh trong 24 giờ gần nhất. Câu trả lời chỉ nêu phường/tỉnh, số báo cáo và thời điểm mới nhất; dữ liệu này là báo cáo cộng đồng, không phải cảnh báo thời gian thực. Không có báo cáo trong khoảng đó không đồng nghĩa chắc chắn không có lũ.
 - Chat có thể hướng dẫn cách dùng biểu mẫu báo cáo hoặc đọc trạng thái báo cáo của chính người dùng. Việc gửi báo cáo và tải ảnh/video vẫn thực hiện qua API báo cáo hiện có.
 - Nội dung `answer` là văn bản để hiển thị trong giao diện. Mặc định câu trả lời bằng tiếng Việt.
+- Với cấu hình Gemini, backend chỉ gửi câu hỏi hiện tại, các đoạn từ collection kiến thức đã duyệt và tối đa hai câu trả lời kiến thức trước đó của trợ lý trong câu hỏi tiếp nối. Các luồng báo cáo và sơ cứu vẫn xử lý cục bộ.
 
 ## 6. Lỗi và cách xử lý
 

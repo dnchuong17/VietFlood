@@ -42,6 +42,16 @@ export class ReportsController {
     }
   }
 
+  @MessagePattern("chat_verified_flood_areas")
+  async getChatVerifiedFloodAreas() {
+    try {
+      this.logger.debug("[CHAT FLOOD AREAS] - Fetching verified flood summaries");
+      return await this.reportsService.getRecentVerifiedFloodAreas();
+    } catch (error) {
+      throw new RpcException(error);
+    }
+  }
+
   @MessagePattern("update")
   async update(@Payload() payload: any) {
     try {

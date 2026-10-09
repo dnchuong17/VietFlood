@@ -32,6 +32,7 @@ describe("ChatService", () => {
   };
   const knowledge = { search: vi.fn(), searchApproved: vi.fn() };
   const gemini = { isConfigured: vi.fn(() => false), answer: vi.fn() };
+  const actions = { handle: vi.fn(async () => ({ handled: false })) };
   const history = {
     access: vi.fn(async (userId: number, id: string) => {
       const session = sessions.get(id);
@@ -94,6 +95,7 @@ describe("ChatService", () => {
       history as never,
       logger as never,
       gemini as never,
+      actions as never,
     );
   });
 

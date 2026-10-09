@@ -2,6 +2,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  IsIn,
   MaxLength,
   MinLength,
 } from "class-validator";
@@ -15,4 +16,12 @@ export class ChatRequestDto {
   @IsOptional()
   @IsUUID()
   sessionId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  actionId?: string;
+
+  @IsOptional()
+  @IsIn(["confirm", "cancel"])
+  actionDecision?: "confirm" | "cancel";
 }

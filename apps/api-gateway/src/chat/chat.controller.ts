@@ -65,8 +65,8 @@ export class ChatController {
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async chat(
     @Body() body: ChatRequestDto,
-    @Req() request: { user: { userId: number } },
+    @Req() request: { user: { userId: number; role: string; username: string } },
   ) {
-    return this.chatService.reply(request.user.userId, body);
+    return this.chatService.reply(request.user, body);
   }
 }

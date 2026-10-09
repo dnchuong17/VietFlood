@@ -27,8 +27,10 @@ Các request có body dùng `Content-Type: application/json`. Lịch sử chat r
 | --- | --- | --- | --- |
 | `message` | string | Có | 1–2000 ký tự; khoảng trắng đầu/cuối được loại bỏ. Tin chỉ có khoảng trắng bị từ chối. |
 | `sessionId` | UUID string | Không | ID từ response trước. Bỏ trường này để tạo hội thoại mới. API tạo session ID dạng UUID v4. |
+| `actionId` | UUID string | Không | ID thao tác đang chờ; chỉ dùng cùng `actionDecision`. |
+| `actionDecision` | `confirm` hoặc `cancel` | Không | Xác nhận hoặc hủy thao tác sau khi chatbot đưa bản xem lại. |
 
-Không gửi thêm field ngoài hai field trên. Response thành công:
+Không gửi thêm field ngoài các field trên. Response thành công:
 
 ```json
 {
@@ -36,6 +38,10 @@ Không gửi thêm field ngoài hai field trên. Response thành công:
   "sessionId": "c8b9637e-6109-4c45-bd5f-02f38389a3ce"
 }
 ```
+
+Khi chatbot chuẩn bị thao tác, response có thể thêm trường `action` gồm `id` và trạng thái `collecting`, `awaiting_confirmation`, `completed` hoặc `cancelled`. Khi cần thêm thông tin, gửi câu trả lời tiếp theo bằng cùng `sessionId`; đề xuất được giữ tối đa 15 phút. Để xác nhận hoặc hủy, gửi `message`, `sessionId`, `actionId` và `actionDecision`. Xác nhận lặp trong lúc thao tác đang xử lý trả `409`; ID đã dùng, sai hoặc hết hạn trả `400`. Trường `action` là tùy chọn nên client cũ vẫn đọc được `answer` và `sessionId`.
+
+Các thao tác dùng Gemini để phân loại câu lệnh khi `GOOGLE_API_KEY` được cấu hình. Chatbot chỉ gọi thao tác trong allowlist và kiểm tra role từ JWT; đề xuất chờ được mã hóa trong Redis. Thao tác báo cáo/hồ sơ cần xác nhận; chatbot không thu thập mật khẩu hoặc đính kèm tệp. Công dân chỉ thao tác trên báo cáo của mình; admin/cứu hộ dùng các chức năng được role cho phép; chỉ admin có thể xóa tài khoản. Dữ liệu tài khoản trong kết quả không gồm password.
 
 Lưu `sessionId` để gửi tiếp tin nhắn và để tải/xóa hội thoại. Hội thoại gắn với tài khoản từ JWT. Mỗi lần gửi thành công, API lưu cả tin nhắn người dùng và câu trả lời. Nếu câu hỏi là câu tiếp nối, tối đa hai câu trả lời kiến thức trước đó của trợ lý có thể giúp làm rõ ngữ cảnh; tin nhắn cũ của người dùng không được gửi đến mô hình.
 

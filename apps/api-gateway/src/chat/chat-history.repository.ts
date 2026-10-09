@@ -19,6 +19,7 @@ export type ChatKind =
   | "first_aid"
   | "report_guide"
   | "report_status"
+  | "action"
   | "fallback"
   | "legacy";
 export type ChatTurn = {

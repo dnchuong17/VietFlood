@@ -16,6 +16,7 @@ import { firstAidFallback } from "./first-aid-guidance";
 import { smallTalkReply } from "./small-talk";
 import { QdrantKnowledgeService } from "./qdrant-knowledge.service";
 import { GeminiChatService } from "./gemini-chat.service";
+import { ChatActionService } from "./chat-action.service";
 
 type ReportSummary = {
   id: number;
@@ -29,6 +30,7 @@ type VerifiedFloodArea = {
   reportCount: number;
   latestAt: string;
 };
+type ChatActor = { userId: number; role: string; username: string };
 
 function isVerifiedFloodArea(value: unknown): value is VerifiedFloodArea {
   if (!value || typeof value !== "object") return false;
@@ -62,15 +64,20 @@ export class ChatService {
     private readonly history: ChatHistoryRepository,
     private readonly logger: LoggerService,
     private readonly gemini: GeminiChatService,
+    private readonly actions: ChatActionService,
   ) {
     this.logger.setServiceName(ChatService.name);
   }
 
   async reply(
-    userId: number,
+    actorInput: ChatActor | number,
     input: ChatRequestDto,
-  ): Promise<{ answer: string; sessionId: string }> {
+  ): Promise<{ answer: string; sessionId: string; action?: { id: string; status: string } }> {
     this.requireHistoryEnabled();
+    const actor = typeof actorInput === "number"
+      ? { userId: actorInput, role: "citizen", username: "" }
+      : actorInput;
+    const userId = actor.userId;
     const message = input.message.trim();
     if (!message) throw new BadRequestException("Message must not be empty");
     await this.checkRateLimit(userId);
@@ -81,9 +88,15 @@ export class ChatService {
       ? await this.history.recent(userId, sessionId, MAX_TURNS)
       : [];
 
+    const actionResult = await this.actions.handle(actor, sessionId, message, input.actionId, input.actionDecision);
     let answer: string;
     let kind: ChatKind;
-    if (this.isStatusQuestion(message, turns)) {
+    let action: { id: string; status: string } | undefined;
+    if (actionResult.handled) {
+      answer = actionResult.answer ?? "Mình chưa xử lý được thao tác này.";
+      kind = "action";
+      action = actionResult.action;
+    } else if (this.isStatusQuestion(message, turns)) {
       answer = await this.reportStatus(userId, message);
       kind = "report_status";
     } else if (this.isReportGuideQuestion(message)) {
@@ -113,7 +126,7 @@ export class ChatService {
     } else {
       await this.history.create(userId, sessionId, message, answer, kind);
     }
-    return { answer, sessionId };
+    return { answer, sessionId, ...(action ? { action } : {}) };
   }
 
   async listSessions(userId: number, limit = 20, cursor?: string) {

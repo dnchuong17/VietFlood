@@ -74,6 +74,25 @@ describe("GeminiChatService", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("understands a bounded action intent without requiring an approved knowledge collection", async () => {
+    vi.stubEnv("GOOGLE_API_KEY", "private-api-key");
+    vi.stubEnv("QDRANT_CHAT_COLLECTION", "");
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({
+        intent: "create_report",
+        arguments: { category: "flood", description: "Ngập đường" },
+      }) }] } }] }),
+    });
+    globalThis.fetch = fetchMock as never;
+    const service = new GeminiChatService(logger as never);
+
+    await expect(service.understandAction("Tạo báo cáo ngập đường", "citizen"))
+      .resolves.toEqual({ intent: "create_report", arguments: { category: "flood", description: "Ngập đường" } });
+    const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(JSON.stringify(JSON.parse(String(request.body)))).toContain("create_report");
+  });
+
   it("returns null and logs no provider response when Google fails", async () => {
     vi.stubEnv("GOOGLE_API_KEY", "private-api-key");
     vi.stubEnv("QDRANT_CHAT_COLLECTION", "curated-flood-kb");

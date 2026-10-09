@@ -28,6 +28,7 @@ describe("ChatService", () => {
   const reports = {
     getAllReportsById: vi.fn(),
     getRecentVerifiedFloodAreas: vi.fn(),
+    getRecentVerifiedReportCount: vi.fn(),
   };
   const knowledge = { search: vi.fn(), searchApproved: vi.fn() };
   const gemini = { isConfigured: vi.fn(() => false), answer: vi.fn() };
@@ -198,6 +199,27 @@ describe("ChatService", () => {
 
     expect(result.answer).toContain("không có nghĩa là chắc chắn không có lũ");
     expect(history.create).toHaveBeenCalledWith(7, result.sessionId, "lũ ở đâu?", result.answer, "community_reports");
+    expect(knowledge.search).not.toHaveBeenCalled();
+  });
+
+  it("answers report count questions from verified aggregate data", async () => {
+    reports.getRecentVerifiedReportCount.mockResolvedValue(7);
+
+    const result = await service.reply(7, { message: "Có bao nhiêu báo cáo lũ đã xác minh?" });
+
+    expect(result.answer).toContain("7 báo cáo lũ/ngập đã được xác minh");
+    expect(reports.getRecentVerifiedReportCount).toHaveBeenCalledWith("flood");
+    expect(knowledge.search).not.toHaveBeenCalled();
+    expect(gemini.answer).not.toHaveBeenCalled();
+  });
+
+  it("does not invent report counts when the Reports service is unavailable", async () => {
+    reports.getRecentVerifiedReportCount.mockRejectedValue(new Error("reports service offline"));
+
+    await expect(service.reply(7, { message: "Thống kê báo cáo cứu hộ" }))
+      .rejects.toBeInstanceOf(ServiceUnavailableException);
+
+    expect(reports.getRecentVerifiedReportCount).toHaveBeenCalledWith("rescue");
     expect(knowledge.search).not.toHaveBeenCalled();
   });
 

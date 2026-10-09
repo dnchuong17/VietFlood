@@ -92,6 +92,9 @@ export class ChatService {
     } else if (this.isFloodLocationQuestion(message)) {
       answer = await this.floodLocationReply();
       kind = "community_reports";
+    } else if (this.isReportCountQuestion(message)) {
+      answer = await this.reportCountReply(message);
+      kind = "community_reports";
     } else {
       const smallTalk = smallTalkReply(message);
       if (smallTalk) {
@@ -243,6 +246,55 @@ export class ChatService {
     if (/thường|hay xảy ra|mùa lũ|hằng năm|lịch sử/u.test(text)) return false;
     return /^(?:(?:hiện(?:nay|tại)|bây giờ|hôm nay)\s+)?(?:lũ(?:\s+lụt)?|ngập)(?:\s+đang)?\s+(?:ở đâu|khu vực nào|chỗ nào)\??[!. ]*$/u.test(text) ||
       /^(?:(?:hiện(?:nay|tại)|bây giờ|hôm nay)\s+)?(?:điểm ngập|khu vực ngập|vị trí ngập)(?:\s+(?:ở đâu|hiện nay|hiện tại))?\??[!. ]*$/u.test(text);
+  }
+
+  private isReportCountQuestion(message: string): boolean {
+    return /báo cáo|report/iu.test(message) &&
+      /bao nhiêu|số lượng|thống kê|tổng số|tổng cộng|đếm|có .* báo cáo/iu.test(message);
+  }
+
+  private reportCategoryFromQuestion(message: string): string | undefined {
+    if (/ngập|lũ|lụt/iu.test(message)) return "flood";
+    if (/cứu hộ|cứu nạn|rescue/iu.test(message)) return "rescue";
+    if (/hạ tầng|công trình|infrastructure/iu.test(message)) return "infrastructure";
+    if (/sự cố|tai nạn|incident/iu.test(message)) return "incident";
+    return undefined;
+  }
+
+  private async reportCountReply(message: string): Promise<string> {
+    let count: unknown;
+    try {
+      count = await this.reports.getRecentVerifiedReportCount(
+        this.reportCategoryFromQuestion(message),
+      );
+    } catch (error) {
+      const reason = error instanceof Error ? `${error.name} ${error.message}` : "";
+      this.logger.warn(/timeout|timed out|etimedout/iu.test(reason)
+        ? "Recent verified report count RPC timed out"
+        : "Recent verified report count RPC failed");
+      throw new ServiceUnavailableException("Recent verified reports are unavailable");
+    }
+    if (!Number.isSafeInteger(count) || Number(count) < 0) {
+      this.logger.warn("Recent verified report count response was invalid");
+      throw new ServiceUnavailableException("Recent verified reports are unavailable");
+    }
+
+    const category = this.reportCategoryFromQuestion(message);
+    const categoryLabel = category ? ` ${this.reportCategoryLabel(category)}` : "";
+    if (count === 0) {
+      return `Trong 24 giờ qua, VietFlood chưa ghi nhận báo cáo${categoryLabel} nào đã được xác minh. Điều này không có nghĩa là chắc chắn không có sự cố; hãy theo dõi thông báo từ cơ quan chức năng địa phương.`;
+    }
+    return `Trong 24 giờ qua, VietFlood ghi nhận ${count} báo cáo${categoryLabel} đã được xác minh. Đây là dữ liệu cộng đồng, không phải cảnh báo thời gian thực; hãy theo dõi thông báo từ cơ quan chức năng địa phương.`;
+  }
+
+  private reportCategoryLabel(category: string): string {
+    const labels: Record<string, string> = {
+      flood: "lũ/ngập",
+      incident: "sự cố",
+      infrastructure: "hạ tầng",
+      rescue: "cứu hộ",
+    };
+    return labels[category] ?? "";
   }
 
   private async floodLocationReply(): Promise<string> {

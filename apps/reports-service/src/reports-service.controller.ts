@@ -52,6 +52,16 @@ export class ReportsController {
     }
   }
 
+  @MessagePattern("chat_verified_report_count")
+  async getChatVerifiedReportCount(@Payload() payload: { category?: string }) {
+    try {
+      this.logger.debug("[CHAT REPORT COUNT] - Fetching verified report count");
+      return await this.reportsService.getRecentVerifiedReportCount(payload?.category);
+    } catch (error) {
+      throw new RpcException(error);
+    }
+  }
+
   @MessagePattern("update")
   async update(@Payload() payload: any) {
     try {

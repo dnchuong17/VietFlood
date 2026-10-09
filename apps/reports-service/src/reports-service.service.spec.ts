@@ -75,6 +75,31 @@ describe("ReportsService payload normalization", () => {
     expect(cutoff.getTime()).toBeGreaterThan(Date.now() - 24 * 60 * 60 * 1000 - 1000);
   });
 
+  it("counts recent verified reports without returning report details", async () => {
+    const { repository, service } = createReportsServiceHarness();
+    const query = {
+      select: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      andWhere: vi.fn().mockReturnThis(),
+      getRawOne: vi.fn().mockResolvedValue({ reportCount: "7" }),
+    };
+    repository.createQueryBuilder.mockReturnValue(query);
+
+    const count = await service.getRecentVerifiedReportCount("flood");
+
+    expect(count).toBe(7);
+    expect(query.select).toHaveBeenCalledWith("COUNT(*)", "reportCount");
+    expect(query.where).toHaveBeenCalledWith("report.status = :status", { status: "verified" });
+    expect(query.andWhere).toHaveBeenCalledWith(":category = ANY(report.category)", { category: "flood" });
+  });
+
+  it("rejects unsupported categories for chatbot report counts", async () => {
+    const { service } = createReportsServiceHarness();
+
+    await expect(service.getRecentVerifiedReportCount("private"))
+      .rejects.toMatchObject({ status: 400 });
+  });
+
   it("normalizes multipart coordinate strings and deduplicates create evidences by URL", async () => {
     const { repository, service } = createReportsServiceHarness();
 

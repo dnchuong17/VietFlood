@@ -171,6 +171,7 @@ const olderPage = await fetch(
 - Lời chào, cảm ơn, tiếng cười và câu trêu đùa nhẹ được trả lời bằng các quy tắc cục bộ ngắn gọn, không truy vấn kho kiến thức.
 - Câu hỏi về địa điểm ngập gần đây dùng báo cáo flood đã xác minh trong 24 giờ gần nhất. Câu trả lời chỉ nêu phường/tỉnh, số báo cáo và thời điểm mới nhất; dữ liệu này là báo cáo cộng đồng, không phải cảnh báo thời gian thực. Không có báo cáo trong khoảng đó không đồng nghĩa chắc chắn không có lũ.
 - Câu hỏi như “Bây giờ lũ ở đâu?” dùng riêng luồng tổng hợp báo cáo đã xác minh. Nếu dịch vụ báo cáo không phản hồi hoặc trả dữ liệu không hợp lệ, API trả `503` để client giữ nội dung và cho phép thử lại; API không thay thế bằng kết quả từ kho kiến thức.
+- Câu hỏi thống kê như “Có bao nhiêu báo cáo lũ đã xác minh?” đọc số lượng tổng hợp từ Reports service trong 24 giờ gần nhất, có thể lọc theo lũ/ngập, sự cố, hạ tầng hoặc cứu hộ. Chatbot chỉ nhận số đếm, không nhận mô tả, địa chỉ, tọa độ hoặc thông tin người gửi.
 - Khi Gemini không tạo được câu trả lời, passage trích xuất cục bộ được làm sạch URL/markup và giới hạn khoảng 400 ký tự. API ưu tiên cắt ở cuối câu; nếu câu đầu quá dài thì cắt ở ranh giới từ và thêm dấu rút gọn.
 - Chat có thể hướng dẫn cách dùng biểu mẫu báo cáo hoặc đọc trạng thái báo cáo của chính người dùng. Việc gửi báo cáo và tải ảnh/video vẫn thực hiện qua API báo cáo hiện có.
 - Nội dung `answer` là văn bản để hiển thị trong giao diện. Mặc định câu trả lời bằng tiếng Việt.

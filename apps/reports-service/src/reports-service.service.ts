@@ -202,6 +202,30 @@ export class ReportsService {
     }));
   }
 
+  async getRecentVerifiedReportCount(category?: string): Promise<number> {
+    const allowedCategories = ["flood", "incident", "infrastructure", "rescue"];
+    if (category && !allowedCategories.includes(category)) {
+      throw new BadRequestException("Invalid report category");
+    }
+
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const query = this.reportRepository
+      .createQueryBuilder("report")
+      .select("COUNT(*)", "reportCount")
+      .where("report.status = :status", { status: ReportStatus.VERIFIED })
+      .andWhere("report.createdAt >= :since", { since });
+    if (category) {
+      query.andWhere(":category = ANY(report.category)", { category });
+    }
+
+    const result = await query.getRawOne<{ reportCount: string | number }>();
+    const count = Number(result?.reportCount ?? 0);
+    if (!Number.isSafeInteger(count) || count < 0) {
+      throw new Error("Invalid verified report count result");
+    }
+    return count;
+  }
+
   async findReportWithID(id: number) {
     if (!id) {
       throw new BadRequestException("Invalid ID");

@@ -151,6 +151,14 @@ export class ReportsService {
     );
   }
 
+  async getRecentVerifiedReportCount(category?: string): Promise<number> {
+    return lastValueFrom(
+      this.reportsClient
+        .send<number>("chat_verified_report_count", { category })
+        .pipe(timeout(5000)),
+    );
+  }
+
   async updateReport(
     id: number,
     userId: number,

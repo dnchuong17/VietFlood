@@ -32,7 +32,10 @@ describe("ChatService", () => {
   };
   const knowledge = { search: vi.fn(), searchApproved: vi.fn() };
   const gemini = { isConfigured: vi.fn(() => false), answer: vi.fn() };
-  const actions = { handle: vi.fn(async () => ({ handled: false })) };
+  const actions = {
+    handle: vi.fn(async () => ({ handled: false })),
+    pendingAction: vi.fn(async () => null),
+  };
   const history = {
     access: vi.fn(async (userId: number, id: string) => {
       const session = sessions.get(id);
@@ -109,6 +112,28 @@ describe("ChatService", () => {
     expect(sessions.get(first.sessionId)?.turns).toHaveLength(14);
     expect(history.recent).toHaveBeenCalledWith(7, first.sessionId, 10);
     expect((await service.listMessages(7, first.sessionId)).items).toHaveLength(14);
+  });
+
+  it("returns an actor-owned pending action with the conversation history", async () => {
+    actions.pendingAction.mockResolvedValueOnce({
+      id: "c8b9637e-6109-4c45-bd5f-02f38389a3ce",
+      status: "awaiting_confirmation",
+    });
+    const first = await service.reply(7, { message: "Cách tạo báo cáo?" });
+
+    const page = await service.listMessages(
+      { userId: 7, role: "citizen", username: "citizen" },
+      first.sessionId,
+    );
+
+    expect(page.pendingAction).toEqual({
+      id: "c8b9637e-6109-4c45-bd5f-02f38389a3ce",
+      status: "awaiting_confirmation",
+    });
+    expect(actions.pendingAction).toHaveBeenCalledWith(
+      { userId: 7, role: "citizen", username: "citizen" },
+      first.sessionId,
+    );
   });
 
   it("rejects another account across reply, read, list and delete", async () => {

@@ -28,6 +28,8 @@ describe.skipIf(!testUrl || !isolated)("ChatHistoryRepository isolated PostgreSQ
     await pool.query(smallTalkMigration);
     const communityReportsMigration = readFileSync(resolve("db/migrations/20261009_chat_community_reports_kind.sql"), "utf8");
     await pool.query(communityReportsMigration);
+    const actionMigration = readFileSync(resolve("db/migrations/20261009_chat_action_kind.sql"), "utf8");
+    await pool.query(actionMigration);
     await pool.query("INSERT INTO public.users (id) VALUES ($1), ($2) ON CONFLICT DO NOTHING", [owner, stranger]);
     vi.stubEnv("DATABASE_URL", testUrl);
     vi.stubEnv("CHAT_KEY_CURRENT", "V1");
@@ -94,6 +96,19 @@ describe.skipIf(!testUrl || !isolated)("ChatHistoryRepository isolated PostgreSQ
       { role: "assistant", content: "answer 6", kind: "knowledge" },
     ]);
     expect(await repository.recentKnowledgeAnswers(stranger, id, 2)).toEqual([]);
+    await repository.delete(owner, id);
+  });
+
+  it("stores and returns action-kind assistant turns", async () => {
+    const id = randomUUID();
+    await repository.create(owner, id, "Xóa báo cáo 22", "Xác nhận trước khi xóa.", "action");
+
+    const page = await repository.messages(owner, id, 20);
+
+    expect(page?.items.map(({ role, kind, content }) => ({ role, kind, content }))).toEqual([
+      { role: "user", kind: "action", content: "Xóa báo cáo 22" },
+      { role: "assistant", kind: "action", content: "Xác nhận trước khi xóa." },
+    ]);
     await repository.delete(owner, id);
   });
 

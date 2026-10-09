@@ -44,9 +44,9 @@ export class ChatController {
   listMessages(
     @Param("sessionId", new ParseUUIDPipe({ version: "4" })) sessionId: string,
     @Query() query: ChatHistoryQueryDto,
-    @Req() request: { user: { userId: number } },
+    @Req() request: { user: { userId: number; role: string; username: string } },
   ) {
-    return this.chatService.listMessages(request.user.userId, sessionId, query.limit, query.cursor);
+    return this.chatService.listMessages(request.user, sessionId, query.limit, query.cursor);
   }
 
   @Delete("sessions/:sessionId")

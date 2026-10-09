@@ -13,7 +13,10 @@ import { ChatAuditInterceptor } from "./chat-audit.interceptor";
 const chat = {
   reply: vi.fn(async (userId: number) => ({ answer: `User ${userId}`, sessionId: "d42639bf-a048-4e4f-b55f-23ef0f97d207" })),
   listSessions: vi.fn(async (userId: number) => ({ items: [{ sessionId: `owner-${userId}` }], nextCursor: null })),
-  listMessages: vi.fn(async (userId: number) => ({ session: { userId }, items: [], nextCursor: null })),
+  listMessages: vi.fn(async (actor: { userId: number }) => ({
+    session: { userId: actor.userId }, items: [], nextCursor: null,
+    pendingAction: { id: "f35063b4-c137-4d63-9acb-b384437800e8", status: "awaiting_confirmation" },
+  })),
   deleteSession: vi.fn(async () => undefined),
 };
 const auditLogger = { setServiceName: vi.fn(), info: vi.fn() };
@@ -63,6 +66,48 @@ describe("Chat HTTP authorization and validation", () => {
     expect(response.headers.get("x-request-id")).toMatch(/^[0-9a-f-]{36}$/i);
     expect(await response.json()).toMatchObject({ items: [{ sessionId: "owner-7" }] });
     expect(chat.listSessions).toHaveBeenCalledWith(7, 20, undefined);
+  });
+
+  it("returns a pending action with messages and passes the verified actor role", async () => {
+    const sessionId = "d42639bf-a048-4e4f-b55f-23ef0f97d207";
+    const response = await fetch(`${base}/chat/sessions/${sessionId}/messages?limit=20`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      pendingAction: { id: "f35063b4-c137-4d63-9acb-b384437800e8", status: "awaiting_confirmation" },
+    });
+    expect(chat.listMessages).toHaveBeenCalledWith(
+      { userId: 7, username: "tester", role: "citizen" }, sessionId, 20, undefined,
+    );
+  });
+
+  it("accepts a confirmation decision and forwards the pending action ID", async () => {
+    const sessionId = "d42639bf-a048-4e4f-b55f-23ef0f97d207";
+    chat.reply.mockResolvedValueOnce({
+      answer: "Đã cập nhật báo cáo.", sessionId,
+      action: { id: "f35063b4-c137-4d63-9acb-b384437800e8", status: "completed" },
+    });
+    const response = await fetch(`${base}/chat`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: "Xác nhận thao tác", sessionId,
+        actionId: "f35063b4-c137-4d63-9acb-b384437800e8", actionDecision: "confirm",
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      answer: "Đã cập nhật báo cáo.", sessionId,
+      action: { id: "f35063b4-c137-4d63-9acb-b384437800e8", status: "completed" },
+    });
+    expect(chat.reply).toHaveBeenLastCalledWith(
+      { userId: 7, username: "tester", role: "citizen" },
+      {
+        message: "Xác nhận thao tác", sessionId,
+        actionId: "f35063b4-c137-4d63-9acb-b384437800e8", actionDecision: "confirm",
+      },
+    );
   });
 
   it("rejects invalid limits, UUIDs and extra chat fields", async () => {

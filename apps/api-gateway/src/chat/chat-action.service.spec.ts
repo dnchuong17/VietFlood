@@ -108,6 +108,22 @@ describe("ChatActionService", () => {
     expect(values.size).toBe(0);
   });
 
+  it("exposes only the pending action ID and phase for an owned session", async () => {
+    gemini.understandAction.mockResolvedValue({
+      intent: "delete_report",
+      arguments: { reportId: 22 },
+    });
+    const draft = await service.handle(citizen, sessionId, "Xóa báo cáo 22");
+
+    await expect(service.pendingAction(citizen, sessionId)).resolves.toEqual({
+      id: draft.action?.id,
+      status: "awaiting_confirmation",
+    });
+    await expect(
+      service.pendingAction({ ...citizen, userId: 8 }, sessionId),
+    ).resolves.toBeNull();
+  });
+
   it("rejects unauthorized staff operations before calling a service", async () => {
     gemini.understandAction.mockResolvedValue({
       intent: "all_reports",

@@ -160,6 +160,21 @@ export class ChatActionService {
     };
   }
 
+  async pendingAction(
+    actor: Actor,
+    sessionId: string,
+  ): Promise<Result["action"] | null> {
+    const key = "chat:pending-action:" + actor.userId + ":" + sessionId;
+    const pending = await this.load(key, actor.userId, sessionId);
+    if (!pending || pending.role !== actor.role) return null;
+    return {
+      id: pending.id,
+      status: this.missing(pending.intent, pending.arguments).length
+        ? "collecting"
+        : "awaiting_confirmation",
+    };
+  }
+
   private mayBeAction(message: string): boolean {
     if (
       /(?:hồ sơ của tôi|báo cáo của tôi|tài khoản của tôi|my profile|my reports)/iu.test(

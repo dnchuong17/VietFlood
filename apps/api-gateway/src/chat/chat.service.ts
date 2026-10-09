@@ -134,12 +134,24 @@ export class ChatService {
     return this.history.list(userId, limit, cursor);
   }
 
-  async listMessages(userId: number, sessionId: string, limit = 20, cursor?: string) {
+  async listMessages(
+    actorInput: ChatActor | number,
+    sessionId: string,
+    limit = 20,
+    cursor?: string,
+  ) {
     this.requireHistoryEnabled();
+    const actor = typeof actorInput === "number"
+      ? { userId: actorInput, role: "citizen", username: "" }
+      : actorInput;
+    const userId = actor.userId;
     await this.ensureSession(userId, sessionId, true);
     const result = await this.history.messages(userId, sessionId, limit, cursor);
     if (!result) throw new NotFoundException("Chat session not found");
-    return result;
+    return {
+      ...result,
+      pendingAction: await this.actions.pendingAction(actor, sessionId),
+    };
   }
 
   async deleteSession(userId: number, sessionId: string): Promise<void> {

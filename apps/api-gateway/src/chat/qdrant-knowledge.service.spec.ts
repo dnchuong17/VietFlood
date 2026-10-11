@@ -127,6 +127,33 @@ describe("QdrantKnowledgeService", () => {
     expect(await service.search("ngập quận huyện nào" )).toEqual([]);
   });
 
+  it("ignores conversational filler in short follow-up retrieval queries", async () => {
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ result: { payload_schema: { text: { data_type: "text" } } } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ result: { points: [{ id: 1, payload: { text: "Chuẩn bị trước lũ" } }] } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ result: { points: [{ id: 1, payload: { text: "Chuẩn bị nước uống trước lũ" } }] } }),
+      }) as never;
+    const service = new QdrantKnowledgeService(logger as never);
+
+    expect(await service.search("Cần chuẩn bị gì trước lũ? Còn gì nữa"))
+      .toEqual(["Chuẩn bị nước uống trước lũ"]);
+    const searchBody = JSON.parse((globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[2][1].body);
+    const terms = searchBody.filter.should.map((clause: { match: { text: string } }) => clause.match.text);
+    expect(terms).not.toContain("còn");
+    expect(terms).not.toContain("gì");
+    expect(terms).not.toContain("nữa");
+    expect(terms).toContain("lũ");
+  });
+
   it("queries only the configured approved collection for Gemini retrieval", async () => {
     vi.stubEnv("QDRANT_CHAT_COLLECTION", "curated_flood_kb");
     const fetchMock = vi

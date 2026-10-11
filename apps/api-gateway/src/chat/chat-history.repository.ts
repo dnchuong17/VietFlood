@@ -267,6 +267,33 @@ export class ChatHistoryRepository implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  async recentKnowledgeQuestions(
+    userId: number,
+    sessionId: string,
+    limit = 2,
+  ): Promise<ChatTurn[]> {
+    return this.safe(async () => {
+      const result = await this.pool.query<MessageRow>(
+        `SELECT m.id, m.sequence, m.role, m.kind, m.ciphertext, m.nonce,
+                m.auth_tag, m.key_id, m.created_at
+         FROM private_chat.messages m
+         JOIN private_chat.sessions s ON s.id = m.session_id
+         WHERE m.session_id = $1 AND s.user_id = $2
+           AND m.role = 'user' AND m.kind = 'knowledge'
+           AND EXISTS (
+             SELECT 1 FROM private_chat.messages a
+             WHERE a.session_id = m.session_id AND a.sequence = m.sequence + 1
+               AND a.role = 'assistant' AND a.kind = 'knowledge'
+           )
+         ORDER BY m.sequence DESC LIMIT $3`,
+        [sessionId, userId, limit],
+      );
+      return result.rows
+        .reverse()
+        .map((row) => this.messageFromRow(row, userId, sessionId));
+    });
+  }
+
   async create(userId: number, sessionId: string, message: string, answer: string, kind: ChatKind): Promise<void> {
     await this.transaction(async (client) => {
       await client.query(

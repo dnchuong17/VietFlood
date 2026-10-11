@@ -153,8 +153,9 @@ any future model context.
 
 When Gemini is enabled, the gateway uses LangChain to send the current question
 and up to four retrieved passages from `QDRANT_CHAT_COLLECTION` to the Gemini
-Paid API. On
-clear follow-up questions only, it may also send up to two prior assistant
+Paid API. For retrieval only, a clear follow-up may be combined with up to two
+prior user knowledge questions; those prior questions are not sent to Gemini.
+On clear follow-up questions only, it may also send up to two prior assistant
 answers whose stored kind is `knowledge`. It never sends prior user messages,
 report content, account data, report-status or community-report answers, or
 passages from the staging `QDRANT_COLLECTION`. The system instruction asks the

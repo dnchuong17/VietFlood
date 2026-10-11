@@ -32,8 +32,8 @@ flowchart TD
     K --> F{Reviewed first-aid answer matches?}
     F -- Yes --> FA[Return reviewed first-aid guidance]
     F -- No --> FU{Follow-up question?}
-    FU -- Yes --> CTX[Load recent knowledge answers]
-    FU -- No --> QS[Search local Qdrant knowledge collection]
+    FU -- Yes --> CTX[Load recent knowledge questions and answers]
+    FU -- No --> QS[Search relevant passages in Qdrant]
     CTX --> QS
     QS --> GM{Gemini configured and approved passages found?}
     GM -- Yes --> LC[LangChain prompt / runnable]
@@ -67,7 +67,7 @@ flowchart TD
 
 - Actions are parsed with Gemini when configured. Changes are previewed and require explicit confirmation; reads are limited by the allowlist and actor role.
 - Status, verified flood-area, and recent verified-count questions read from the Reports service.
-- General questions check reviewed first-aid guidance, then search Qdrant. Gemini only receives passages from the approved chat collection; otherwise the answer uses a local excerpt or a scope fallback.
+- General questions check reviewed first-aid guidance, then search Qdrant. Follow-up retrieval combines the recent knowledge topic with the new question. Gemini only receives passages from the approved chat collection; otherwise the answer uses up to three concise local excerpts or a scope fallback.
 - Each successful reply is stored in the user's chat history before the API returns it. New requests create a session; follow-ups use the existing session ID.
 
 ## LangChain

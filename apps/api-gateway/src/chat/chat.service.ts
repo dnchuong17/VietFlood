@@ -194,6 +194,9 @@ export class ChatService {
     const priorAnswers = isFollowUp
       ? await this.history.recentKnowledgeAnswers(userId, sessionId, 2)
       : [];
+    const priorQuestions = isFollowUp
+      ? await this.history.recentKnowledgeQuestions(userId, sessionId, 2)
+      : [];
     if (isFollowUp && priorAnswers.length === 0) {
       return {
         answer: "Mình chưa thấy ngữ cảnh trước đó trong cuộc trò chuyện này. Bạn muốn hỏi tiếp về chủ đề nào?",
@@ -201,12 +204,15 @@ export class ChatService {
       };
     }
 
-    const passages = await this.knowledge.search(message);
+    // Resolve short follow-ups against the topic they refer to. Prior user text
+    // is used only to retrieve passages; only assistant answers enter Gemini context.
+    const retrievalQuery = [...priorQuestions.map((turn) => turn.content), message].join(" ");
+    const passages = await this.knowledge.search(retrievalQuery);
 
     let generated: string | null = null;
     if (this.gemini.isConfigured()) {
       try {
-        const approvedPassages = await this.knowledge.searchApproved(message);
+        const approvedPassages = await this.knowledge.searchApproved(retrievalQuery);
         if (approvedPassages.length > 0) {
           const knowledgeContext = priorAnswers.map((turn) => ({
             role: "assistant" as const,
@@ -218,14 +224,20 @@ export class ChatService {
         this.logger.warn("Approved knowledge lookup failed; using local fallback");
       }
     }
-    const cleanedPassage = (passages[0] ?? "")
-      .replace(/https?:\/\/\S+/giu, "")
-      .replace(/<[^>]+>/gu, "")
-      .replace(/\[[^\]]+\]\([^)]*\)/gu, "")
-      .replace(/[#*`_]/gu, "")
-      .replace(/\s+/gu, " ")
-      .trim();
-    const excerpt = this.truncateLocalExcerpt(cleanedPassage);
+    const excerpts = [...new Set(passages
+      .map((passage) => passage
+        .replace(/https?:\/\/\S+/giu, "")
+        .replace(/<[^>]+>/gu, "")
+        .replace(/\[[^\]]+\]\([^)]*\)/gu, "")
+        .replace(/[#*`_]/gu, "")
+        .replace(/\s+/gu, " ")
+        .trim())
+      .filter(Boolean))]
+      .slice(0, 3)
+      .map((passage) => this.truncateLocalExcerpt(passage));
+    const excerpt = excerpts.length > 1
+      ? excerpts.map((passage) => `• ${passage}`).join("\n")
+      : excerpts[0] ?? "";
     const urgent = /đang (kẹt|ngập|bị cuốn)|cứu tôi|cấp cứu|khẩn cấp/iu.test(message);
     if (generated) {
       return {

@@ -95,6 +95,11 @@ describe.skipIf(!testUrl || !isolated)("ChatHistoryRepository isolated PostgreSQ
       { role: "assistant", content: "answer 4", kind: "knowledge" },
       { role: "assistant", content: "answer 6", kind: "knowledge" },
     ]);
+    expect(await repository.recentKnowledgeQuestions(owner, id, 2)).toEqual([
+      { role: "user", content: "question 4", kind: "knowledge" },
+      { role: "user", content: "question 6", kind: "knowledge" },
+    ]);
+    expect(await repository.recentKnowledgeQuestions(stranger, id, 2)).toEqual([]);
     expect(await repository.recentKnowledgeAnswers(stranger, id, 2)).toEqual([]);
     await repository.delete(owner, id);
   });

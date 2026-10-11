@@ -47,6 +47,10 @@ describe("ChatService", () => {
       (sessions.get(id)?.turns ?? [])
         .filter((turn) => turn.role === "assistant" && turn.kind === "knowledge")
         .slice(-limit)),
+    recentKnowledgeQuestions: vi.fn(async (_userId: number, id: string, limit = 2) =>
+      (sessions.get(id)?.turns ?? [])
+        .filter((turn) => turn.role === "user" && turn.kind === "knowledge")
+        .slice(-limit)),
     create: vi.fn(async (userId: number, id: string, message: string, answer: string, kind: ChatTurn["kind"]) => {
       sessions.set(id, { userId, turns: [
         { role: "user", content: message, kind },
@@ -352,6 +356,8 @@ describe("ChatService", () => {
 
     await service.reply(7, { message: "Còn nước uống thì sao?", sessionId: first.sessionId });
 
+    expect(knowledge.search).toHaveBeenLastCalledWith("do not send this Còn nước uống thì sao?");
+    expect(knowledge.searchApproved).toHaveBeenLastCalledWith("do not send this Còn nước uống thì sao?");
     expect(gemini.answer).toHaveBeenLastCalledWith("Còn nước uống thì sao?", ["approved passage"], [
       { role: "assistant", content: "Trả lời kiến thức gần nhất 1" },
       { role: "assistant", content: "Trả lời kiến thức gần nhất 2" },
@@ -436,6 +442,18 @@ describe("ChatService", () => {
 
     expect(gemini.answer).not.toHaveBeenCalled();
     expect(result.answer).toContain("staging local passage");
+  });
+
+  it("returns several concise local excerpts when generation is unavailable", async () => {
+    knowledge.search.mockResolvedValue([
+      "Chuẩn bị nước uống và thực phẩm đủ dùng trong vài ngày.",
+      "Cất giấy tờ quan trọng trong túi chống nước và chuẩn bị thuốc cá nhân.",
+    ]);
+
+    const result = await service.reply(7, { message: "Cần chuẩn bị gì trước lũ?" });
+
+    expect(result.answer).toContain("• Chuẩn bị nước uống");
+    expect(result.answer).toContain("• Cất giấy tờ quan trọng");
   });
 
   it("falls back locally when Gemini returns no answer", async () => {

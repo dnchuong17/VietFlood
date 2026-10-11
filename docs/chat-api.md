@@ -181,7 +181,7 @@ const olderPage = await fetch(
 - Khi Gemini không tạo được câu trả lời, tối đa ba passage cục bộ phù hợp được làm sạch URL/markup và giới hạn khoảng 400 ký tự mỗi đoạn. API ưu tiên cắt ở cuối câu; nếu câu đầu quá dài thì cắt ở ranh giới từ và thêm dấu rút gọn.
 - Chat có thể hướng dẫn cách dùng biểu mẫu báo cáo hoặc đọc trạng thái báo cáo của chính người dùng. Việc gửi báo cáo và tải ảnh/video vẫn thực hiện qua API báo cáo hiện có.
 - Nội dung `answer` là văn bản để hiển thị trong giao diện. Mặc định câu trả lời bằng tiếng Việt.
-- Với cấu hình Gemini, backend chỉ gửi câu hỏi hiện tại, các đoạn từ collection kiến thức đã duyệt và tối đa hai câu trả lời kiến thức trước đó của trợ lý trong câu hỏi tiếp nối. Khi truy xuất Qdrant cho câu hỏi tiếp nối, backend kết hợp tối đa hai câu hỏi kiến thức gần nhất với câu hỏi hiện tại; các câu hỏi trước không được gửi cho Gemini. Các luồng báo cáo và sơ cứu vẫn xử lý cục bộ.
+- Với cấu hình Gemini, backend chỉ gửi câu hỏi hiện tại, các đoạn từ collection kiến thức đã duyệt và tối đa hai câu trả lời kiến thức trước đó của trợ lý trong câu hỏi tiếp nối. Khi truy xuất Qdrant cho câu hỏi tiếp nối, backend kết hợp tối đa hai câu hỏi kiến thức gần nhất với câu hỏi hiện tại và loại các đoạn đã trả lời trước đó; các câu hỏi trước không được gửi cho Gemini. Nếu không tìm thấy thông tin mới, chatbot sẽ nói rõ thay vì lặp lại câu trả lời cũ. Các luồng báo cáo và sơ cứu vẫn xử lý cục bộ.
 
 ## 6. Lỗi và cách xử lý
 

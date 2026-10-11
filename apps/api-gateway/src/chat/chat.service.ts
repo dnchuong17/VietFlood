@@ -207,12 +207,13 @@ export class ChatService {
     // Resolve short follow-ups against the topic they refer to. Prior user text
     // is used only to retrieve passages; only assistant answers enter Gemini context.
     const retrievalQuery = [...priorQuestions.map((turn) => turn.content), message].join(" ");
-    const passages = await this.knowledge.search(retrievalQuery);
+    const previousAnswers = priorAnswers.map((turn) => turn.content);
+    const passages = await this.knowledge.search(retrievalQuery, previousAnswers);
 
     let generated: string | null = null;
     if (this.gemini.isConfigured()) {
       try {
-        const approvedPassages = await this.knowledge.searchApproved(retrievalQuery);
+        const approvedPassages = await this.knowledge.searchApproved(retrievalQuery, previousAnswers);
         if (approvedPassages.length > 0) {
           const knowledgeContext = priorAnswers.map((turn) => ({
             role: "assistant" as const,
@@ -246,6 +247,12 @@ export class ChatService {
       };
     }
     if (!excerpt) {
+      if (isFollowUp) {
+        return {
+          answer: "Mình chưa tìm thấy thông tin bổ sung khác trong tài liệu hiện có. Bạn muốn mình tìm kỹ hơn về phần nào?",
+          kind: "fallback",
+        };
+      }
       return { answer: this.outOfScopeReply(message), kind: "fallback" };
     }
     return {

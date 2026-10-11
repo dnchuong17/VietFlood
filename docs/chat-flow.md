@@ -67,7 +67,7 @@ flowchart TD
 
 - Actions are parsed with Gemini when configured. Changes are previewed and require explicit confirmation; reads are limited by the allowlist and actor role.
 - Status, verified flood-area, and recent verified-count questions read from the Reports service.
-- General questions check reviewed first-aid guidance, then search Qdrant. Follow-up retrieval combines the recent knowledge topic with the new question. Gemini only receives passages from the approved chat collection; otherwise the answer uses up to three concise local excerpts or a scope fallback.
+- General questions check reviewed first-aid guidance, then search Qdrant. Follow-up retrieval combines the recent knowledge topic with the new question and filters out previously shown excerpts. Gemini is instructed to add only new, source-supported information; if no new passages are found, the bot says so instead of repeating the earlier answer. Otherwise it uses the approved passages or up to three concise local excerpts.
 - Each successful reply is stored in the user's chat history before the API returns it. New requests create a session; follow-ups use the existing session ID.
 
 ## LangChain

@@ -154,6 +154,35 @@ describe("QdrantKnowledgeService", () => {
     expect(terms).toContain("lũ");
   });
 
+  it("filters passages already shown and returns a new matching passage", async () => {
+    const repeated = "Chuẩn bị trước lũ bằng cách dự trữ nước uống, thực phẩm, thuốc men và bảo vệ giấy tờ quan trọng.";
+    const newPassage = "Trước khi sơ tán vì lũ, hãy tắt điện nếu an toàn và đi theo tuyến sơ tán chính thức.";
+    globalThis.fetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ result: { payload_schema: { text: { data_type: "text" } } } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ result: { points: [{ id: 1, payload: { text: repeated } }] } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ result: { points: [
+          { id: 1, payload: { text: repeated } },
+          { id: 2, payload: { text: newPassage } },
+        ] } }),
+      }) as never;
+    const service = new QdrantKnowledgeService(logger as never);
+
+    const answers = await service.search(
+      "chuẩn bị trước lũ còn gì nữa",
+      [`Thông tin liên quan mình tìm thấy:\n• ${repeated}`],
+    );
+
+    expect(answers).toEqual([newPassage]);
+  });
+
   it("queries only the configured approved collection for Gemini retrieval", async () => {
     vi.stubEnv("QDRANT_CHAT_COLLECTION", "curated_flood_kb");
     const fetchMock = vi

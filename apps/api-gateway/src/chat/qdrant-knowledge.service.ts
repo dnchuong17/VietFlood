@@ -31,6 +31,7 @@ const STOPWORDS = new Set([
   "còn",
   "cho",
   "có",
+  "không",
   "đó",
   "gì",
   "tôi",
@@ -46,6 +47,7 @@ const STOPWORDS = new Set([
   "trong",
   "được",
   "cần",
+  "bị",
   "về",
   "vậy",
   "thì",
@@ -81,6 +83,31 @@ function terms(text: string): string[] {
   ];
 }
 
+function normalizePassage(text: string): string {
+  return text
+    .toLocaleLowerCase("vi")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/gu, "")
+    .replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+function previouslyShownFragments(answers: string[]): string[] {
+  return answers.flatMap((answer) => answer
+    .replace(/^(?:Thông tin liên quan mình tìm thấy:|Theo kho kiến thức VietFlood:)\s*/iu, "")
+    .split("\n")
+    .map((line) => line.replace(/^\s*•\s*/u, "").trim())
+    .filter((line) => normalizePassage(line).length >= 60));
+}
+
+function wasPreviouslyShown(candidate: string, fragments: string[]): boolean {
+  const normalizedCandidate = normalizePassage(candidate);
+  return fragments.some((fragment) => {
+    const normalizedFragment = normalizePassage(fragment);
+    return normalizedCandidate.startsWith(normalizedFragment) ||
+      (normalizedFragment.length >= 120 && normalizedCandidate.includes(normalizedFragment));
+  });
+}
+
 @Injectable()
 export class QdrantKnowledgeService {
   private readonly textFields = new Map<string, string>();
@@ -90,21 +117,22 @@ export class QdrantKnowledgeService {
     this.logger.setServiceName(QdrantKnowledgeService.name);
   }
 
-  async search(question: string): Promise<string[]> {
+  async search(question: string, excludeAnswers: string[] = []): Promise<string[]> {
     return this.searchCollection(
       question,
       process.env.QDRANT_COLLECTION?.trim() || "flood_kb_staging_2026_01",
+      excludeAnswers,
     );
   }
 
-  async searchApproved(question: string): Promise<string[]> {
+  async searchApproved(question: string, excludeAnswers: string[] = []): Promise<string[]> {
     const collection = process.env.QDRANT_CHAT_COLLECTION?.trim();
     const localCollection = process.env.QDRANT_COLLECTION?.trim() || "flood_kb_staging_2026_01";
     if (!collection || collection === localCollection) return [];
-    return this.searchCollection(question, collection);
+    return this.searchCollection(question, collection, excludeAnswers);
   }
 
-  private async searchCollection(question: string, collection: string): Promise<string[]> {
+  private async searchCollection(question: string, collection: string, excludeAnswers: string[] = []): Promise<string[]> {
     const field = await this.ensureTextField(collection);
     const queryTerms = terms(question).slice(0, 8);
     if (queryTerms.length === 0) return [];
@@ -137,12 +165,14 @@ export class QdrantKnowledgeService {
       return { content: content.trim(), score };
     });
     const minimumScore = Math.ceil(queryTerms.length * 0.6);
+    const shownFragments = previouslyShownFragments(excludeAnswers);
 
     const unique = new Map<string, { content: string; score: number }>();
     for (const candidate of candidates
       .filter(
         (candidate) =>
-          candidate.content && candidate.score >= minimumScore,
+          candidate.content && candidate.score >= minimumScore &&
+          !wasPreviouslyShown(candidate.content, shownFragments),
       )
       .sort((left, right) => right.score - left.score)) {
       if (!unique.has(candidate.content))

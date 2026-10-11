@@ -341,7 +341,7 @@ describe("ChatService", () => {
 
     const result = await service.reply(7, { message: "Cách chuẩn bị trước lũ?" });
 
-    expect(knowledge.searchApproved).toHaveBeenCalledWith("Cách chuẩn bị trước lũ?");
+    expect(knowledge.searchApproved).toHaveBeenCalledWith("Cách chuẩn bị trước lũ?", []);
     expect(gemini.answer).toHaveBeenCalledWith("Cách chuẩn bị trước lũ?", ["approved passage"], []);
     expect(result.answer).toBe("Câu trả lời đã tổng hợp.");
     expect(history.create).toHaveBeenCalledWith(7, result.sessionId, "Cách chuẩn bị trước lũ?", result.answer, "knowledge");
@@ -366,8 +366,14 @@ describe("ChatService", () => {
 
     await service.reply(7, { message: "Còn nước uống thì sao?", sessionId: first.sessionId });
 
-    expect(knowledge.search).toHaveBeenLastCalledWith("do not send this Còn nước uống thì sao?");
-    expect(knowledge.searchApproved).toHaveBeenLastCalledWith("do not send this Còn nước uống thì sao?");
+    expect(knowledge.search).toHaveBeenLastCalledWith("do not send this Còn nước uống thì sao?", [
+      "Trả lời kiến thức gần nhất 1",
+      "Trả lời kiến thức gần nhất 2",
+    ]);
+    expect(knowledge.searchApproved).toHaveBeenLastCalledWith("do not send this Còn nước uống thì sao?", [
+      "Trả lời kiến thức gần nhất 1",
+      "Trả lời kiến thức gần nhất 2",
+    ]);
     expect(gemini.answer).toHaveBeenLastCalledWith("Còn nước uống thì sao?", ["approved passage"], [
       { role: "assistant", content: "Trả lời kiến thức gần nhất 1" },
       { role: "assistant", content: "Trả lời kiến thức gần nhất 2" },
@@ -464,6 +470,24 @@ describe("ChatService", () => {
 
     expect(result.answer).toContain("• Chuẩn bị nước uống");
     expect(result.answer).toContain("• Cất giấy tờ quan trọng");
+  });
+
+  it("does not repeat a local answer when a follow-up has no new passages", async () => {
+    const passage = "Trước mùa lũ, gia đình nên chuẩn bị nước uống, thực phẩm, thuốc men và giấy tờ quan trọng.";
+    knowledge.search.mockResolvedValueOnce([passage]).mockResolvedValueOnce([]);
+    const first = await service.reply(7, { message: "Cần chuẩn bị gì trước lũ?" });
+
+    const followUp = await service.reply(7, {
+      message: "Còn gì nữa không?",
+      sessionId: first.sessionId,
+    });
+
+    expect(knowledge.search).toHaveBeenLastCalledWith(
+      "Cần chuẩn bị gì trước lũ? Còn gì nữa không?",
+      [first.answer],
+    );
+    expect(followUp.answer).toContain("chưa tìm thấy thông tin bổ sung khác");
+    expect(followUp.answer).not.toContain("chuẩn bị nước uống");
   });
 
   it("answers unsupported questions without a canned bot introduction", async () => {

@@ -211,19 +211,28 @@ export class ChatService {
     const passages = await this.knowledge.search(retrievalQuery, previousAnswers);
 
     let generated: string | null = null;
-    if (this.gemini.isConfigured()) {
+    const geminiConfig = this.gemini.configurationStatus?.() ??
+      (this.gemini.isConfigured() ? "ready" : "configuration_unavailable");
+    if (geminiConfig === "ready") {
       try {
         const approvedPassages = await this.knowledge.searchApproved(retrievalQuery, previousAnswers);
+        this.logger.info("Chat approved knowledge retrieval completed", {
+          passageCount: approvedPassages.length,
+        });
         if (approvedPassages.length > 0) {
           const knowledgeContext = priorAnswers.map((turn) => ({
             role: "assistant" as const,
             content: turn.content,
           }));
           generated = await this.gemini.answer(message, approvedPassages, knowledgeContext);
+        } else {
+          this.logger.warn("Gemini generation skipped", { reason: "no_approved_passages" });
         }
       } catch {
-        this.logger.warn("Approved knowledge lookup failed; using local fallback");
+        this.logger.warn("Approved knowledge lookup failed", { fallback: "local_excerpts_or_no_information" });
       }
+    } else {
+      this.logger.warn("Gemini generation unavailable", { reason: geminiConfig });
     }
     const excerpts = [...new Set(passages
       .map((passage) => passage
@@ -247,6 +256,10 @@ export class ChatService {
       };
     }
     if (!excerpt) {
+      this.logger.warn("Chat knowledge fallback selected", {
+        reason: "no_local_passages",
+        followUp: isFollowUp,
+      });
       if (isFollowUp) {
         return {
           answer: "Mình chưa tìm thấy thông tin bổ sung khác trong tài liệu hiện có. Bạn muốn mình tìm kỹ hơn về phần nào?",
@@ -255,6 +268,10 @@ export class ChatService {
       }
       return { answer: this.outOfScopeReply(message), kind: "fallback" };
     }
+    this.logger.warn("Chat knowledge fallback selected", {
+      reason: "gemini_unavailable_or_failed",
+      localExcerptCount: excerpts.length,
+    });
     return {
       answer: `${urgent ? "Trước hết, hãy tới nơi an toàn và gọi cứu hộ hoặc cấp cứu ngay. " : ""}Thông tin liên quan mình tìm thấy:\n${excerpt}`,
       kind: "knowledge",

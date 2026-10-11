@@ -51,12 +51,25 @@ export class GeminiChatService {
     );
   }
 
+  configurationStatus(): "ready" | "missing_api_key" | "missing_approved_collection" | "approved_collection_is_staging" {
+    if (!process.env.GOOGLE_API_KEY?.trim()) return "missing_api_key";
+    const approvedCollection = process.env.QDRANT_CHAT_COLLECTION?.trim();
+    if (!approvedCollection) return "missing_approved_collection";
+    const localCollection = process.env.QDRANT_COLLECTION?.trim() || "flood_kb_staging_2026_01";
+    if (approvedCollection === localCollection) return "approved_collection_is_staging";
+    return "ready";
+  }
+
   async answer(
     question: string,
     passages: string[],
     priorAnswers: KnowledgeContext[] = [],
   ): Promise<string | null> {
-    if (!process.env.GOOGLE_API_KEY?.trim() || !this.isConfigured()) return null;
+    const configStatus = this.configurationStatus();
+    if (configStatus !== "ready") {
+      this.logger.warn("Gemini knowledge generation skipped", { reason: configStatus });
+      return null;
+    }
 
     const sourceText = passages
       .slice(0, MAX_PASSAGES)
@@ -87,9 +100,17 @@ export class GeminiChatService {
           if (typeof part === "string") return part;
           return "text" in part && typeof part.text === "string" ? part.text : "";
         }).join("").trim();
-      return answer || null;
-    } catch {
-      this.logger.warn("Gemini knowledge answer failed; using local fallback");
+      if (!answer) {
+        this.logger.warn("Gemini knowledge generation returned empty content");
+        return null;
+      }
+      this.logger.info("Gemini knowledge generation succeeded", {
+        passageCount: Math.min(passages.length, MAX_PASSAGES),
+        answerLength: answer.length,
+      });
+      return answer;
+    } catch (error) {
+      this.logger.warn("Gemini knowledge generation failed", { ...this.safeErrorDetails(error) });
       return null;
     }
   }
@@ -124,10 +145,20 @@ export class GeminiChatService {
       if (typeof record.intent !== "string" || !ALLOWED_INTENTS.includes(record.intent as typeof ALLOWED_INTENTS[number]) ||
         !record.arguments || typeof record.arguments !== "object" || Array.isArray(record.arguments)) return null;
       return { intent: record.intent, arguments: record.arguments as Record<string, unknown> };
-    } catch {
-      this.logger.warn("Gemini action understanding failed; using knowledge fallback");
+    } catch (error) {
+      this.logger.warn("Gemini action understanding failed", { ...this.safeErrorDetails(error) });
       return null;
     }
+  }
+
+  private safeErrorDetails(error: unknown): Record<string, string | number> {
+    if (!error || typeof error !== "object") return { errorType: typeof error };
+    const value = error as { name?: unknown; status?: unknown; code?: unknown };
+    const details: Record<string, string | number> = {};
+    if (typeof value.name === "string") details.errorType = value.name.slice(0, 80);
+    if (typeof value.status === "number") details.status = value.status;
+    if (typeof value.code === "string" && /^[A-Z0-9_]{1,40}$/u.test(value.code)) details.errorCode = value.code;
+    return details;
   }
 
   private createModel(temperature: number, maxOutputTokens: number): ChatGoogle {

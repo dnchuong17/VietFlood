@@ -41,7 +41,7 @@ Không gửi thêm field ngoài các field trên. Response thành công:
 
 Khi chatbot chuẩn bị thao tác, response có thể thêm trường `action` gồm `id` và trạng thái `collecting`, `awaiting_confirmation`, `completed` hoặc `cancelled`. Khi cần thêm thông tin, gửi câu trả lời tiếp theo bằng cùng `sessionId`; đề xuất được giữ tối đa 15 phút. Để xác nhận hoặc hủy, gửi `message`, `sessionId`, `actionId` và `actionDecision`. Xác nhận lặp trong lúc thao tác đang xử lý trả `409`; ID đã dùng, sai hoặc hết hạn trả `400`. Trường `action` là tùy chọn nên client cũ vẫn đọc được `answer` và `sessionId`.
 
-Các thao tác dùng Gemini để phân loại câu lệnh khi `GOOGLE_API_KEY` được cấu hình. Chatbot chỉ gọi thao tác trong allowlist và kiểm tra role từ JWT; đề xuất chờ được mã hóa trong Redis. Thao tác báo cáo/hồ sơ cần xác nhận; chatbot không thu thập mật khẩu hoặc đính kèm tệp. Công dân chỉ thao tác trên báo cáo của mình; admin/cứu hộ dùng các chức năng được role cho phép; chỉ admin có thể xóa tài khoản. Dữ liệu tài khoản trong kết quả không gồm password.
+Các thao tác dùng LangChain structured output với Gemini để phân loại câu lệnh khi `GOOGLE_API_KEY` được cấu hình. Chatbot chỉ gọi thao tác trong allowlist và kiểm tra role từ JWT; đề xuất chờ được mã hóa trong Redis. Thao tác báo cáo/hồ sơ cần xác nhận; chatbot không thu thập mật khẩu hoặc đính kèm tệp. Công dân chỉ thao tác trên báo cáo của mình; admin/cứu hộ dùng các chức năng được role cho phép; chỉ admin có thể xóa tài khoản. Dữ liệu tài khoản trong kết quả không gồm password.
 
 Lưu `sessionId` để gửi tiếp tin nhắn và để tải/xóa hội thoại. Hội thoại gắn với tài khoản từ JWT. Mỗi lần gửi thành công, API lưu cả tin nhắn người dùng và câu trả lời. Nếu câu hỏi là câu tiếp nối, tối đa hai câu trả lời kiến thức trước đó của trợ lý có thể giúp làm rõ ngữ cảnh; tin nhắn cũ của người dùng không được gửi đến mô hình.
 
@@ -173,7 +173,7 @@ const olderPage = await fetch(
 
 ## 5. Hành vi của câu trả lời
 
-- Câu hỏi về an toàn lũ dùng nội dung phù hợp từ kho kiến thức VietFlood. Khi backend bật Gemini, câu trả lời có thể được tổng hợp từ collection đã duyệt; nếu Gemini không khả dụng, API dùng câu trả lời trích xuất cục bộ. Nếu không có đoạn đủ liên quan, API nêu phạm vi hỗ trợ và gợi ý câu hỏi cụ thể. Một số hướng dẫn sơ cứu đã rà soát được trả trực tiếp.
+- Câu hỏi về an toàn lũ dùng nội dung phù hợp từ kho kiến thức VietFlood. Khi backend bật Gemini, LangChain có thể tổng hợp câu trả lời từ collection đã duyệt; nếu Gemini không khả dụng, API dùng câu trả lời trích xuất cục bộ. Nếu không có đoạn đủ liên quan, API nêu phạm vi hỗ trợ và gợi ý câu hỏi cụ thể. Một số hướng dẫn sơ cứu đã rà soát được trả trực tiếp.
 - Lời chào, cảm ơn, tiếng cười và câu trêu đùa nhẹ được trả lời bằng các quy tắc cục bộ ngắn gọn, không truy vấn kho kiến thức.
 - Câu hỏi về địa điểm ngập gần đây dùng báo cáo flood đã xác minh trong 24 giờ gần nhất. Câu trả lời chỉ nêu phường/tỉnh, số báo cáo và thời điểm mới nhất; dữ liệu này là báo cáo cộng đồng, không phải cảnh báo thời gian thực. Không có báo cáo trong khoảng đó không đồng nghĩa chắc chắn không có lũ.
 - Câu hỏi như “Bây giờ lũ ở đâu?” dùng riêng luồng tổng hợp báo cáo đã xác minh. Nếu dịch vụ báo cáo không phản hồi hoặc trả dữ liệu không hợp lệ, API trả `503` để client giữ nội dung và cho phép thử lại; API không thay thế bằng kết quả từ kho kiến thức.

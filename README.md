@@ -9,6 +9,7 @@ the [Chat security and operations guide](docs/chat-security.md) for database,
 encryption, deployment, and key rotation. Operators can use the
 [chat backup and recovery runbook](docs/chat-backup-runbook.md) to verify backup
 settings and recover persistent history.
+See the [chatbot flow diagram](docs/chat-flow.md) for the request and answer paths.
 
 Conversations belong to the verified JWT user and remain in Supabase
 PostgreSQL until hard deletion. Message bodies are encrypted before storage.

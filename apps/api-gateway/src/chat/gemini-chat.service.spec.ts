@@ -1,25 +1,65 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const langchain = vi.hoisted(() => ({
+  calls: [] as Array<{ prompts: unknown[]; input: unknown; options: Record<string, unknown> }>,
+  output: "Câu trả lời." as unknown,
+  failure: false,
+  modelOptions: [] as Array<Record<string, unknown>>,
+}));
+
+vi.mock("@langchain/core/prompts", () => ({
+  ChatPromptTemplate: {
+    fromMessages: (prompts: unknown[]) => ({
+      pipe: (model: { invoke: (input: unknown) => Promise<unknown> }) => ({
+        invoke: async (input: unknown) => {
+          if (langchain.failure) throw new Error("private provider details");
+          return model.invoke({ prompts, input });
+        },
+      }),
+    }),
+  },
+}));
+
+vi.mock("@langchain/google", () => ({
+  ChatGoogle: class {
+    constructor(options: Record<string, unknown>) {
+      langchain.modelOptions.push(options);
+    }
+    async invoke(input: unknown) {
+      langchain.calls.push({ prompts: (input as { prompts: unknown[] }).prompts, input, options: {} });
+      return { content: langchain.output };
+    }
+    withStructuredOutput() {
+      return {
+        invoke: async (input: unknown) => {
+          langchain.calls.push({ prompts: (input as { prompts: unknown[] }).prompts, input, options: { structured: true } });
+          return langchain.output;
+        },
+      };
+    }
+  },
+}));
 
 import { GeminiChatService } from "./gemini-chat.service";
 
 describe("GeminiChatService", () => {
-  const originalFetch = globalThis.fetch;
   const logger = { setServiceName: vi.fn(), warn: vi.fn() };
 
+  beforeEach(() => {
+    langchain.calls = [];
+    langchain.output = "Câu trả lời.";
+    langchain.failure = false;
+    langchain.modelOptions = [];
+  });
+
   afterEach(() => {
-    globalThis.fetch = originalFetch;
     vi.unstubAllEnvs();
     vi.clearAllMocks();
   });
 
-  it("sends only the current question, approved passages, and capped assistant context", async () => {
+  it("sends only the current question, approved passages, and capped assistant context through LangChain", async () => {
     vi.stubEnv("GOOGLE_API_KEY", "private-api-key");
     vi.stubEnv("QDRANT_CHAT_COLLECTION", "curated-flood-kb");
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ candidates: [{ content: { parts: [{ text: "Câu trả lời." }] } }] }),
-    });
-    globalThis.fetch = fetchMock as never;
     const service = new GeminiChatService(logger as never);
 
     const answer = await service.answer(
@@ -32,71 +72,70 @@ describe("GeminiChatService", () => {
       ],
     );
 
-    const [url, request] = fetchMock.mock.calls[0] as [string, RequestInit];
-    const body = JSON.parse(String(request.body));
-    const submittedText = JSON.stringify(body);
     expect(answer).toBe("Câu trả lời.");
-    expect(url).toContain("models/gemini-3.8-flash:generateContent");
-    expect(url).not.toContain("private-api-key");
-    expect((request.headers as Record<string, string>)["x-goog-api-key"]).toBe("private-api-key");
-    expect(submittedText).toContain("Còn nước uống thì sao?");
-    expect(submittedText).toContain("approved-1");
-    expect(submittedText).toContain("approved-4");
-    expect(submittedText).toContain("approved-prior-1");
-    expect(submittedText).toContain("approved-prior-2");
-    expect(submittedText).not.toContain("private-api-key");
-    expect(submittedText).not.toContain("must-not-send");
-    expect(submittedText).not.toContain("role\":\"assistant\"");
+    const promptText = JSON.stringify(langchain.calls[0]?.prompts);
+    const inputText = JSON.stringify(langchain.calls[0]?.input);
+    expect(promptText).toContain("Bạn là trợ lý VietFlood");
+    expect(inputText).toContain("Còn nước uống thì sao?");
+    expect(inputText).toContain("approved-1");
+    expect(inputText).toContain("approved-4");
+    expect(inputText).toContain("approved-prior-1");
+    expect(inputText).toContain("approved-prior-2");
+    expect(inputText).not.toContain("private-api-key");
+    expect(inputText).not.toContain("must-not-send");
+    expect(langchain.modelOptions[0]).toMatchObject({ model: "gemini-3.8-flash", temperature: 0.2, maxOutputTokens: 512 });
   });
 
-  it("does not call Google when either the API key or approved collection is missing", async () => {
+  it("does not call LangChain when either the API key or approved collection is missing", async () => {
     vi.stubEnv("GOOGLE_API_KEY", "private-api-key");
     vi.stubEnv("QDRANT_CHAT_COLLECTION", "");
-    const fetchMock = vi.fn();
-    globalThis.fetch = fetchMock as never;
     const service = new GeminiChatService(logger as never);
 
     expect(service.isConfigured()).toBe(false);
     expect(await service.answer("question", ["passage"])).toBeNull();
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(langchain.calls).toHaveLength(0);
   });
 
-  it("keeps Gemini disabled if the approved collection is set to the staging collection", async () => {
+  it("keeps generated answers disabled when the approved collection is the staging collection", async () => {
     vi.stubEnv("GOOGLE_API_KEY", "private-api-key");
     vi.stubEnv("QDRANT_COLLECTION", "flood_kb_staging_2026_01");
     vi.stubEnv("QDRANT_CHAT_COLLECTION", "flood_kb_staging_2026_01");
-    const fetchMock = vi.fn();
-    globalThis.fetch = fetchMock as never;
     const service = new GeminiChatService(logger as never);
 
     expect(service.isConfigured()).toBe(false);
     expect(await service.answer("question", ["staging passage"])).toBeNull();
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(langchain.calls).toHaveLength(0);
   });
 
-  it("understands a bounded action intent without requiring an approved knowledge collection", async () => {
+  it("uses structured LangChain output for allowlisted action intent extraction", async () => {
     vi.stubEnv("GOOGLE_API_KEY", "private-api-key");
     vi.stubEnv("QDRANT_CHAT_COLLECTION", "");
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({
-        intent: "create_report",
-        arguments: { category: "flood", description: "Ngập đường" },
-      }) }] } }] }),
-    });
-    globalThis.fetch = fetchMock as never;
+    langchain.output = {
+      intent: "create_report",
+      arguments: { category: "flood", description: "Ngập đường" },
+    };
     const service = new GeminiChatService(logger as never);
 
     await expect(service.understandAction("Tạo báo cáo ngập đường", "citizen"))
       .resolves.toEqual({ intent: "create_report", arguments: { category: "flood", description: "Ngập đường" } });
-    const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
-    expect(JSON.stringify(JSON.parse(String(request.body)))).toContain("create_report");
+    expect(langchain.calls[0]?.options.structured).toBe(true);
+    expect(JSON.stringify(langchain.calls[0]?.input)).toContain("Tạo báo cáo ngập đường");
   });
 
-  it("returns null and logs no provider response when Google fails", async () => {
+  it("rejects malformed or disallowed structured action output", async () => {
+    vi.stubEnv("GOOGLE_API_KEY", "private-api-key");
+    const service = new GeminiChatService(logger as never);
+
+    langchain.output = { intent: "execute_arbitrary_code", arguments: {} };
+    await expect(service.understandAction("do something", "admin")).resolves.toBeNull();
+    langchain.output = { intent: "delete_report", arguments: [] };
+    await expect(service.understandAction("delete", "admin")).resolves.toBeNull();
+  });
+
+  it("returns null and logs no provider response when LangChain fails", async () => {
     vi.stubEnv("GOOGLE_API_KEY", "private-api-key");
     vi.stubEnv("QDRANT_CHAT_COLLECTION", "curated-flood-kb");
-    globalThis.fetch = vi.fn().mockRejectedValue(new Error("private provider details")) as never;
+    langchain.failure = true;
     const service = new GeminiChatService(logger as never);
 
     expect(await service.answer("private question", ["private passage"])).toBeNull();

@@ -151,8 +151,9 @@ is unrecoverable. Redis retains the per-user rate-limit key for about two
 minutes. Report-status replies can be stored in history, but are excluded from
 any future model context.
 
-When Gemini is enabled, the gateway sends the current question and up to four
-retrieved passages from `QDRANT_CHAT_COLLECTION` to the Gemini Paid API. On
+When Gemini is enabled, the gateway uses LangChain to send the current question
+and up to four retrieved passages from `QDRANT_CHAT_COLLECTION` to the Gemini
+Paid API. On
 clear follow-up questions only, it may also send up to two prior assistant
 answers whose stored kind is `knowledge`. It never sends prior user messages,
 report content, account data, report-status or community-report answers, or

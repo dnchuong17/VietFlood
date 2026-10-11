@@ -29,8 +29,10 @@ Các request có body dùng `Content-Type: application/json`. Lịch sử chat r
 | `sessionId` | UUID string | Không | ID từ response trước. Bỏ trường này để tạo hội thoại mới. API tạo session ID dạng UUID v4. |
 | `actionId` | UUID string | Không | ID thao tác đang chờ; chỉ dùng cùng `actionDecision`. |
 | `actionDecision` | `confirm` hoặc `cancel` | Không | Xác nhận hoặc hủy thao tác sau khi chatbot đưa bản xem lại. |
+| `latitude`, `longitude` | number | Không | Cặp tọa độ GPS cho bản nháp báo cáo; cần gửi cả hai và nằm trong phạm vi hợp lệ. |
+| `clearLocation` | boolean | Không | Xóa tọa độ khỏi bản nháp báo cáo, dùng khi người dùng bỏ qua GPS. |
 
-Không gửi thêm field ngoài các field trên. Response thành công:
+Tin nhắn thông thường tiếp tục dùng JSON. Khi xác nhận báo cáo có ảnh, gửi `multipart/form-data` với các field chat ở trên và tối đa 5 field `files`; mỗi tệp tối đa 5 MB và phải là ảnh. Tệp chỉ được gửi khi xác nhận với đúng `actionId`. Không gửi thêm field ngoài các field trên. Response thành công:
 
 ```json
 {
@@ -39,9 +41,9 @@ Không gửi thêm field ngoài các field trên. Response thành công:
 }
 ```
 
-Khi chatbot chuẩn bị thao tác, response có thể thêm trường `action` gồm `id` và trạng thái `collecting`, `awaiting_confirmation`, `completed` hoặc `cancelled`. Khi cần thêm thông tin, gửi câu trả lời tiếp theo bằng cùng `sessionId`; đề xuất được giữ tối đa 15 phút. Để xác nhận hoặc hủy, gửi `message`, `sessionId`, `actionId` và `actionDecision`. Xác nhận lặp trong lúc thao tác đang xử lý trả `409`; ID đã dùng, sai hoặc hết hạn trả `400`. Trường `action` là tùy chọn nên client cũ vẫn đọc được `answer` và `sessionId`.
+Khi chatbot chuẩn bị thao tác, response có thể thêm trường `action` gồm `id`, `status` (`collecting`, `awaiting_confirmation`, `completed` hoặc `cancelled`) và `intent` khi có. Khi cần thêm thông tin, gửi câu trả lời tiếp theo bằng cùng `sessionId`; đề xuất được giữ tối đa 15 phút. Để xác nhận hoặc hủy, gửi `message`, `sessionId`, `actionId` và `actionDecision`. Xác nhận lặp trong lúc thao tác đang xử lý trả `409`; ID đã dùng, sai hoặc hết hạn trả `400`. Trường `action` là tùy chọn nên client cũ vẫn đọc được `answer` và `sessionId`.
 
-Các thao tác dùng LangChain structured output với Gemini để phân loại câu lệnh khi `GOOGLE_API_KEY` được cấu hình. Chatbot chỉ gọi thao tác trong allowlist và kiểm tra role từ JWT; đề xuất chờ được mã hóa trong Redis. Thao tác báo cáo/hồ sơ cần xác nhận; chatbot không thu thập mật khẩu hoặc đính kèm tệp. Công dân chỉ thao tác trên báo cáo của mình; admin/cứu hộ dùng các chức năng được role cho phép; chỉ admin có thể xóa tài khoản. Dữ liệu tài khoản trong kết quả không gồm password.
+Các thao tác dùng LangChain structured output với Gemini để phân loại câu lệnh khi `GOOGLE_API_KEY` được cấu hình. Chatbot chỉ gọi thao tác trong allowlist và kiểm tra role từ JWT; đề xuất chờ được mã hóa trong Redis. Tạo báo cáo cần đủ loại báo cáo, mô tả, tỉnh/thành, phường/xã và địa chỉ; GPS và ảnh minh chứng là tùy chọn. Báo cáo chỉ được lưu sau khi người dùng xác nhận bản xem lại. ID người tạo luôn lấy từ JWT. Thao tác báo cáo/hồ sơ cần xác nhận; chatbot không thu thập mật khẩu. Công dân chỉ thao tác trên báo cáo của mình; admin/cứu hộ dùng các chức năng được role cho phép; chỉ admin có thể xóa tài khoản. Dữ liệu tài khoản trong kết quả không gồm password.
 
 Lưu `sessionId` để gửi tiếp tin nhắn và để tải/xóa hội thoại. Hội thoại gắn với tài khoản từ JWT. Mỗi lần gửi thành công, API lưu cả tin nhắn người dùng và câu trả lời. Nếu câu hỏi là câu tiếp nối, tối đa hai câu trả lời kiến thức trước đó của trợ lý có thể giúp làm rõ ngữ cảnh; tin nhắn cũ của người dùng không được gửi đến mô hình.
 

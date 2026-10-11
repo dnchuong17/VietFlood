@@ -110,8 +110,98 @@ describe("ChatActionService", () => {
         description: "Ngập đường",
       }),
       7,
+      [],
     );
     expect(values.size).toBe(0);
+  });
+
+  it("collects missing report fields across turns and accepts corrections", async () => {
+    gemini.understandAction
+      .mockResolvedValueOnce({
+        intent: "create_report",
+        arguments: { category: ["flood"], description: "Ngập đường", province: "Đà Nẵng" },
+      })
+      .mockResolvedValueOnce({
+        intent: "create_report",
+        arguments: { ward: "Hải Châu", addressLine: "Đường A" },
+      });
+
+    const first = await service.handle(citizen, sessionId, "Tạo báo cáo ngập đường");
+    expect(first.action?.status).toBe("collecting");
+    expect(first.answer).toContain("phường/xã");
+    expect(first.answer).toContain("địa chỉ");
+    expect(reports.createReport).not.toHaveBeenCalled();
+
+    const complete = await service.handle(citizen, sessionId, "Hải Châu, đường A");
+    expect(complete.action?.status).toBe("awaiting_confirmation");
+    expect(complete.action?.intent).toBe("create_report");
+    expect(complete.answer).toContain("GPS: chưa cung cấp (tùy chọn)");
+    expect(reports.createReport).not.toHaveBeenCalled();
+  });
+
+  it("rejects unsupported report categories and allows a correction", async () => {
+    gemini.understandAction
+      .mockResolvedValueOnce({
+        intent: "create_report",
+        arguments: { category: "earthquake", description: "Sự cố", province: "Đà Nẵng", ward: "Hải Châu", addressLine: "Đường A" },
+      })
+      .mockResolvedValueOnce({ intent: "create_report", arguments: { category: "incident" } });
+
+    const invalid = await service.handle(citizen, sessionId, "Tạo báo cáo");
+    expect(invalid.action?.status).toBe("collecting");
+    expect(invalid.answer).toContain("Loại báo cáo chưa hợp lệ");
+    const corrected = await service.handle(citizen, sessionId, "Sự cố");
+    expect(corrected.action?.status).toBe("awaiting_confirmation");
+    expect(corrected.answer).toContain("loại báo cáo: sự cố");
+    expect(reports.createReport).not.toHaveBeenCalled();
+  });
+
+  it("passes optional coordinates and evidence only after confirmation", async () => {
+    gemini.understandAction.mockResolvedValue({
+      intent: "create_report",
+      arguments: { category: "flood", description: "Ngập đường", province: "Đà Nẵng", ward: "Hải Châu", addressLine: "Đường A" },
+    });
+    const file = { originalname: "evidence.jpg", mimetype: "image/jpeg", buffer: Buffer.from("image") } as Express.Multer.File;
+
+    const draft = await service.handle(citizen, sessionId, "Tạo báo cáo", undefined, undefined, {
+      latitude: 16.05,
+      longitude: 108.2,
+    });
+    expect(draft.answer).toContain("GPS: 16.05, 108.2");
+    expect(reports.createReport).not.toHaveBeenCalled();
+
+    const result = await service.handle(citizen, sessionId, "Xác nhận", draft.action?.id, "confirm", {}, [file]);
+    expect(result.action?.status).toBe("completed");
+    expect(reports.createReport).toHaveBeenCalledWith(
+      expect.objectContaining({ category: ["flood"], lat: 16.05, lng: 108.2 }),
+      citizen.userId,
+      [file],
+    );
+  });
+
+  it("rejects an incomplete GPS pair and supports omitting GPS", async () => {
+    gemini.understandAction.mockResolvedValue({
+      intent: "create_report",
+      arguments: { category: "flood", description: "Ngập đường", province: "Đà Nẵng", ward: "Hải Châu", addressLine: "Đường A" },
+    });
+    const draft = await service.handle(citizen, sessionId, "Tạo báo cáo", undefined, undefined, { latitude: 16 });
+    expect(draft.action?.status).toBe("collecting");
+    expect(draft.answer).toContain("cả vĩ độ và kinh độ");
+
+    const completed = await service.handle(citizen, sessionId, "Xác nhận", draft.action?.id, "confirm", { clearLocation: true });
+    expect(completed.action?.status).toBe("completed");
+    expect(reports.createReport).toHaveBeenCalledWith(expect.not.objectContaining({ lat: expect.anything(), lng: expect.anything() }), citizen.userId, []);
+  });
+
+  it("rejects replayed confirmations after one successful report creation", async () => {
+    gemini.understandAction.mockResolvedValue({
+      intent: "create_report",
+      arguments: { category: "flood", description: "Ngập đường", province: "Đà Nẵng", ward: "Hải Châu", addressLine: "Đường A" },
+    });
+    const draft = await service.handle(citizen, sessionId, "Tạo báo cáo");
+    await service.handle(citizen, sessionId, "Xác nhận", draft.action?.id, "confirm");
+    await expect(service.handle(citizen, sessionId, "Xác nhận", draft.action?.id, "confirm")).rejects.toBeInstanceOf(BadRequestException);
+    expect(reports.createReport).toHaveBeenCalledTimes(1);
   });
 
   it("exposes only the pending action ID and phase for an owned session", async () => {
@@ -123,6 +213,7 @@ describe("ChatActionService", () => {
 
     await expect(service.pendingAction(citizen, sessionId)).resolves.toEqual({
       id: draft.action?.id,
+      intent: "delete_report",
       status: "awaiting_confirmation",
     });
     await expect(

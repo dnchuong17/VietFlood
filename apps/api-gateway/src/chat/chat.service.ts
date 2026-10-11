@@ -72,7 +72,8 @@ export class ChatService {
   async reply(
     actorInput: ChatActor | number,
     input: ChatRequestDto,
-  ): Promise<{ answer: string; sessionId: string; action?: { id: string; status: string } }> {
+    files: Express.Multer.File[] = [],
+  ): Promise<{ answer: string; sessionId: string; action?: { id: string; status: string; intent?: string } }> {
     this.requireHistoryEnabled();
     const actor = typeof actorInput === "number"
       ? { userId: actorInput, role: "citizen", username: "" }
@@ -88,10 +89,18 @@ export class ChatService {
       ? await this.history.recent(userId, sessionId, MAX_TURNS)
       : [];
 
-    const actionResult = await this.actions.handle(actor, sessionId, message, input.actionId, input.actionDecision);
+    const actionResult = await this.actions.handle(
+      actor,
+      sessionId,
+      message,
+      input.actionId,
+      input.actionDecision,
+      { latitude: input.latitude, longitude: input.longitude, clearLocation: input.clearLocation },
+      files,
+    );
     let answer: string;
     let kind: ChatKind;
-    let action: { id: string; status: string } | undefined;
+    let action: { id: string; status: string; intent?: string } | undefined;
     if (actionResult.handled) {
       answer = actionResult.answer ?? "Mình chưa xử lý được thao tác này.";
       kind = "action";

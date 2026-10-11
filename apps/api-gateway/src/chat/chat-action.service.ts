@@ -12,6 +12,8 @@ import { LoggerService, RedisService } from "vietflood-common";
 import { ChatActionIntent, GeminiChatService } from "./gemini-chat.service";
 import { ChatCryptoService, EncryptedMessage } from "./chat-crypto.service";
 
+type ReportLocation = { latitude?: number; longitude?: number; clearLocation?: boolean };
+
 type Actor = { userId: number; role: string; username: string };
 type Pending = ChatActionIntent & { id: string; role: string };
 type Result = {
@@ -20,6 +22,7 @@ type Result = {
   action?: {
     id: string;
     status: "collecting" | "awaiting_confirmation" | "completed" | "cancelled";
+    intent?: string;
   };
 };
 
@@ -40,6 +43,8 @@ export class ChatActionService {
     message: string,
     actionId?: string,
     decision?: "confirm" | "cancel",
+    location: ReportLocation = {},
+    files: Express.Multer.File[] = [],
   ): Promise<Result> {
     const key = "chat:pending-action:" + actor.userId + ":" + sessionId;
     const pending = await this.load(key, actor.userId, sessionId);
@@ -53,12 +58,15 @@ export class ChatActionService {
         throw new BadRequestException(
           "Pending action was not found or has expired",
         );
+      if (files.length && pending.intent !== "create_report") {
+        throw new BadRequestException("Evidence can only be attached to a new report");
+      }
       if (decision === "cancel") {
         await this.redis.del(key);
         return {
           handled: true,
           answer: "Mình đã hủy thao tác. Dữ liệu của bạn chưa bị thay đổi.",
-          action: { id: pending.id, status: "cancelled" },
+          action: { id: pending.id, status: "cancelled", intent: pending.intent },
         };
       }
       const lockKey = "chat:action-lock:" + pending.id;
@@ -67,9 +75,19 @@ export class ChatActionService {
         .set(lockKey, "1", "EX", 900, "NX");
       if (lock !== "OK")
         throw new ConflictException("Chat action has already been confirmed");
+      const confirmed = this.withLocation(pending, location);
+      const invalid = this.invalidReportFields(confirmed);
+      if (invalid) {
+        await this.redis.del(lockKey);
+        return {
+          handled: true,
+          answer: invalid,
+          action: { id: pending.id, status: "collecting", intent: pending.intent },
+        };
+      }
       let answer: string;
       try {
-        answer = await this.execute(actor, pending);
+        answer = await this.execute(actor, confirmed, files);
       } catch (error) {
         await this.redis.del(lockKey);
         throw error;
@@ -78,7 +96,7 @@ export class ChatActionService {
       return {
         handled: true,
         answer,
-        action: { id: pending.id, status: "completed" },
+        action: { id: pending.id, status: "completed", intent: pending.intent },
       };
     }
     if (actionId)
@@ -89,7 +107,7 @@ export class ChatActionService {
           handled: true,
           answer:
             "Mình đang chờ thông tin để hoàn tất thao tác. Bạn có thể tiếp tục cung cấp thông tin cần thiết hoặc hủy thao tác.",
-          action: { id: pending.id, status: "collecting" },
+          action: { id: pending.id, status: "collecting", intent: pending.intent },
         };
       return { handled: false };
     }
@@ -110,11 +128,15 @@ export class ChatActionService {
       ...(pending?.arguments ?? {}),
       ...(parsed?.arguments ?? {}),
     };
+    const withLocation = intent === "create_report"
+      ? this.withLocation({ id: pending?.id ?? "", role: actor.role, intent, arguments: args }, location).arguments
+      : args;
+    Object.assign(args, withLocation);
     if (intent === "get_user" && !this.positiveInteger(args.userId)) {
       return {
         handled: true,
         answer: this.ask(["userId"]),
-        action: { id: pending?.id ?? randomUUID(), status: "collecting" },
+        action: { id: pending?.id ?? randomUUID(), status: "collecting", intent },
       };
     }
     if (this.isRead(intent)) {
@@ -151,12 +173,19 @@ export class ChatActionService {
       return {
         handled: true,
         answer: this.ask(missing),
-        action: { id: proposal.id, status: "collecting" },
+        action: { id: proposal.id, status: "collecting", intent },
+      };
+    const invalid = this.invalidReportFields(proposal);
+    if (invalid)
+      return {
+        handled: true,
+        answer: invalid,
+        action: { id: proposal.id, status: "collecting", intent },
       };
     return {
       handled: true,
       answer: this.preview(proposal),
-      action: { id: proposal.id, status: "awaiting_confirmation" },
+      action: { id: proposal.id, status: "awaiting_confirmation", intent },
     };
   }
 
@@ -169,7 +198,8 @@ export class ChatActionService {
     if (!pending || pending.role !== actor.role) return null;
     return {
       id: pending.id,
-      status: this.missing(pending.intent, pending.arguments).length
+      intent: pending.intent,
+      status: this.missing(pending.intent, pending.arguments).length || this.invalidReportFields(pending)
         ? "collecting"
         : "awaiting_confirmation",
     };
@@ -302,7 +332,9 @@ export class ChatActionService {
     };
     const missing = (required[intent] ?? []).filter(
       (key) =>
-        args[key] === undefined || args[key] === null || args[key] === "",
+        args[key] === undefined || args[key] === null ||
+        (typeof args[key] === "string" && args[key].trim() === "") ||
+        (key === "category" && (!Array.isArray(args[key]) || args[key].length === 0)),
     );
     const changeFields = [
       "phone",
@@ -336,11 +368,69 @@ export class ChatActionService {
       userId: "mã người dùng",
       field: "trường và giá trị muốn thay đổi",
     };
+    const reportHelp = fields.some((field) =>
+      ["category", "description", "province", "ward", "addressLine"].includes(field),
+    )
+      ? " Loại báo cáo gồm ngập lụt, sự cố, hạ tầng hoặc cứu hộ; có thể chọn nhiều loại. GPS và ảnh minh chứng là tùy chọn."
+      : "";
     return (
       "Để tiếp tục, bạn cho mình biết " +
       fields.map((key) => labels[key] ?? key).join(", ") +
-      " nhé."
+      " nhé." + reportHelp
     );
+  }
+
+  private withLocation(action: Pending, location: ReportLocation): Pending {
+    const args = { ...action.arguments };
+    if (location.clearLocation || args.clearLocation === true) {
+      delete args.lat;
+      delete args.lng;
+      delete args.clearLocation;
+    }
+    if (location.latitude !== undefined) args.lat = location.latitude;
+    if (location.longitude !== undefined) args.lng = location.longitude;
+    if (action.intent === "create_report" && args.category !== undefined) {
+      const categories = Array.isArray(args.category) ? args.category : [args.category];
+      args.category = [...new Set(categories.map((value) => String(value).trim()).filter(Boolean))];
+    }
+    for (const key of ["description", "province", "ward", "addressLine"]) {
+      if (typeof args[key] === "string") args[key] = (args[key] as string).trim();
+    }
+    return { ...action, arguments: args };
+  }
+
+  private invalidReportFields(action: Pending): string | null {
+    if (action.intent !== "create_report") return null;
+    const args = action.arguments;
+    const categories = Array.isArray(args.category) ? args.category : [];
+    const allowed = new Set(["flood", "incident", "infrastructure", "rescue"]);
+    if (categories.some((value) => typeof value !== "string" || !allowed.has(value))) {
+      return "Loại báo cáo chưa hợp lệ. Chọn một hoặc nhiều loại: ngập lụt, sự cố, hạ tầng, cứu hộ.";
+    }
+    for (const [key, label, max] of [
+      ["description", "Mô tả", 5000],
+      ["province", "Tỉnh/thành phố", 200],
+      ["ward", "Phường/xã", 200],
+      ["addressLine", "Địa chỉ", 500],
+    ] as const) {
+      const value = args[key];
+      if (value !== undefined && (typeof value !== "string" || value.length > max)) {
+        return `${label} chưa hợp lệ. Vui lòng gửi lại giá trị ngắn hơn.`;
+      }
+    }
+    const hasLat = args.lat !== undefined && args.lat !== null;
+    const hasLng = args.lng !== undefined && args.lng !== null;
+    if (hasLat !== hasLng) return "Tọa độ GPS cần có cả vĩ độ và kinh độ. Bạn có thể gửi đủ hai giá trị hoặc bỏ qua GPS.";
+    if (hasLat || hasLng) {
+      const lat = Number(args.lat);
+      const lng = Number(args.lng);
+      if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lng) || lng < -180 || lng > 180) {
+        return "Tọa độ GPS chưa hợp lệ. Vui lòng chia sẻ lại vị trí hoặc tiếp tục không có GPS.";
+      }
+      args.lat = lat;
+      args.lng = lng;
+    }
+    return null;
   }
 
   private preview(action: Pending): string {
@@ -355,12 +445,15 @@ export class ChatActionService {
     };
     const detail = Object.entries(action.arguments)
       .filter(([key]) => key !== "password" && key !== "evidences")
-      .map(([key, value]) => `${this.actionFieldLabel(key)}: ${this.display(value)}`)
+      .map(([key, value]) => `${this.actionFieldLabel(key)}: ${this.displayField(key, value)}`)
       .join("; ");
+    const optionalReportDetails = action.intent === "create_report"
+      ? ` GPS: ${action.arguments.lat !== undefined && action.arguments.lng !== undefined ? `${this.display(action.arguments.lat)}, ${this.display(action.arguments.lng)}` : "chưa cung cấp (tùy chọn)"}; ảnh minh chứng có thể đính kèm bên dưới (tùy chọn).`
+      : "";
     return (
       "Bạn kiểm tra lại thông tin trước khi tiếp tục: " +
       (labels[action.intent] ?? action.intent) +
-      (detail ? " — " + detail : "") +
+      (detail ? " — " + detail : "") + optionalReportDetails +
       ". Nếu thông tin đã đúng, bạn có thể xác nhận; nếu cần sửa, hãy gửi nội dung cần thay đổi hoặc hủy thao tác. Đề xuất hết hạn sau 15 phút."
     );
   }
@@ -370,7 +463,7 @@ export class ChatActionService {
       id: "mã",
       reportId: "mã báo cáo",
       userId: "mã người dùng",
-      category: "loại sự cố",
+      category: "loại báo cáo",
       waterLevel: "mực nước",
       description: "mô tả",
       province: "tỉnh/thành",
@@ -385,6 +478,20 @@ export class ChatActionService {
       phone: "số điện thoại",
     };
     return labels[key] ?? key;
+  }
+
+  private displayField(key: string, value: unknown): string {
+    if (key === "category") {
+      const labels: Record<string, string> = {
+        flood: "ngập lụt",
+        incident: "sự cố",
+        infrastructure: "hạ tầng",
+        rescue: "cứu hộ",
+      };
+      const items = Array.isArray(value) ? value : [value];
+      return items.map((item) => labels[String(item)] ?? this.display(item)).join(", ");
+    }
+    return this.display(value);
   }
 
   private async read(
@@ -420,7 +527,7 @@ export class ChatActionService {
       : "Chưa có dữ liệu phù hợp.";
   }
 
-  private async execute(actor: Actor, action: Pending): Promise<string> {
+  private async execute(actor: Actor, action: Pending, files: Express.Multer.File[] = []): Promise<string> {
     const args = action.arguments;
     let result: unknown;
     switch (action.intent) {
@@ -446,7 +553,7 @@ export class ChatActionService {
         dto.category = Array.isArray(dto.category)
           ? dto.category
           : [dto.category];
-        result = await this.reports.createReport(dto as never, actor.userId);
+        result = await this.reports.createReport(dto as never, actor.userId, files);
         break;
       }
       case "update_report":

@@ -103,11 +103,49 @@ describe("Chat HTTP authorization and validation", () => {
     });
     expect(chat.reply).toHaveBeenLastCalledWith(
       { userId: 7, username: "tester", role: "citizen" },
-      {
+      expect.objectContaining({
         message: "Xác nhận thao tác", sessionId,
         actionId: "f35063b4-c137-4d63-9acb-b384437800e8", actionDecision: "confirm",
-      },
+      }),
+      [],
     );
+  });
+
+  it("accepts image evidence only with a report confirmation", async () => {
+    const sessionId = "d42639bf-a048-4e4f-b55f-23ef0f97d207";
+    const body = new FormData();
+    body.append("message", "Xác nhận tạo báo cáo");
+    body.append("sessionId", sessionId);
+    body.append("actionId", "f35063b4-c137-4d4f-b55f-23ef0f97e888");
+    body.append("actionDecision", "confirm");
+    body.append("latitude", "16.05");
+    body.append("longitude", "108.2");
+    body.append("files", new Blob(["evidence"], { type: "image/png" }), "evidence.png");
+    chat.reply.mockResolvedValueOnce({ answer: "Đã tạo báo cáo.", sessionId });
+
+    const response = await fetch(`${base}/chat`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body,
+    });
+    expect(response.status).toBe(200);
+    expect(chat.reply).toHaveBeenLastCalledWith(
+      { userId: 7, username: "tester", role: "citizen" },
+      expect.objectContaining({ latitude: 16.05, longitude: 108.2, actionDecision: "confirm" }),
+      [expect.objectContaining({ originalname: "evidence.png", mimetype: "image/png" })],
+    );
+  });
+
+  it("rejects evidence attached to a regular message", async () => {
+    const body = new FormData();
+    body.append("message", "Here is a photo");
+    body.append("files", new Blob(["evidence"], { type: "image/png" }), "evidence.png");
+    const response = await fetch(`${base}/chat`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body,
+    });
+    expect(response.status).toBe(400);
   });
 
   it("rejects invalid limits, UUIDs and extra chat fields", async () => {

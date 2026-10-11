@@ -86,6 +86,10 @@ describe("ChatActionService", () => {
       "Tạo báo cáo ngập đường",
     );
     expect(draft.action?.status).toBe("awaiting_confirmation");
+    expect(draft.answer).toContain("Bạn kiểm tra lại thông tin trước khi tiếp tục");
+    expect(draft.answer).toContain("tỉnh/thành: Đà Nẵng");
+    expect(draft.answer).not.toContain("actionId");
+    expect(draft.answer).not.toContain("province:");
     expect(reports.createReport).not.toHaveBeenCalled();
     const raw = [...values.values()][0];
     expect(raw).not.toContain("Đà Nẵng");
@@ -98,6 +102,8 @@ describe("ChatActionService", () => {
       "confirm",
     );
     expect(done.action?.status).toBe("completed");
+    expect(done.answer).toContain("Mình đã tạo báo cáo");
+    expect(done.answer).toContain("mã: 14");
     expect(reports.createReport).toHaveBeenCalledWith(
       expect.objectContaining({
         category: ["flood"],

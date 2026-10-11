@@ -57,7 +57,7 @@ export class ChatActionService {
         await this.redis.del(key);
         return {
           handled: true,
-          answer: "Đã hủy thao tác. Dữ liệu chưa được thay đổi.",
+          answer: "Mình đã hủy thao tác. Dữ liệu của bạn chưa bị thay đổi.",
           action: { id: pending.id, status: "cancelled" },
         };
       }
@@ -88,7 +88,7 @@ export class ChatActionService {
         return {
           handled: true,
           answer:
-            "Thao tác đang chờ. Hãy gửi actionId cùng actionDecision confirm hoặc cancel.",
+            "Mình đang chờ thông tin để hoàn tất thao tác. Bạn có thể tiếp tục cung cấp thông tin cần thiết hoặc hủy thao tác.",
           action: { id: pending.id, status: "collecting" },
         };
       return { handled: false };
@@ -260,7 +260,7 @@ export class ChatActionService {
       "update_user",
     ];
     if (citizen.includes(intent) && role !== "citizen")
-      return "Chức năng này chỉ dành cho tài khoản công dân.";
+      return "Chức năng này dành cho tài khoản công dân.";
     if (staff.includes(intent) && role !== "admin" && role !== "relief")
       return "Bạn không có quyền dùng chức năng này.";
     if (intent === "delete_user" && role !== "admin")
@@ -325,6 +325,7 @@ export class ChatActionService {
 
   private ask(fields: string[]): string {
     const labels: Record<string, string> = {
+      id: "mã",
       category: "loại sự cố",
       description: "mô tả",
       province: "tỉnh/thành",
@@ -336,9 +337,9 @@ export class ChatActionService {
       field: "trường và giá trị muốn thay đổi",
     };
     return (
-      "Mình cần thêm " +
+      "Để tiếp tục, bạn cho mình biết " +
       fields.map((key) => labels[key] ?? key).join(", ") +
-      " để tiếp tục."
+      " nhé."
     );
   }
 
@@ -354,16 +355,36 @@ export class ChatActionService {
     };
     const detail = Object.entries(action.arguments)
       .filter(([key]) => key !== "password" && key !== "evidences")
-      .map(([key, value]) => key + ": " + this.display(value))
+      .map(([key, value]) => `${this.actionFieldLabel(key)}: ${this.display(value)}`)
       .join("; ");
     return (
-      "Xem lại thao tác: " +
+      "Bạn kiểm tra lại thông tin trước khi tiếp tục: " +
       (labels[action.intent] ?? action.intent) +
       (detail ? " — " + detail : "") +
-      ". Để tiếp tục, gửi actionId " +
-      action.id +
-      " cùng actionDecision confirm; để hủy, dùng cancel. Đề xuất hết hạn sau 15 phút."
+      ". Nếu thông tin đã đúng, bạn có thể xác nhận; nếu cần sửa, hãy gửi nội dung cần thay đổi hoặc hủy thao tác. Đề xuất hết hạn sau 15 phút."
     );
+  }
+
+  private actionFieldLabel(key: string): string {
+    const labels: Record<string, string> = {
+      id: "mã",
+      reportId: "mã báo cáo",
+      userId: "mã người dùng",
+      category: "loại sự cố",
+      waterLevel: "mực nước",
+      description: "mô tả",
+      province: "tỉnh/thành",
+      ward: "phường/xã",
+      addressLine: "địa chỉ",
+      address_line: "địa chỉ",
+      lat: "vĩ độ",
+      lng: "kinh độ",
+      isUrgent: "cần hỗ trợ khẩn cấp",
+      severity: "mức độ nghiêm trọng",
+      status: "trạng thái",
+      phone: "số điện thoại",
+    };
+    return labels[key] ?? key;
   }
 
   private async read(
@@ -476,23 +497,23 @@ export class ChatActionService {
     }
     this.assertResult(result);
     const label: Record<string, string> = {
-      update_my_profile: "Đã cập nhật hồ sơ.",
-      create_report: "Đã tạo báo cáo.",
-      update_report: "Đã cập nhật báo cáo.",
-      delete_report: "Đã xóa báo cáo.",
-      update_report_status: "Đã cập nhật trạng thái báo cáo.",
-      update_user: "Đã cập nhật tài khoản.",
-      delete_user: "Đã xóa tài khoản.",
+      update_my_profile: "Mình đã cập nhật hồ sơ",
+      create_report: "Mình đã tạo báo cáo",
+      update_report: "Mình đã cập nhật báo cáo",
+      delete_report: "Mình đã xóa báo cáo",
+      update_report_status: "Mình đã cập nhật trạng thái báo cáo",
+      update_user: "Mình đã cập nhật tài khoản",
+      delete_user: "Mình đã xóa tài khoản",
     };
     if (result && typeof result === "object") {
       const record = result as Record<string, unknown>;
       const details = ["id", "status"]
         .filter((key) => record[key] !== undefined)
-        .map((key) => key + ": " + this.display(record[key]))
+        .map((key) => `${this.actionFieldLabel(key)}: ${this.display(record[key])}`)
         .join("; ");
-      return label[action.intent] + (details ? " " + details : "");
+      return `${label[action.intent] ?? "Thao tác đã hoàn tất"}${details ? ` (${details})` : ""}.`;
     }
-    return label[action.intent] ?? "Thao tác đã hoàn tất.";
+    return `${label[action.intent] ?? "Thao tác đã hoàn tất"}.`;
   }
 
   private positiveInteger(value: unknown): boolean {

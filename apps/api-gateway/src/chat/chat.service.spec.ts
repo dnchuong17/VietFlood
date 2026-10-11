@@ -175,7 +175,7 @@ describe("ChatService", () => {
     reports.getAllReportsById.mockResolvedValue([{ id: 11, status: "verified" }]);
     const result = await service.reply(7, { message: "Trạng thái báo cáo 12?" });
     expect(reports.getAllReportsById).toHaveBeenCalledWith(7);
-    expect(result.answer).toContain("không tìm thấy báo cáo #12");
+    expect(result.answer).toContain("Mình không tìm thấy báo cáo #12");
     expect(sessions.get(result.sessionId)?.turns[0].kind).toBe("report_status");
   });
 
@@ -189,6 +189,13 @@ describe("ChatService", () => {
     const result = await service.reply(7, { message: "hỗ tợ gì" });
     expect(result.answer).toContain("sơ cứu cơ bản");
     expect(history.create).toHaveBeenCalledWith(7, result.sessionId, "hỗ tợ gì", result.answer, "small_talk");
+    expect(knowledge.search).not.toHaveBeenCalled();
+  });
+
+  it("uses a calm, natural greeting", async () => {
+    const result = await service.reply(7, { message: "Xin chào" });
+
+    expect(result.answer).toBe("Chào bạn. Mình có thể giúp gì về an toàn lũ, sơ cứu cơ bản hoặc báo cáo VietFlood?");
     expect(knowledge.search).not.toHaveBeenCalled();
   });
 
@@ -219,6 +226,7 @@ describe("ChatService", () => {
     const result = await service.reply(7, { message: "Bây giờ lũ ở đâu?" });
 
     expect(result.answer).toContain("Trong 24 giờ qua");
+    expect(result.answer).toContain("bạn hãy kiểm tra cảnh báo");
     expect(reports.getRecentVerifiedFloodAreas).toHaveBeenCalledOnce();
     expect(knowledge.search).not.toHaveBeenCalled();
     expect(gemini.answer).not.toHaveBeenCalled();
@@ -228,7 +236,7 @@ describe("ChatService", () => {
     reports.getRecentVerifiedFloodAreas.mockResolvedValue([]);
     const result = await service.reply(7, { message: "lũ ở đâu?" });
 
-    expect(result.answer).toContain("không có nghĩa là chắc chắn không có lũ");
+    expect(result.answer).toContain("không khẳng định là không có lũ");
     expect(history.create).toHaveBeenCalledWith(7, result.sessionId, "lũ ở đâu?", result.answer, "community_reports");
     expect(knowledge.search).not.toHaveBeenCalled();
   });
@@ -238,7 +246,7 @@ describe("ChatService", () => {
 
     const result = await service.reply(7, { message: "Có bao nhiêu báo cáo lũ đã xác minh?" });
 
-    expect(result.answer).toContain("7 báo cáo lũ/ngập đã được xác minh");
+    expect(result.answer).toContain("7 báo cáo lũ/ngập được xác minh");
     expect(reports.getRecentVerifiedReportCount).toHaveBeenCalledWith("flood");
     expect(knowledge.search).not.toHaveBeenCalled();
     expect(gemini.answer).not.toHaveBeenCalled();
@@ -295,6 +303,8 @@ describe("ChatService", () => {
     const result = await service.reply(7, { message: "Lũ quét là gì?" });
     expect(result.answer).toContain("Lũ quét xảy ra nhanh");
     expect(result.answer).not.toContain("https://");
+    expect(result.answer).toContain("Thông tin liên quan mình tìm thấy:");
+    expect(result.answer).not.toContain("Theo kho kiến thức VietFlood:");
     expect(sessions.get(result.sessionId)?.turns[0].kind).toBe("knowledge");
   });
 
@@ -303,7 +313,7 @@ describe("ChatService", () => {
     knowledge.search.mockResolvedValue([`${firstSentence} ${"B".repeat(500)}`]);
 
     const result = await service.reply(7, { message: "Cách phòng lũ?" });
-    const excerpt = result.answer.slice("Theo kho kiến thức VietFlood: ".length);
+    const excerpt = result.answer.slice("Thông tin liên quan mình tìm thấy:\n".length);
 
     expect(excerpt).toBe(firstSentence);
     expect(excerpt.length).toBeLessThanOrEqual(400);
@@ -314,7 +324,7 @@ describe("ChatService", () => {
     knowledge.search.mockResolvedValue([passage]);
 
     const result = await service.reply(7, { message: "Cách phòng lũ?" });
-    const excerpt = result.answer.slice("Theo kho kiến thức VietFlood: ".length);
+    const excerpt = result.answer.slice("Thông tin liên quan mình tìm thấy:\n".length);
 
     expect(excerpt.length).toBeLessThanOrEqual(400);
     expect(excerpt.endsWith("…")).toBe(true);
@@ -422,7 +432,7 @@ describe("ChatService", () => {
   it("asks for context instead of searching when a follow-up has no prior knowledge answer", async () => {
     const result = await service.reply(7, { message: "What about children?" });
 
-    expect(result.answer).toContain("chưa thấy ngữ cảnh trước đó");
+    expect(result.answer).toContain("Mình chưa rõ bạn đang hỏi tiếp");
     expect(result.answer).toContain("chủ đề nào");
     expect(result.sessionId).toBeTruthy();
     expect(knowledge.search).not.toHaveBeenCalled();
@@ -454,6 +464,32 @@ describe("ChatService", () => {
 
     expect(result.answer).toContain("• Chuẩn bị nước uống");
     expect(result.answer).toContain("• Cất giấy tờ quan trọng");
+  });
+
+  it("answers unsupported questions without a canned bot introduction", async () => {
+    knowledge.search.mockResolvedValue([]);
+
+    const result = await service.reply(7, { message: "Bạn có thể giúp tôi sửa xe không?" });
+
+    expect(result.answer).toContain("Mình có thể hỗ trợ về an toàn lũ");
+    expect(result.answer).toContain("Bạn muốn tìm hiểu nội dung nào?");
+    expect(result.answer).not.toContain("Mình là trợ lý VietFlood");
+  });
+
+  it("keeps urgent safety guidance ahead of an out-of-scope response", async () => {
+    knowledge.search.mockResolvedValue([]);
+
+    const result = await service.reply(7, { message: "Tôi đang bị nước cuốn, cứu tôi" });
+
+    expect(result.answer).toMatch(/^Nếu bạn đang gặp nguy hiểm, hãy tới nơi an toàn/u);
+    expect(result.answer).toContain("gọi lực lượng cứu hộ hoặc cấp cứu địa phương ngay");
+  });
+
+  it("gives report guidance in direct, conversational language", async () => {
+    const result = await service.reply(7, { message: "Làm sao gửi báo cáo?" });
+
+    expect(result.answer).toContain("Bạn có thể tạo báo cáo trong biểu mẫu VietFlood.");
+    expect(result.answer).toContain("theo dõi trạng thái");
   });
 
   it("falls back locally when Gemini returns no answer", async () => {

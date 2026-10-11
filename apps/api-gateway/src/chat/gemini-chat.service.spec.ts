@@ -76,6 +76,8 @@ describe("GeminiChatService", () => {
     const promptText = JSON.stringify(langchain.calls[0]?.prompts);
     const inputText = JSON.stringify(langchain.calls[0]?.input);
     expect(promptText).toContain("Bạn là trợ lý VietFlood");
+    expect(promptText).toContain("giọng bình tĩnh, chuyên nghiệp, tự nhiên");
+    expect(promptText).toContain("không mở đầu bằng lời giới thiệu về bản thân");
     expect(inputText).toContain("Còn nước uống thì sao?");
     expect(inputText).toContain("approved-1");
     expect(inputText).toContain("approved-4");

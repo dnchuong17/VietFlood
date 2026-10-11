@@ -199,7 +199,7 @@ export class ChatService {
       : [];
     if (isFollowUp && priorAnswers.length === 0) {
       return {
-        answer: "Mình chưa thấy ngữ cảnh trước đó trong cuộc trò chuyện này. Bạn muốn hỏi tiếp về chủ đề nào?",
+        answer: "Mình chưa rõ bạn đang hỏi tiếp về chủ đề nào. Bạn muốn hỏi về an toàn lũ, sơ cứu hay báo cáo VietFlood?",
         kind: "fallback",
       };
     }
@@ -241,7 +241,7 @@ export class ChatService {
     const urgent = /đang (kẹt|ngập|bị cuốn)|cứu tôi|cấp cứu|khẩn cấp/iu.test(message);
     if (generated) {
       return {
-        answer: `${urgent ? "Hãy tới nơi an toàn và gọi cứu hộ/cấp cứu ngay. " : ""}${generated}`,
+        answer: `${urgent ? "Trước hết, hãy tới nơi an toàn và gọi cứu hộ hoặc cấp cứu ngay. " : ""}${generated}`,
         kind: "knowledge",
       };
     }
@@ -249,7 +249,7 @@ export class ChatService {
       return { answer: this.outOfScopeReply(message), kind: "fallback" };
     }
     return {
-      answer: `${urgent ? "Hãy tới nơi an toàn và gọi cứu hộ/cấp cứu ngay. " : ""}Theo kho kiến thức VietFlood: ${excerpt}`,
+      answer: `${urgent ? "Trước hết, hãy tới nơi an toàn và gọi cứu hộ hoặc cấp cứu ngay. " : ""}Thông tin liên quan mình tìm thấy:\n${excerpt}`,
       kind: "knowledge",
     };
   }
@@ -275,7 +275,7 @@ export class ChatService {
 
   private outOfScopeReply(message: string): string {
     const urgent = /đang (kẹt|ngập|bị cuốn)|cứu tôi|cấp cứu|khẩn cấp/iu.test(message);
-    return `${urgent ? "Nếu bạn đang gặp nguy hiểm, hãy tới nơi an toàn và gọi lực lượng cứu hộ/cấp cứu địa phương ngay. " : ""}Mình là trợ lý VietFlood, tập trung vào an toàn lũ, sơ cứu cơ bản và báo cáo trên VietFlood. Bạn có thể hỏi như “Cần chuẩn bị gì trước lũ?” hoặc “Trạng thái báo cáo của tôi thế nào?”.`;
+    return `${urgent ? "Nếu bạn đang gặp nguy hiểm, hãy tới nơi an toàn và gọi lực lượng cứu hộ hoặc cấp cứu địa phương ngay. " : ""}Mình có thể hỗ trợ về an toàn lũ, sơ cứu cơ bản và báo cáo VietFlood. Bạn muốn tìm hiểu nội dung nào?`;
   }
 
   private isFloodLocationQuestion(message: string): boolean {
@@ -319,9 +319,9 @@ export class ChatService {
     const category = this.reportCategoryFromQuestion(message);
     const categoryLabel = category ? ` ${this.reportCategoryLabel(category)}` : "";
     if (count === 0) {
-      return `Trong 24 giờ qua, VietFlood chưa ghi nhận báo cáo${categoryLabel} nào đã được xác minh. Điều này không có nghĩa là chắc chắn không có sự cố; hãy theo dõi thông báo từ cơ quan chức năng địa phương.`;
+      return `Trong 24 giờ qua, chưa có báo cáo${categoryLabel} nào được xác minh trên VietFlood. Điều đó không khẳng định là không có sự cố; bạn nên theo dõi thông báo từ cơ quan chức năng địa phương.`;
     }
-    return `Trong 24 giờ qua, VietFlood ghi nhận ${count} báo cáo${categoryLabel} đã được xác minh. Đây là dữ liệu cộng đồng, không phải cảnh báo thời gian thực; hãy theo dõi thông báo từ cơ quan chức năng địa phương.`;
+    return `Trong 24 giờ qua, VietFlood đã ghi nhận ${count} báo cáo${categoryLabel} được xác minh. Đây là thông tin do cộng đồng gửi, không phải cảnh báo thời gian thực. Bạn hãy tiếp tục theo dõi thông báo từ cơ quan chức năng địa phương.`;
   }
 
   private reportCategoryLabel(category: string): string {
@@ -357,7 +357,7 @@ export class ChatService {
     }
 
     if (validAreas.length === 0) {
-      return "Trong 24 giờ qua, VietFlood chưa ghi nhận báo cáo lũ nào đã được xác minh. Điều này không có nghĩa là chắc chắn không có lũ; hãy kiểm tra cảnh báo từ cơ quan chức năng tại địa phương.";
+      return "Trong 24 giờ qua, chưa có báo cáo lũ nào được xác minh trên VietFlood. Điều đó không khẳng định là không có lũ; bạn hãy kiểm tra cảnh báo từ cơ quan chức năng địa phương.";
     }
 
     const locations = validAreas.slice(0, 5).map((area) => {
@@ -368,7 +368,7 @@ export class ChatService {
       });
       return `${area.ward}, ${area.province} (${area.reportCount} báo cáo; gần nhất ${latestAt})`;
     });
-    return `Trong 24 giờ qua, VietFlood ghi nhận báo cáo lũ đã xác minh tại: ${locations.join("; ")}. Đây là báo cáo cộng đồng, không phải cảnh báo thời gian thực; hãy theo dõi thông báo từ cơ quan chức năng địa phương.`;
+    return `Trong 24 giờ qua, các báo cáo lũ đã xác minh trên VietFlood ghi nhận tại: ${locations.join("; ")}. Đây là thông tin cộng đồng, không phải cảnh báo thời gian thực; bạn hãy theo dõi thông báo từ cơ quan chức năng địa phương.`;
   }
 
   private isStatusQuestion(message: string, turns: ChatTurn[]): boolean {
@@ -392,7 +392,7 @@ export class ChatService {
   }
 
   private reportGuide(): string {
-    return "Để tạo báo cáo, đăng nhập và dùng biểu mẫu báo cáo của VietFlood. Cung cấp mô tả, tỉnh, phường/xã, địa chỉ và loại sự cố; thêm vị trí nếu có. Bạn có thể tải tối đa 10 tệp ảnh/video làm bằng chứng. Đánh dấu khẩn cấp khi cần hỗ trợ gấp và chọn mức độ nghiêm trọng phù hợp với tình hình thực tế. Sau khi gửi, dùng danh sách báo cáo của bạn để theo dõi trạng thái: pending (chờ xử lý), verified (đã xác minh), resolved (đã giải quyết) hoặc rejected (bị từ chối). Nếu đang gặp nguy hiểm, hãy tìm nơi an toàn và gọi cứu hộ ngay.";
+    return "Bạn có thể tạo báo cáo trong biểu mẫu VietFlood. Hãy điền mô tả, tỉnh/thành, phường/xã, địa chỉ và loại sự cố; thêm vị trí nếu biết. Có thể đính kèm tối đa 10 ảnh hoặc video. Chọn mức độ nghiêm trọng phù hợp và đánh dấu khẩn cấp nếu cần trợ giúp gấp. Sau khi gửi, bạn có thể theo dõi trạng thái trong danh sách báo cáo: pending là chờ xử lý, verified là đã xác minh, resolved là đã giải quyết, còn rejected là bị từ chối. Nếu đang gặp nguy hiểm, hãy tới nơi an toàn và gọi cứu hộ.";
   }
 
   private async reportStatus(userId: number, message: string): Promise<string> {
@@ -422,12 +422,12 @@ export class ChatService {
       const report = reports.find((item) => item.id === Number(requestedId));
       return report
         ? `Báo cáo #${report.id} của bạn hiện có trạng thái: ${REPORT_STATUS_LABELS[report.status] ?? report.status}.`
-        : `Tôi không tìm thấy báo cáo #${requestedId} trong tài khoản của bạn.`;
+        : `Mình không tìm thấy báo cáo #${requestedId} trong danh sách của bạn.`;
     }
 
-    if (reports.length === 0) return "Tài khoản của bạn chưa có báo cáo nào.";
+    if (reports.length === 0) return "Bạn chưa gửi báo cáo nào.";
     return (
-      "Trạng thái báo cáo gần đây của bạn: " +
+      "Đây là trạng thái các báo cáo gần đây của bạn: " +
       reports
         .slice(0, 5)
         .map(

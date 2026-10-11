@@ -9,22 +9,22 @@ const LIGHT_TEASING = /^(?:(?:bạn|bot|chatbot)\s+)?(?:ngu|đần|dở hơi|ng�
 export function smallTalkReply(message: string): string | null {
   const text = message.trim();
   if (GREETING.test(text)) {
-    return "Chào bạn! Mình có thể hỗ trợ về an toàn lũ, sơ cứu cơ bản và báo cáo VietFlood.";
+    return "Chào bạn. Mình có thể giúp gì về an toàn lũ, sơ cứu cơ bản hoặc báo cáo VietFlood?";
   }
   if (THANKS.test(text)) {
-    return "Không có gì! Nếu cần, mình có thể hỗ trợ về an toàn lũ hoặc báo cáo VietFlood.";
+    return "Không có gì. Nếu còn câu hỏi về an toàn lũ hoặc VietFlood, bạn cứ hỏi nhé.";
   }
   if (CAPABILITY_QUESTION.test(text)) {
-    return "Mình có thể hướng dẫn an toàn trước, trong và sau lũ; chia sẻ sơ cứu cơ bản; hướng dẫn gửi báo cáo và xem trạng thái báo cáo VietFlood.";
+    return "Mình có thể hướng dẫn cách chuẩn bị và ứng phó khi có lũ, chia sẻ sơ cứu cơ bản, hoặc giúp bạn dùng tính năng báo cáo của VietFlood.";
   }
   if (LAUGHTER.test(text)) {
-    return "Mình ở đây nếu bạn cần hỏi về an toàn lũ hoặc sử dụng VietFlood.";
+    return "Mình sẵn sàng hỗ trợ nếu bạn có câu hỏi về an toàn lũ hoặc cách dùng VietFlood.";
   }
 
   if (PLAYFUL_MARKER.test(text)) {
     const teasing = text.replace(PLAYFUL_MARKER, "").trim();
     if (LIGHT_TEASING.test(teasing)) {
-      return "Có thể mình chưa bắt đúng ý bạn. Bạn cần mình hỗ trợ gì về VietFlood?";
+      return "Có lẽ mình chưa giúp đúng ý. Bạn đang cần hỗ trợ việc gì về VietFlood?";
     }
   }
 

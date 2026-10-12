@@ -31,7 +31,13 @@ describe("ChatService", () => {
     getRecentVerifiedReportCount: vi.fn(),
   };
   const knowledge = { search: vi.fn(), searchApproved: vi.fn() };
-  const gemini = { isConfigured: vi.fn(() => false), answer: vi.fn() };
+  const gemini = {
+    isConfigured: vi.fn(() => false),
+    configurationStatus: vi.fn((): "ready" | "missing_api_key" =>
+      gemini.isConfigured() ? "ready" : "missing_api_key",
+    ),
+    answer: vi.fn(),
+  };
   const actions = {
     handle: vi.fn(async () => ({ handled: false })),
     pendingAction: vi.fn(async () => null),
@@ -85,7 +91,8 @@ describe("ChatService", () => {
       return (session ? sessions.delete(id) : false) || legacyOwned;
     }),
   };
-  const logger = { setServiceName: vi.fn(), warn: vi.fn() };
+  const rag = { reply: vi.fn(async () => ({ answer: "Câu trả lời có nguồn.", status: "answered", sources: [], generationMode: "grounded_synthesis", unansweredParts: [] })) };
+  const logger = { setServiceName: vi.fn(), info: vi.fn(), warn: vi.fn() };
   let service: ChatService;
 
   beforeEach(() => {
@@ -103,6 +110,7 @@ describe("ChatService", () => {
       logger as never,
       gemini as never,
       actions as never,
+      rag as never,
     );
   });
 
@@ -171,374 +179,20 @@ describe("ChatService", () => {
     await expect(service.listMessages(7, first.sessionId)).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it("reads report status only for the authenticated user", async () => {
-    reports.getAllReportsById.mockResolvedValue([{ id: 11, status: "verified" }]);
-    const result = await service.reply(7, { message: "Trạng thái báo cáo 12?" });
-    expect(reports.getAllReportsById).toHaveBeenCalledWith(7);
-    expect(result.answer).toContain("Mình không tìm thấy báo cáo #12");
-    expect(sessions.get(result.sessionId)?.turns[0].kind).toBe("report_status");
+  it("stores citations inside the encrypted answer payload and returns them to the client", async () => {
+    rag.reply.mockResolvedValueOnce({ answer: "Có nguồn [1]", status: "answered", sources: [{ id: "p1", citation: 1, documentId: "E01", version: 1, title: "Nguồn", sourceUrl: "https://example.com", snapshotUrl: "/chat/sources/E01/versions/1", sectionPath: [], chunkHash: "hash" }], generationMode: "grounded_synthesis", sourceSupportPercent: 100, unansweredParts: [] } as never);
+    const response = await service.reply(7, { message: "Chuẩn bị trước lũ?" });
+    expect(response.sources?.[0].documentId).toBe("E01");
+    const stored = JSON.parse(history.create.mock.calls[0][3]);
+    expect(stored).toMatchObject({ _vietfloodRag: 1, answer: response.answer, details: { sources: response.sources } });
   });
 
-  it("returns reviewed first aid locally without sending text to Qdrant or Gemini", async () => {
-    const result = await service.reply(7, { message: "Sơ cứu chảy máu thế nào?" });
-    expect(result.answer).toContain("ép trực tiếp");
-    expect(knowledge.search).not.toHaveBeenCalled();
-  });
-
-  it("answers typoed capability questions without querying flood knowledge", async () => {
-    const result = await service.reply(7, { message: "hỗ tợ gì" });
-    expect(result.answer).toContain("sơ cứu cơ bản");
-    expect(history.create).toHaveBeenCalledWith(7, result.sessionId, "hỗ tợ gì", result.answer, "small_talk");
-    expect(knowledge.search).not.toHaveBeenCalled();
-  });
-
-  it("uses a calm, natural greeting", async () => {
-    const result = await service.reply(7, { message: "Xin chào" });
-
-    expect(result.answer).toBe("Chào bạn. Mình có thể giúp gì về an toàn lũ, sơ cứu cơ bản hoặc báo cáo VietFlood?");
-    expect(knowledge.search).not.toHaveBeenCalled();
-  });
-
-  it("answers current flood location questions from verified area summaries", async () => {
-    reports.getRecentVerifiedFloodAreas.mockResolvedValue([
-      {
-        province: "Đà Nẵng",
-        ward: "Hải Châu",
-        reportCount: 2,
-        latestAt: "2026-10-09T06:00:00.000Z",
-        addressLine: "1 private road",
-        description: "private report detail",
-      },
-    ]);
-    const result = await service.reply(7, { message: "lũ ở đâu?" });
-
-    expect(result.answer).toContain("Hải Châu, Đà Nẵng");
-    expect(result.answer).toContain("2 báo cáo");
-    expect(result.answer).not.toContain("private");
-    expect(history.create).toHaveBeenCalledWith(7, result.sessionId, "lũ ở đâu?", result.answer, "community_reports");
-    expect(reports.getRecentVerifiedFloodAreas).toHaveBeenCalledOnce();
-    expect(knowledge.search).not.toHaveBeenCalled();
-  });
-
-  it('routes "bây giờ lũ ở đâu" only to verified report summaries', async () => {
-    reports.getRecentVerifiedFloodAreas.mockResolvedValue([]);
-
-    const result = await service.reply(7, { message: "Bây giờ lũ ở đâu?" });
-
-    expect(result.answer).toContain("Trong 24 giờ qua");
-    expect(result.answer).toContain("bạn hãy kiểm tra cảnh báo");
-    expect(reports.getRecentVerifiedFloodAreas).toHaveBeenCalledOnce();
-    expect(knowledge.search).not.toHaveBeenCalled();
-    expect(gemini.answer).not.toHaveBeenCalled();
-  });
-
-  it("does not imply no flooding when there are no verified community reports", async () => {
-    reports.getRecentVerifiedFloodAreas.mockResolvedValue([]);
-    const result = await service.reply(7, { message: "lũ ở đâu?" });
-
-    expect(result.answer).toContain("không khẳng định là không có lũ");
-    expect(history.create).toHaveBeenCalledWith(7, result.sessionId, "lũ ở đâu?", result.answer, "community_reports");
-    expect(knowledge.search).not.toHaveBeenCalled();
-  });
-
-  it("answers report count questions from verified aggregate data", async () => {
-    reports.getRecentVerifiedReportCount.mockResolvedValue(7);
-
-    const result = await service.reply(7, { message: "Có bao nhiêu báo cáo lũ đã xác minh?" });
-
-    expect(result.answer).toContain("7 báo cáo lũ/ngập được xác minh");
-    expect(reports.getRecentVerifiedReportCount).toHaveBeenCalledWith("flood");
-    expect(knowledge.search).not.toHaveBeenCalled();
-    expect(gemini.answer).not.toHaveBeenCalled();
-  });
-
-  it("does not invent report counts when the Reports service is unavailable", async () => {
-    reports.getRecentVerifiedReportCount.mockRejectedValue(new Error("reports service offline"));
-
-    await expect(service.reply(7, { message: "Thống kê báo cáo cứu hộ" }))
-      .rejects.toBeInstanceOf(ServiceUnavailableException);
-
-    expect(reports.getRecentVerifiedReportCount).toHaveBeenCalledWith("rescue");
-    expect(knowledge.search).not.toHaveBeenCalled();
-  });
-
-  it("returns a service error instead of inventing flood locations when reports are unavailable", async () => {
-    reports.getRecentVerifiedFloodAreas.mockRejectedValue(new Error("reports service offline"));
-
-    await expect(service.reply(7, { message: "lũ ở đâu?" }))
-      .rejects.toBeInstanceOf(ServiceUnavailableException);
-    expect(knowledge.search).not.toHaveBeenCalled();
-    expect(history.create).not.toHaveBeenCalled();
-  });
-
-  it("logs safe report RPC timeout diagnostics without logging error details", async () => {
-    reports.getRecentVerifiedFloodAreas.mockRejectedValue(new Error("TimeoutError: private payload timed out"));
-
-    await expect(service.reply(7, { message: "Bây giờ lũ ở đâu?" }))
-      .rejects.toBeInstanceOf(ServiceUnavailableException);
-
-    expect(logger.warn).toHaveBeenCalledWith("Recent flood report RPC timed out");
-    expect(JSON.stringify(logger.warn.mock.calls)).not.toContain("private payload");
-  });
-
-  it("keeps general flood location questions on the knowledge path", async () => {
-    knowledge.search.mockResolvedValue(["Các vùng thường có lũ quét gồm vùng núi dốc."]);
-    const result = await service.reply(7, { message: "Những vùng nào thường có lũ?" });
-
-    expect(result.answer).toContain("vùng núi dốc");
-    expect(knowledge.search).toHaveBeenCalledOnce();
+  it.each(["sơ cứu chảy máu", "Cách tạo báo cáo?", "bây giờ lũ ở đâu", "Chào bạn, cần chuẩn bị trước lũ thế nào?"])("routes knowledge/scope to RAG without local canned answers: %s", async message => {
+    const result = await service.reply(7, { message });
+    expect(rag.reply).toHaveBeenCalledWith(message, []);
+    expect(result.answer).toBe("Câu trả lời có nguồn.");
     expect(reports.getRecentVerifiedFloodAreas).not.toHaveBeenCalled();
-  });
-
-  it("does not let a greeting swallow a substantive flood question", async () => {
-    knowledge.search.mockResolvedValue(["Lũ quét có thể xảy ra nhanh sau mưa lớn."]);
-    const result = await service.reply(7, { message: "Hi, lũ quét nguy hiểm thế nào?" });
-
-    expect(result.answer).toContain("Lũ quét có thể xảy ra nhanh");
-    expect(knowledge.search).toHaveBeenCalledOnce();
-  });
-
-  it("uses a local passage and strips links from the response", async () => {
-    knowledge.search.mockResolvedValue(["Lũ quét xảy ra nhanh. https://example.com/source"]);
-    const result = await service.reply(7, { message: "Lũ quét là gì?" });
-    expect(result.answer).toContain("Lũ quét xảy ra nhanh");
-    expect(result.answer).not.toContain("https://");
-    expect(result.answer).toContain("Thông tin liên quan mình tìm thấy:");
-    expect(result.answer).not.toContain("Theo kho kiến thức VietFlood:");
-    expect(sessions.get(result.sessionId)?.turns[0].kind).toBe("knowledge");
-  });
-
-  it("shortens local passages at a sentence boundary within 400 characters", async () => {
-    const firstSentence = "A".repeat(120) + ".";
-    knowledge.search.mockResolvedValue([`${firstSentence} ${"B".repeat(500)}`]);
-
-    const result = await service.reply(7, { message: "Cách phòng lũ?" });
-    const excerpt = result.answer.slice("Thông tin liên quan mình tìm thấy:\n".length);
-
-    expect(excerpt).toBe(firstSentence);
-    expect(excerpt.length).toBeLessThanOrEqual(400);
-  });
-
-  it("shortens an overlong first sentence at a word boundary with an ellipsis", async () => {
-    const passage = `${"từ ".repeat(150)}cuối cùng trong câu dài không có dấu kết thúc`;
-    knowledge.search.mockResolvedValue([passage]);
-
-    const result = await service.reply(7, { message: "Cách phòng lũ?" });
-    const excerpt = result.answer.slice("Thông tin liên quan mình tìm thấy:\n".length);
-
-    expect(excerpt.length).toBeLessThanOrEqual(400);
-    expect(excerpt.endsWith("…")).toBe(true);
-    expect(excerpt).not.toMatch(/\s…$/u);
-  });
-
-  it("uses Gemini only with passages from the approved collection", async () => {
-    vi.stubEnv("GOOGLE_API_KEY", "test-secret");
-    vi.stubEnv("QDRANT_CHAT_COLLECTION", "flood_kb_approved");
-    gemini.isConfigured.mockReturnValue(true);
-    knowledge.search.mockResolvedValue(["staging passage"]);
-    knowledge.searchApproved.mockResolvedValue(["approved passage"]);
-    gemini.answer.mockResolvedValue("Câu trả lời đã tổng hợp.");
-
-    const result = await service.reply(7, { message: "Cách chuẩn bị trước lũ?" });
-
-    expect(knowledge.searchApproved).toHaveBeenCalledWith("Cách chuẩn bị trước lũ?", []);
-    expect(gemini.answer).toHaveBeenCalledWith("Cách chuẩn bị trước lũ?", ["approved passage"], []);
-    expect(result.answer).toBe("Câu trả lời đã tổng hợp.");
-    expect(history.create).toHaveBeenCalledWith(7, result.sessionId, "Cách chuẩn bị trước lũ?", result.answer, "knowledge");
-  });
-
-  it("passes only two prior assistant knowledge answers for a follow-up", async () => {
-    vi.stubEnv("GOOGLE_API_KEY", "test-secret");
-    vi.stubEnv("QDRANT_CHAT_COLLECTION", "flood_kb_approved");
-    gemini.isConfigured.mockReturnValue(true);
-    knowledge.search.mockResolvedValue(["local passage"]);
-    knowledge.searchApproved.mockResolvedValue(["approved passage"]);
-    gemini.answer.mockResolvedValue("Câu trả lời tiếp nối.");
-    const first = await service.reply(7, { message: "Cần chuẩn bị gì trước lũ?" });
-    sessions.get(first.sessionId)!.turns = [
-      { role: "user", content: "do not send this", kind: "knowledge" },
-      { role: "assistant", content: "Trả lời cũ nhất", kind: "knowledge" },
-      { role: "user", content: "private report question", kind: "report_status" },
-      { role: "assistant", content: "Chi tiết báo cáo riêng", kind: "report_status" },
-      { role: "assistant", content: "Trả lời kiến thức gần nhất 1", kind: "knowledge" },
-      { role: "assistant", content: "Trả lời kiến thức gần nhất 2", kind: "knowledge" },
-    ];
-
-    await service.reply(7, { message: "Còn nước uống thì sao?", sessionId: first.sessionId });
-
-    expect(knowledge.search).toHaveBeenLastCalledWith("do not send this Còn nước uống thì sao?", [
-      "Trả lời kiến thức gần nhất 1",
-      "Trả lời kiến thức gần nhất 2",
-    ]);
-    expect(knowledge.searchApproved).toHaveBeenLastCalledWith("do not send this Còn nước uống thì sao?", [
-      "Trả lời kiến thức gần nhất 1",
-      "Trả lời kiến thức gần nhất 2",
-    ]);
-    expect(gemini.answer).toHaveBeenLastCalledWith("Còn nước uống thì sao?", ["approved passage"], [
-      { role: "assistant", content: "Trả lời kiến thức gần nhất 1" },
-      { role: "assistant", content: "Trả lời kiến thức gần nhất 2" },
-    ]);
-    expect(history.recentKnowledgeAnswers).toHaveBeenCalledWith(7, first.sessionId, 2);
-  });
-
-  it("finds knowledge context beyond the ordinary recent-turn window", async () => {
-    vi.stubEnv("GOOGLE_API_KEY", "test-secret");
-    vi.stubEnv("QDRANT_CHAT_COLLECTION", "flood_kb_approved");
-    gemini.isConfigured.mockReturnValue(true);
-    knowledge.search.mockResolvedValue(["local passage"]);
-    knowledge.searchApproved.mockResolvedValue(["approved passage"]);
-    gemini.answer.mockResolvedValue("Câu trả lời tiếp nối.");
-    const first = await service.reply(7, { message: "Những việc cần làm trước lũ?" });
-    sessions.get(first.sessionId)!.turns = [
-      { role: "assistant", content: "Ngữ cảnh knowledge xa hơn", kind: "knowledge" },
-      ...Array.from({ length: 14 }, (_, index) => ({
-        role: index % 2 === 0 ? "user" as const : "assistant" as const,
-        content: `Nội dung khác ${index}`,
-        kind: "small_talk" as const,
-      })),
-      { role: "assistant", content: "Ngữ cảnh knowledge mới hơn", kind: "knowledge" },
-      ...Array.from({ length: 12 }, (_, index) => ({
-        role: index % 2 === 0 ? "user" as const : "assistant" as const,
-        content: `Nội dung xen giữa ${index}`,
-        kind: "small_talk" as const,
-      })),
-    ];
-
-    await service.reply(7, { message: "Còn nước uống thì sao?", sessionId: first.sessionId });
-
-    expect(history.recent).toHaveBeenCalledWith(7, first.sessionId, 10);
-    expect(gemini.answer).toHaveBeenLastCalledWith("Còn nước uống thì sao?", ["approved passage"], [
-      { role: "assistant", content: "Ngữ cảnh knowledge xa hơn" },
-      { role: "assistant", content: "Ngữ cảnh knowledge mới hơn" },
-    ]);
-  });
-
-  it.each(["Còn nước uống thì sao?", "Thế còn trẻ em?", "What about children?", "Bao lâu?"])(
-    "recognizes follow-up phrasing: %s",
-    async (message) => {
-      vi.stubEnv("GOOGLE_API_KEY", "test-secret");
-      vi.stubEnv("QDRANT_CHAT_COLLECTION", "flood_kb_approved");
-      gemini.isConfigured.mockReturnValue(true);
-      knowledge.search.mockResolvedValue(["local passage"]);
-      knowledge.searchApproved.mockResolvedValue(["approved passage"]);
-      gemini.answer.mockResolvedValue("Câu trả lời tiếp nối.");
-      const first = await service.reply(7, { message: "Cần chuẩn bị gì trước lũ?" });
-
-      await service.reply(7, { message, sessionId: first.sessionId });
-
-      expect(history.recentKnowledgeAnswers).toHaveBeenCalledWith(7, first.sessionId, 2);
-      expect(gemini.answer).toHaveBeenLastCalledWith(
-        message,
-        ["approved passage"],
-        [{ role: "assistant", content: "Câu trả lời tiếp nối." }],
-      );
-    },
-  );
-
-  it("asks for context instead of searching when a follow-up has no prior knowledge answer", async () => {
-    const result = await service.reply(7, { message: "What about children?" });
-
-    expect(result.answer).toContain("Mình chưa rõ bạn đang hỏi tiếp");
-    expect(result.answer).toContain("chủ đề nào");
-    expect(result.sessionId).toBeTruthy();
     expect(knowledge.search).not.toHaveBeenCalled();
-    expect(knowledge.searchApproved).not.toHaveBeenCalled();
-    expect(gemini.answer).not.toHaveBeenCalled();
-    expect(history.create).toHaveBeenCalledWith(7, result.sessionId, "What about children?", result.answer, "fallback");
-  });
-
-  it("does not call Gemini without an approved passage and falls back locally", async () => {
-    vi.stubEnv("GOOGLE_API_KEY", "test-secret");
-    vi.stubEnv("QDRANT_CHAT_COLLECTION", "flood_kb_approved");
-    gemini.isConfigured.mockReturnValue(true);
-    knowledge.search.mockResolvedValue(["staging local passage"]);
-    knowledge.searchApproved.mockResolvedValue([]);
-
-    const result = await service.reply(7, { message: "Cách chuẩn bị trước lũ?" });
-
-    expect(gemini.answer).not.toHaveBeenCalled();
-    expect(result.answer).toContain("staging local passage");
-  });
-
-  it("returns several concise local excerpts when generation is unavailable", async () => {
-    knowledge.search.mockResolvedValue([
-      "Chuẩn bị nước uống và thực phẩm đủ dùng trong vài ngày.",
-      "Cất giấy tờ quan trọng trong túi chống nước và chuẩn bị thuốc cá nhân.",
-    ]);
-
-    const result = await service.reply(7, { message: "Cần chuẩn bị gì trước lũ?" });
-
-    expect(result.answer).toContain("• Chuẩn bị nước uống");
-    expect(result.answer).toContain("• Cất giấy tờ quan trọng");
-  });
-
-  it("does not repeat a local answer when a follow-up has no new passages", async () => {
-    const passage = "Trước mùa lũ, gia đình nên chuẩn bị nước uống, thực phẩm, thuốc men và giấy tờ quan trọng.";
-    knowledge.search.mockResolvedValueOnce([passage]).mockResolvedValueOnce([]);
-    const first = await service.reply(7, { message: "Cần chuẩn bị gì trước lũ?" });
-
-    const followUp = await service.reply(7, {
-      message: "Còn gì nữa không?",
-      sessionId: first.sessionId,
-    });
-
-    expect(knowledge.search).toHaveBeenLastCalledWith(
-      "Cần chuẩn bị gì trước lũ? Còn gì nữa không?",
-      [first.answer],
-    );
-    expect(followUp.answer).toContain("chưa tìm thấy thông tin bổ sung khác");
-    expect(followUp.answer).not.toContain("chuẩn bị nước uống");
-  });
-
-  it("answers unsupported questions without a canned bot introduction", async () => {
-    knowledge.search.mockResolvedValue([]);
-
-    const result = await service.reply(7, { message: "Bạn có thể giúp tôi sửa xe không?" });
-
-    expect(result.answer).toContain("Mình có thể hỗ trợ về an toàn lũ");
-    expect(result.answer).toContain("Bạn muốn tìm hiểu nội dung nào?");
-    expect(result.answer).not.toContain("Mình là trợ lý VietFlood");
-  });
-
-  it("keeps urgent safety guidance ahead of an out-of-scope response", async () => {
-    knowledge.search.mockResolvedValue([]);
-
-    const result = await service.reply(7, { message: "Tôi đang bị nước cuốn, cứu tôi" });
-
-    expect(result.answer).toMatch(/^Nếu bạn đang gặp nguy hiểm, hãy tới nơi an toàn/u);
-    expect(result.answer).toContain("gọi lực lượng cứu hộ hoặc cấp cứu địa phương ngay");
-  });
-
-  it("gives report guidance in direct, conversational language", async () => {
-    const result = await service.reply(7, { message: "Làm sao gửi báo cáo?" });
-
-    expect(result.answer).toContain("Bạn có thể tạo báo cáo trong biểu mẫu VietFlood.");
-    expect(result.answer).toContain("theo dõi trạng thái");
-  });
-
-  it("falls back locally when Gemini returns no answer", async () => {
-    vi.stubEnv("GOOGLE_API_KEY", "test-secret");
-    vi.stubEnv("QDRANT_CHAT_COLLECTION", "flood_kb_approved");
-    gemini.isConfigured.mockReturnValue(true);
-    knowledge.search.mockResolvedValue(["local passage"]);
-    knowledge.searchApproved.mockResolvedValue(["approved passage"]);
-    gemini.answer.mockResolvedValue(null);
-
-    const result = await service.reply(7, { message: "Cách chuẩn bị trước lũ?" });
-
-    expect(result.answer).toContain("local passage");
-    expect(result.answer).not.toContain("approved passage");
-  });
-
-  it("returns safe errors for knowledge and database failures without logging content", async () => {
-    knowledge.search.mockRejectedValue(new ServiceUnavailableException("Knowledge base is unavailable"));
-    await expect(service.reply(7, { message: "private flood question" }))
-      .rejects.toBeInstanceOf(ServiceUnavailableException);
-    knowledge.search.mockResolvedValue([]);
-    history.create.mockRejectedValueOnce(new ServiceUnavailableException("Chat history is unavailable"));
-    await expect(service.reply(7, { message: "private flood question" }))
-      .rejects.toBeInstanceOf(ServiceUnavailableException);
-    expect(JSON.stringify(logger.warn.mock.calls)).not.toContain("private flood question");
   });
 
   it("limits chat requests to 20 per user per minute", async () => {

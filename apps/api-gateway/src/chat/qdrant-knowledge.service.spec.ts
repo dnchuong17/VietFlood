@@ -1,209 +1,27 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
+import { afterEach, expect, it, vi } from "vitest";
 import { QdrantKnowledgeService } from "./qdrant-knowledge.service";
-
-describe("QdrantKnowledgeService", () => {
-  const originalFetch = globalThis.fetch;
-  const logger = { setServiceName: vi.fn(), warn: vi.fn() };
-
-  beforeEach(() => {
-    vi.stubEnv("QDRANT_URL", "http://qdrant.test");
-    vi.stubEnv("QDRANT_COLLECTION", "flood_kb_staging_2026_01");
-    vi.stubEnv("QDRANT_TEXT_FIELD", "");
-  });
-
-  afterEach(() => {
-    globalThis.fetch = originalFetch;
-    vi.unstubAllEnvs();
-  });
-
-  it("inspects the payload, creates a text index, and ranks matching passages", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ result: { payload_schema: {} } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          result: {
-            points: [{ id: 1, payload: { content: "Lũ quét nguy hiểm" } }],
-          },
-        }),
-      })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ result: {} }) })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          result: {
-            points: [
-              { id: 2, payload: { content: "Lũ thường kéo dài" } },
-              { id: 1, payload: { content: "Lũ quét rất nguy hiểm" } },
-            ],
-          },
-        }),
-      });
-    globalThis.fetch = fetchMock as never;
-    const service = new QdrantKnowledgeService(logger as never);
-
-    const matches = await service.search("Lũ quét nguy hiểm thế nào?");
-    expect(matches[0]).toBe("Lũ quét rất nguy hiểm");
-    expect(fetchMock.mock.calls[2][0]).toContain("/index?wait=true");
-    expect(JSON.parse(fetchMock.mock.calls[2][1].body).field_name).toBe(
-      "content",
-    );
-    const searchBody = JSON.parse(fetchMock.mock.calls[3][1].body);
-    expect(searchBody.filter.should[0].key).toBe("content");
-    expect(searchBody.with_vector).toBe(false);
-  });
-
-  it("retrieves staging points regardless of review metadata", async () => {
-    globalThis.fetch = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          result: { payload_schema: { text: { data_type: "text" } } },
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          result: {
-            points: [
-              { id: 1, payload: { text: "Ngập lụt", public_retrieval: false } },
-            ],
-          },
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          result: {
-            points: [
-              { id: 1, payload: { text: "Ngập lụt", public_retrieval: false } },
-              {
-                id: 2,
-                payload: {
-                  text: "Ngập lụt",
-                  public_retrieval: true,
-                  license_status: "REVIEW_REQUIRED",
-                },
-              },
-              {
-                id: 3,
-                payload: {
-                  text: "Ngập lụt",
-                  public_retrieval: true,
-                  medical_review_required: true,
-                },
-              },
-            ],
-          },
-        }),
-      }) as never;
-    const service = new QdrantKnowledgeService(logger as never);
-    expect(await service.search("Ngập lụt")).toEqual(["Ngập lụt"]);
-  });
-
-  it("does not return passages that match only one of several query terms", async () => {
-    globalThis.fetch = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ result: { payload_schema: { text: { data_type: "text" } } } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ result: { points: [{ id: 1, payload: { text: "Ngập lụt tại miền Trung" } }] } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ result: { points: [{ id: 1, payload: { text: "Kế hoạch báo cáo ngập lụt" } }] } }),
-      }) as never;
-    const service = new QdrantKnowledgeService(logger as never);
-
-    expect(await service.search("ngập quận huyện nào" )).toEqual([]);
-  });
-
-  it("ignores conversational filler in short follow-up retrieval queries", async () => {
-    globalThis.fetch = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ result: { payload_schema: { text: { data_type: "text" } } } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ result: { points: [{ id: 1, payload: { text: "Chuẩn bị trước lũ" } }] } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ result: { points: [{ id: 1, payload: { text: "Chuẩn bị nước uống trước lũ" } }] } }),
-      }) as never;
-    const service = new QdrantKnowledgeService(logger as never);
-
-    expect(await service.search("Cần chuẩn bị gì trước lũ? Còn gì nữa"))
-      .toEqual(["Chuẩn bị nước uống trước lũ"]);
-    const searchBody = JSON.parse((globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[2][1].body);
-    const terms = searchBody.filter.should.map((clause: { match: { text: string } }) => clause.match.text);
-    expect(terms).not.toContain("còn");
-    expect(terms).not.toContain("gì");
-    expect(terms).not.toContain("nữa");
-    expect(terms).toContain("lũ");
-  });
-
-  it("filters passages already shown and returns a new matching passage", async () => {
-    const repeated = "Chuẩn bị trước lũ bằng cách dự trữ nước uống, thực phẩm, thuốc men và bảo vệ giấy tờ quan trọng.";
-    const newPassage = "Trước khi sơ tán vì lũ, hãy tắt điện nếu an toàn và đi theo tuyến sơ tán chính thức.";
-    globalThis.fetch = vi.fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ result: { payload_schema: { text: { data_type: "text" } } } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ result: { points: [{ id: 1, payload: { text: repeated } }] } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ result: { points: [
-          { id: 1, payload: { text: repeated } },
-          { id: 2, payload: { text: newPassage } },
-        ] } }),
-      }) as never;
-    const service = new QdrantKnowledgeService(logger as never);
-
-    const answers = await service.search(
-      "chuẩn bị trước lũ còn gì nữa",
-      [`Thông tin liên quan mình tìm thấy:\n• ${repeated}`],
-    );
-
-    expect(answers).toEqual([newPassage]);
-  });
-
-  it("queries only the configured approved collection for Gemini retrieval", async () => {
-    vi.stubEnv("QDRANT_CHAT_COLLECTION", "curated_flood_kb");
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ result: { payload_schema: { text: { data_type: "text" } } } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ result: { points: [{ id: 1, payload: { text: "Lũ quét an toàn" } }] } }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ result: { points: [{ id: 1, payload: { text: "Lũ quét an toàn" } }] } }),
-      });
-    globalThis.fetch = fetchMock as never;
-    const service = new QdrantKnowledgeService(logger as never);
-
-    expect(await service.searchApproved("Lũ quét an toàn")).toEqual(["Lũ quét an toàn"]);
-    expect(fetchMock.mock.calls.every(([url]) => String(url).includes("/collections/curated_flood_kb"))).toBe(true);
-    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("flood_kb_staging_2026_01"))).toBe(false);
-  });
+const logger = { setServiceName: vi.fn(), info: vi.fn(), warn: vi.fn() };
+afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
+it("retrieves passages with metadata through the internal service, never scroll or text match", async () => {
+  vi.stubEnv("RAG_SERVICE_URL", "http://rag:8001"); vi.stubEnv("RAG_SERVICE_TOKEN", "secret-token");
+  const passage = { id: "1", text: "Nguồn", title: "Source", documentId: "E01", version: 1, sectionPath: [] };
+  const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ passages: [passage] }) }));
+  vi.stubGlobal("fetch", fetchMock);
+  const service = new QdrantKnowledgeService(logger as never);
+  expect(await service.retrieve(["query"], 20, 6)).toEqual([passage]);
+  expect(fetchMock.mock.calls[0][0]).toBe("http://rag:8001/search");
+  expect(JSON.stringify(fetchMock.mock.calls)).not.toContain("scroll");
+  expect(JSON.stringify(logger.info.mock.calls)).not.toContain("secret-token");
+});
+it("reports upstream status without raw body or credentials", async () => {
+  vi.stubEnv("RAG_SERVICE_URL", "http://rag:8001"); vi.stubEnv("RAG_SERVICE_TOKEN", "private-key");
+  vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 403 })));
+  await expect(new QdrantKnowledgeService(logger as never).retrieve(["private query"],20,6)).rejects.toThrow();
+  expect(JSON.stringify(logger.warn.mock.calls)).toContain('403');
+  expect(JSON.stringify(logger.warn.mock.calls)).not.toMatch(/private-key|private query/);
+});
+it("rejects incomplete metadata", async () => {
+  vi.stubEnv("RAG_SERVICE_URL", "http://rag:8001"); vi.stubEnv("RAG_SERVICE_TOKEN", "token");
+  vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ passages: [{ text: "missing id" }] }) })));
+  await expect(new QdrantKnowledgeService(logger as never).retrieve(["query"],20,6)).rejects.toThrow();
 });

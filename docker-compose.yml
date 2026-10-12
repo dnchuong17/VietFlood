@@ -1,5 +1,7 @@
 services:
   api-gateway:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     build:
       context: .
       dockerfile: apps/api-gateway/Dockerfile
@@ -26,11 +28,13 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       QDRANT_URL: ${QDRANT_URL:-https://qdrant.ndtd.indevs.in:443}
       QDRANT_COLLECTION: ${QDRANT_COLLECTION:-flood_kb_staging_2026_01}
-      QDRANT_CHAT_COLLECTION: ${QDRANT_CHAT_COLLECTION:-}
+      QDRANT_CHAT_COLLECTION: ${QDRANT_CHAT_COLLECTION:-flood_kb_active}
+      RAG_SERVICE_URL: ${RAG_DOCKER_SERVICE_URL:-http://rag-retrieval:8001}
+      RAG_SERVICE_TOKEN: ${RAG_SERVICE_TOKEN}
       QDRANT_API_KEY: ${QDRANT_API_KEY:-}
       QDRANT_TEXT_FIELD: ${QDRANT_TEXT_FIELD:-text}
       GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
-      GEMINI_CHAT_MODEL: ${GEMINI_CHAT_MODEL:-gemini-3.8-flash}
+      GEMINI_CHAT_MODEL: ${GEMINI_CHAT_MODEL:-gemini-3-flash-preview}
       CHAT_KEYRING_B64: ${CHAT_KEYRING_B64}
       CHAT_KEY_CURRENT: ${CHAT_KEY_CURRENT}
       CHAT_DB_CA_BASE64: ${CHAT_DB_CA_BASE64:-}
@@ -52,6 +56,24 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
+
+  rag-retrieval:
+    image: ${RAG_SERVICE_IMAGE:-vietflood-retrieval:local}
+    environment:
+      QDRANT_URL: ${QDRANT_URL:-https://qdrant.ndtd.indevs.in:443}
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
+      QDRANT_CHAT_COLLECTION: ${QDRANT_CHAT_COLLECTION:-flood_kb_active}
+      RAG_SERVICE_TOKEN: ${RAG_SERVICE_TOKEN}
+      RAG_DATA_DIR: /app/data
+      HF_HOME: /models/huggingface
+      FASTEMBED_CACHE_PATH: /models/fastembed
+    expose:
+      - "8001"
+    volumes:
+      - ${RAG_CORPUS_DIR:-./rag-data}:/app/data:ro
+      - rag_model_cache:/models
+    restart: unless-stopped
 
   auth-service:
     build:
@@ -139,6 +161,7 @@ services:
       retries: 5
 
 volumes:
+  rag_model_cache:
   redis-data:
   rabbitmq-data:
 

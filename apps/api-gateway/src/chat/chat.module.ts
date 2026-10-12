@@ -11,11 +11,12 @@ import { ChatService } from "./chat.service";
 import { QdrantKnowledgeService } from "./qdrant-knowledge.service";
 import { GeminiChatService } from "./gemini-chat.service";
 import { ChatActionService } from "./chat-action.service";
+import { RagAnswerService } from "./rag-answer.service";
 
 @Module({
   imports: [ReportsModule, AuthModule, RedisModule.forRoot()],
   controllers: [ChatController],
-  providers: [ChatService, ChatActionService, ChatCryptoService, ChatHistoryRepository, QdrantKnowledgeService, GeminiChatService,
+  providers: [RagAnswerService, ChatService, ChatActionService, ChatCryptoService, ChatHistoryRepository, QdrantKnowledgeService, GeminiChatService,
     LoggerService,
     { provide: ChatAuditInterceptor,
       useFactory: (logger: LoggerService) => new ChatAuditInterceptor(logger),

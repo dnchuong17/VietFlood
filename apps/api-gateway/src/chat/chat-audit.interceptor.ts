@@ -6,6 +6,7 @@ import {
   NestInterceptor,
 } from "@nestjs/common";
 import { Observable } from "rxjs";
+import { chatTrace } from "./chat-trace";
 import { LoggerService } from "vietflood-common";
 
 @Injectable()
@@ -21,6 +22,6 @@ export class ChatAuditInterceptor implements NestInterceptor {
     response.setHeader("X-Request-Id", requestId);
     const event = `${request.method} ${request.route?.path ?? "chat"}`;
     this.logger.info("Chat API request", { event, requestId });
-    return next.handle();
+    return new Observable(subscriber => chatTrace.run({ requestId }, () => next.handle().subscribe(subscriber)));
   }
 }

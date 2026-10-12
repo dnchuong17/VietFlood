@@ -206,6 +206,7 @@ export class ChatActionService {
   }
 
   private mayBeAction(message: string): boolean {
+    if (/cách|hướng dẫn|làm thế nào|how to|how do i/iu.test(message)) return false;
     if (
       /(?:hồ sơ của tôi|báo cáo của tôi|tài khoản của tôi|my profile|my reports)/iu.test(
         message,

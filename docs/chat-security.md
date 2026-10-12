@@ -59,10 +59,12 @@ CHAT_BACKUP_VERIFIED_AT=<YYYY-MM-DD after backup settings are checked>
 # Flood knowledge
 QDRANT_URL=https://qdrant.ndtd.indevs.in:443
 QDRANT_COLLECTION=flood_kb_staging_2026_01
-QDRANT_CHAT_COLLECTION=<separate curated collection; leave unset to disable Gemini>
+QDRANT_CHAT_COLLECTION=flood_kb_active
+RAG_SERVICE_URL=http://rag-retrieval:8001
+RAG_SERVICE_TOKEN=<shared internal-service secret>
 QDRANT_TEXT_FIELD=text
 GOOGLE_API_KEY=<Gemini Paid API key; leave unset to disable Gemini>
-GEMINI_CHAT_MODEL=gemini-3.8-flash
+GEMINI_CHAT_MODEL=gemini-3-flash-preview
 ```
 
 Add `QDRANT_API_KEY` only if the Qdrant host requires one. Jenkins creates
@@ -151,20 +153,11 @@ is unrecoverable. Redis retains the per-user rate-limit key for about two
 minutes. Report-status replies can be stored in history, but are excluded from
 any future model context.
 
-When Gemini is enabled, the gateway uses LangChain to send the current question
-and up to four retrieved passages from `QDRANT_CHAT_COLLECTION` to the Gemini
-Paid API. For retrieval only, a clear follow-up may be combined with up to two
-prior user knowledge questions; those prior questions are not sent to Gemini.
-On clear follow-up questions only, it may also send up to two prior assistant
-answers whose stored kind is `knowledge`. It never sends prior user messages,
-report content, account data, report-status or community-report answers, or
-passages from the staging `QDRANT_COLLECTION`. The system instruction asks the
-model to use only approved passages, treat question/source text as data, and
-decline unsupported claims. First-aid, report guidance/status, small talk, and
-current flood-location answers remain local. Missing configuration, empty
-approved retrieval, and Gemini errors fall back to the existing local
-extractive answer or safe no-information response. The existing chat rate
-limit also applies to Gemini calls.
+Knowledge questions now use the internal token-authenticated Python retrieval service. It queries the approved active alias with E5 dense and BM25 sparse vectors, fuses/reranks results and returns source metadata. Only `license_status=APPROVED_FOR_RAG` is required for this accepted corpus. There is no staging excerpt fallback or direct text/scroll search. Gemini receives selected evidence for sufficiency checks, grounded claims and independent quote validation. It uses minimal prior knowledge turns for query rewriting; account/report action results are excluded from knowledge context.
+
+Explicit report/profile actions are classified separately. Their current user message may contain information the user supplies for an operation and is sent to Gemini for intent/argument extraction. Retrieved account/report records are not sent as knowledge evidence. Missing model/retrieval configuration or provider errors return operational unavailable notices rather than substantive advice. Dynamic alerts/flood conditions are currently unsupported.
+
+Source citations and reply metadata are stored inside encrypted assistant messages and remain accessible through owner-protected history. Approved source snapshots are served through JWT-authenticated `/chat/sources/:documentId/versions/:version`. External URLs are validated as HTTP(S) and constructed from corpus metadata; models cannot supply their own links.
 
 Use a Gemini Paid API project and do not opt in to Google log or dataset
 sharing. Under Google's current terms, paid prompts and responses are not used

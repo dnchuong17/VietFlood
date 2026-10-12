@@ -10,6 +10,7 @@ import {
 } from "@nestjs/common";
 import { LoggerService } from "vietflood-common";
 
+import { RagDetails } from "./rag.types";
 import { ChatCryptoService, ChatRole, EncryptedMessage } from "./chat-crypto.service";
 
 export type ChatKind =
@@ -27,7 +28,7 @@ export type ChatTurn = {
   content: string;
   kind: ChatKind;
 };
-export type ChatMessage = ChatTurn & { id: string; createdAt: string | null };
+export type ChatMessage = ChatTurn & { id: string; createdAt: string | null } & Partial<RagDetails>;
 export type ChatSession = {
   sessionId: string;
   title: string;
@@ -392,11 +393,25 @@ export class ChatHistoryRepository implements OnModuleInit, OnModuleDestroy {
   }
 
   private messageFromRow(row: MessageRow, userId: number, sessionId: string): ChatMessage {
+    const plaintext = this.crypto.decrypt(this.encrypted(row), userId, sessionId, row.id, row.role);
+    let content = plaintext;
+    let details: Partial<RagDetails> = {};
+    if (row.role === "assistant" && ["knowledge", "fallback", "small_talk"].includes(row.kind)) {
+      try {
+        const envelope = JSON.parse(plaintext);
+        if (envelope?._vietfloodRag === 1 && typeof envelope.answer === "string" && envelope.details && typeof envelope.details === "object") {
+          content = envelope.answer;
+          const d = envelope.details;
+          details = { status:d.status, sources:d.sources, sourceSupportPercent:d.sourceSupportPercent, generationMode:d.generationMode, unansweredParts:d.unansweredParts };
+        }
+      } catch { /* Old encrypted plain-text replies remain readable. */ }
+    }
     return {
+      ...details,
       id: row.id,
       role: row.role,
       kind: row.kind,
-      content: this.crypto.decrypt(this.encrypted(row), userId, sessionId, row.id, row.role),
+      content,
       createdAt: row.created_at?.toISOString() ?? null,
     };
   }

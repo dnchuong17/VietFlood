@@ -8,6 +8,7 @@ import {
   HttpCode,
   Param,
   ParseUUIDPipe,
+  ParseIntPipe,
   Post,
   Query,
   Req,
@@ -61,6 +62,12 @@ export class ChatController {
     @Req() request: { user: { userId: number } },
   ) {
     return this.chatService.deleteSession(request.user.userId, sessionId);
+  }
+
+  @Get("sources/:documentId/versions/:version")
+  @Header("Cache-Control", "private, no-store")
+  source(@Param("documentId") documentId: string, @Param("version", ParseIntPipe) version: number) {
+    return this.chatService.source(documentId, version);
   }
 
   @Post()

@@ -199,3 +199,9 @@ NestJS trả lỗi dạng JSON, thường có `statusCode`, `message`, `error`. 
 | `503` | Lịch sử chat đang tắt hoặc một dịch vụ bắt buộc không khả dụng. | Hiển thị trạng thái tạm thời không khả dụng và cho phép thử lại. |
 
 Các endpoint lịch sử dùng phân trang; hãy tránh gọi lặp liên tục khi cuộn. Việc xóa hội thoại là thao tác không thể khôi phục từ giao diện sau khi API trả thành công.
+
+## RAG v2 metadata
+
+Replies and assistant history messages may include status, sources, sourceSupportPercent, generationMode and unansweredParts. Status is answered/partial/no_knowledge/unsupported_dynamic/needs_clarification/unavailable. Sources include citation number, documentId/version/title/sectionPath/sourceUrl/snapshotUrl/chunkHash. The percent measures model-checked claim support and is not an accuracy probability. Existing answer/sessionId/action fields remain compatible.
+
+GET /chat/sources/:documentId/versions/:version requires JWT and returns documentId/version/title/text/sourceUrl/active. Web source links open a readable saved corpus version; external source sites may have changed or block requests. Sources withdrawn from the active collection are labeled archival.

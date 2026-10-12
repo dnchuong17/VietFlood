@@ -7,6 +7,7 @@ const langchain = vi.hoisted(() => ({
   rawText: undefined as string | undefined,
   finishReason: "STOP",
   hang: false,
+  errors: [] as Error[],
   modelOptions: [] as Array<Record<string, unknown>>,
 }));
 
@@ -32,6 +33,7 @@ vi.mock("@langchain/google", () => ({
       return {
         invoke: async (input: unknown) => {
           langchain.calls.push({ prompts: (input as { prompts: unknown[] }).prompts, input, options: { structured: true } });
+          if (langchain.errors.length) throw langchain.errors.shift();
           if (langchain.hang) return new Promise(() => {});
           return { content: langchain.rawText ?? JSON.stringify(langchain.output), additional_kwargs: { finishReason: langchain.finishReason }, usage_metadata: { output_tokens: 100 } };
         },
@@ -52,6 +54,7 @@ describe("GeminiChatService", () => {
     langchain.rawText = undefined;
     langchain.finishReason = "STOP";
     langchain.hang = false;
+    langchain.errors = [];
     langchain.modelOptions = [];
   });
 
@@ -145,6 +148,51 @@ describe("GeminiChatService", () => {
     const controller = new AbortController(); controller.abort();
     await expect(new GeminiChatService(logger as never).structured("route", {}, {}, controller.signal)).rejects.toThrow();
     expect(langchain.calls).toHaveLength(0);
+  });
+
+  it("recovers after one transient 503 and logs the configured model", async () => {
+    vi.useFakeTimers();
+    vi.stubEnv("GOOGLE_API_KEY", "private-key");
+    vi.stubEnv("GEMINI_CHAT_MODEL", "gemini-3.7-flash");
+    langchain.errors = [Object.assign(new Error("private overload details"), { status: 503 })];
+    langchain.output = { route: "static" };
+    const result = new GeminiChatService(logger as never).structured("route", {}, {}, new AbortController().signal);
+    await vi.advanceTimersByTimeAsync(1300);
+    expect(await result).toEqual({ route: "static" });
+    expect(langchain.calls).toHaveLength(2);
+    expect(logger.warn).toHaveBeenCalledWith("RAG transient provider failure; retry scheduled", expect.objectContaining({ model: "gemini-3.7-flash", status: 503 }));
+    expect(JSON.stringify(logger.warn.mock.calls)).not.toContain("private overload details");
+  });
+
+  it("stops after the second transient provider failure", async () => {
+    vi.useFakeTimers();
+    vi.stubEnv("GOOGLE_API_KEY", "private-key");
+    langchain.errors = [503, 503].map(status => Object.assign(new Error("unavailable"), { statusCode: status }));
+    const result = new GeminiChatService(logger as never).structured("route", {}, {}, new AbortController().signal);
+    const assertion = expect(result).rejects.toMatchObject({ statusCode: 503 });
+    await vi.advanceTimersByTimeAsync(1300);
+    await assertion;
+    expect(langchain.calls).toHaveLength(2);
+  });
+
+  it.each([401, 402, 403, 429])("does not retry authentication/billing/quota error %s", async status => {
+    vi.stubEnv("GOOGLE_API_KEY", "private-key");
+    langchain.errors = [Object.assign(new Error("provider failure"), { status })];
+    await expect(new GeminiChatService(logger as never).structured("route", {}, {}, AbortSignal.timeout(1000))).rejects.toMatchObject({ status });
+    expect(langchain.calls).toHaveLength(1);
+  });
+
+  it("cancels retry backoff when the parent deadline expires", async () => {
+    vi.useFakeTimers();
+    vi.stubEnv("GOOGLE_API_KEY", "private-key");
+    langchain.errors = [Object.assign(new Error("unavailable"), { status: 503 })];
+    const parent = new AbortController();
+    const result = new GeminiChatService(logger as never).structured("route", {}, {}, parent.signal);
+    const assertion = expect(result).rejects.toMatchObject({ name: "AbortError" });
+    await vi.advanceTimersByTimeAsync(100);
+    parent.abort(); await assertion;
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(langchain.calls).toHaveLength(1);
   });
 
 });

@@ -8,7 +8,7 @@ const grounded = { checks:[{ index:0, supported:true, evidence:[{ sourceId:"p1",
 function setup(outputs:unknown[], passages=[p]) {
   const model = { structured:vi.fn(), isConfigured: vi.fn(() => true) }; for (const output of outputs) model.structured.mockResolvedValueOnce(output);
   const knowledge={retrieve:vi.fn(async()=>passages)};
-  const logger={info:vi.fn(),warn:vi.fn()};
+  const logger={setServiceName:vi.fn(),info:vi.fn(),warn:vi.fn()};
   return { service:new RagAnswerService(knowledge as never,model as never,logger as never),knowledge,model,logger };
 }
 describe("RAG answer contract",()=> {

@@ -15,7 +15,7 @@ type Claim = { text: string; sourceIds: string[] };
 
 @Injectable()
 export class RagAnswerService {
-  constructor(private readonly knowledge: QdrantKnowledgeService, private readonly gemini: GeminiChatService, private readonly logger: LoggerService) {}
+  constructor(private readonly knowledge: QdrantKnowledgeService, private readonly gemini: GeminiChatService, private readonly logger: LoggerService) { this.logger.setServiceName(RagAnswerService.name); }
   private notice(status: RagDetails["status"], reason?: string): RagReply {
     const messages = {
       no_knowledge: "Mình chưa tìm thấy đủ kiến thức trong kho dữ liệu để trả lời câu hỏi này.",

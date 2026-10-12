@@ -55,7 +55,7 @@ export class GeminiChatService implements OnModuleInit {
   }
 
   onModuleInit() {
-    this.logger.info("Gemini RAG configuration", { configured: this.isConfigured(), model: process.env.GEMINI_CHAT_MODEL?.trim() || DEFAULT_MODEL, reason: this.isConfigured() ? "ready" : "missing_api_key" });
+    this.logger.info("Gemini RAG configuration", { configured: this.isConfigured(), model: this.modelName(), reason: this.isConfigured() ? "ready" : "missing_api_key" });
   }
 
   isConfigured(): boolean { return Boolean(process.env.GOOGLE_API_KEY?.trim()); }
@@ -73,6 +73,7 @@ export class GeminiChatService implements OnModuleInit {
 
   private async invokeJson<T>(prompt: ReturnType<typeof ChatPromptTemplate.fromMessages>, input: Record<string, unknown>, schema: object, parentSignal: AbortSignal, stage: string, maxTokens: number): Promise<T> {
     const started = Date.now();
+    const modelName = this.modelName();
     const controller = new AbortController();
     const signal = AbortSignal.any([parentSignal, controller.signal]);
     // Bound the entire SDK pipeline, including retries and response parsing.
@@ -80,12 +81,19 @@ export class GeminiChatService implements OnModuleInit {
     try {
       for (let attempt = 0; attempt < 2; attempt++) {
         signal.throwIfAborted();
-        this.logger.info("RAG model stage started", { requestId: requestId(), stage, attempt: attempt + 1, maxOutputTokens: maxTokens });
+        this.logger.info("RAG model stage started", { requestId: requestId(), stage, model: modelName, attempt: attempt + 1, maxOutputTokens: maxTokens });
         const model = this.createModel(0, maxTokens).withConfig({ responseSchema: schema as Record<string, unknown>, maxRetries: 0 });
         let response: AIMessage;
         try {
           response = await this.bounded(prompt.pipe(model).invoke(input, { signal }), signal) as AIMessage;
         } catch (error) {
+          const status = this.safeErrorDetails(error).status;
+          if (attempt === 0 && typeof status === "number" && [500, 502, 503, 504].includes(status) && !signal.aborted) {
+            const delayMs = 1000 + Math.floor(Math.random() * 250);
+            this.logger.warn("RAG transient provider failure; retry scheduled", { requestId: requestId(), stage, model: modelName, attempt: attempt + 1, delayMs, reason: "provider_unavailable", ...this.safeErrorDetails(error) });
+            await this.pause(delayMs, signal);
+            continue;
+          }
           // Malformed provider JSON can fail inside the SDK before an AIMessage exists.
           if (error instanceof SyntaxError && attempt === 0 && !signal.aborted) {
             this.logger.warn("RAG provider JSON rejected", { requestId: requestId(), stage, reason: "invalid_provider_json", attempt: attempt + 1 });
@@ -114,7 +122,7 @@ export class GeminiChatService implements OnModuleInit {
       }
       throw new Error("invalid_model_json");
     } catch (error) {
-      this.logger.warn("RAG model stage failed", { requestId: requestId(), stage, elapsedMs: Date.now() - started, ...this.safeErrorDetails(error) });
+      this.logger.warn("RAG model stage failed", { requestId: requestId(), stage, model: modelName, elapsedMs: Date.now() - started, ...this.safeErrorDetails(error) });
       throw error;
     } finally { clearTimeout(timer); }
   }
@@ -173,18 +181,29 @@ export class GeminiChatService implements OnModuleInit {
     const providerCode = value.data?.error?.status;
     if (typeof providerCode === "string" && /^[A-Z_]{1,40}$/.test(providerCode)) details.providerCode = providerCode;
     if (error instanceof Error) {
-      const markers = ["additionalProperties", "responseSchema", "response_json_schema", "not found", "not supported", "API key", "quota", "function", "schema", "json"].filter(term => error.message.toLowerCase().includes(term.toLowerCase()));
+      const markers = ["additionalProperties", "responseSchema", "response_json_schema", "not found", "not supported", "API key", "quota", "function", "schema", "json", "high demand", "overloaded", "temporarily"].filter(term => error.message.toLowerCase().includes(term.toLowerCase()));
       if (markers.length) details.errorCategory = markers.join(",");
     }
     if (typeof value.code === "string" && /^[A-Z0-9_]{1,40}$/u.test(value.code)) details.errorCode = value.code;
     return details;
   }
 
-  private createModel(temperature: number, maxOutputTokens: number): ChatGoogle {
+  private modelName(): string {
     const configuredModel = process.env.GEMINI_CHAT_MODEL?.trim() || DEFAULT_MODEL;
-    const model = /^[A-Za-z0-9._-]{1,100}$/u.test(configuredModel)
-      ? configuredModel
-      : DEFAULT_MODEL;
+    return /^[A-Za-z0-9._-]{1,100}$/u.test(configuredModel) ? configuredModel : DEFAULT_MODEL;
+  }
+
+  private async pause(milliseconds: number, signal: AbortSignal): Promise<void> {
+    signal.throwIfAborted();
+    await new Promise<void>((resolve, reject) => {
+      const abort = () => { clearTimeout(timer); signal.removeEventListener("abort", abort); reject(signal.reason); };
+      const timer = setTimeout(() => { signal.removeEventListener("abort", abort); resolve(); }, milliseconds);
+      signal.addEventListener("abort", abort, { once: true });
+    });
+  }
+
+  private createModel(temperature: number, maxOutputTokens: number): ChatGoogle {
+    const model = this.modelName();
     return new ChatGoogle({
       model,
       apiKey: process.env.GOOGLE_API_KEY?.trim(),

@@ -64,7 +64,7 @@ RAG_SERVICE_URL=http://rag-retrieval:8001
 RAG_SERVICE_TOKEN=<shared internal-service secret>
 QDRANT_TEXT_FIELD=text
 GOOGLE_API_KEY=<Gemini Paid API key; leave unset to disable Gemini>
-GEMINI_CHAT_MODEL=gemini-3-flash-preview
+GEMINI_CHAT_MODEL=gemini-3.7-flash
 ```
 
 Add `QDRANT_API_KEY` only if the Qdrant host requires one. Jenkins creates

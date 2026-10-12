@@ -5,7 +5,7 @@ import { ChatGoogle } from "@langchain/google";
 import { LoggerService } from "vietflood-common";
 import { requestId } from "./chat-trace";
 
-const DEFAULT_MODEL = "gemini-3-flash-preview";
+const DEFAULT_MODEL = "gemini-3.7-flash";
 const MAX_PASSAGES = 4;
 const MAX_HISTORY_ANSWERS = 2;
 const MAX_PASSAGE_CHARS = 1800;

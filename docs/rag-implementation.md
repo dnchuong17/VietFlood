@@ -32,7 +32,7 @@ docker build -f Dockerfile.rag -t vietflood-retrieval:local .
 
 The backend Compose files include `rag-retrieval` on the private service network. Set `RAG_SERVICE_IMAGE` to the image built/published for the server and `RAG_CORPUS_DIR` to that server's synchronized `data` directory, including releases and snapshots. `RAG_DOCKER_SERVICE_URL` defaults to `http://rag-retrieval:8001`. The Python standalone `docker-compose.rag.yml` is for local administration/testing. A remote deployment must receive the corpus artifacts before starting retrieval; a green Qdrant collection alone does not supply citation snapshots or model revision metadata.
 
-Use `GOOGLE_API_KEY` and optional `GEMINI_CHAT_MODEL` for the model. The currently configured default is `gemini-3-flash-preview`; confirm availability in the provider project. Gemini uses JSON-schema structured output for routing, sufficiency, generation and grounding.
+Use `GOOGLE_API_KEY` and optional `GEMINI_CHAT_MODEL` for the model. The configured default is `gemini-3.7-flash`. Google documents this identifier as deprecated and automatically routed to `gemini-3.8-flash`: https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash. Gemini uses JSON-schema structured output for routing, sufficiency, generation and grounding.
 
 ## Query and answer contract
 

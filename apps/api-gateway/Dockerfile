@@ -34,6 +34,12 @@ RUN node -e "require('socket.io'); require('engine.io'); require('engine.io-pars
 FROM node:20-alpine
 
 ENV NODE_ENV=production
+ENV OLLAMA_BASE_URL=http://ollama:11434
+ENV OLLAMA_CHAT_MODEL=qwen3:1.7b-q4_K_M
+ENV OLLAMA_REQUEST_TIMEOUT_MS=120000
+ENV OLLAMA_NUM_CTX=16384
+ENV RAG_REQUEST_TIMEOUT_MS=300000
+ENV RAG_RETRIEVAL_TIMEOUT_MS=90000
 
 WORKDIR /app
 
@@ -43,7 +49,7 @@ COPY --from=builder /app/dist/apps/api-gateway ./dist
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=prod-deps /app/package.json ./
 COPY db/migrations/20261009_chat_history.sql ./db/migrations/20261009_chat_history.sql
-COPY scripts/migrate-chat-history.js scripts/rotate-chat-history-key.js ./scripts/
+COPY scripts/migrate-chat-history.js scripts/rotate-chat-history-key.js scripts/check-chat-runtime.js ./scripts/
 
 EXPOSE 8081
 

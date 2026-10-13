@@ -27,6 +27,17 @@ describe("RAG answer contract",()=> {
     const {service,knowledge}=setup([{route:"dynamic",queries:[],dynamicParts:["tình hình hôm nay"]}]);
     expect((await service.reply("Hôm nay ngập ở đâu?")).status).toBe("unsupported_dynamic"); expect(knowledge.retrieve).not.toHaveBeenCalled();
   });
+  it("enforces the static-only boundary before a small model can misroute live facts", async () => {
+    const { service, knowledge, model } = setup([]);
+    expect((await service.reply("Hôm nay phường tôi ngập bao nhiêu?")).status).toBe("unsupported_dynamic");
+    expect(knowledge.retrieve).not.toHaveBeenCalled();
+    expect(model.structured).not.toHaveBeenCalled();
+  });
+  it("keeps general advice with present-time wording in the model path", async () => {
+    const { service, model } = setup([plan, sufficient, claims, grounded]);
+    expect((await service.reply("Bây giờ tôi nên chuẩn bị gì trước lũ?")).status).toBe("answered");
+    expect(model.structured).toHaveBeenCalled();
+  });
   it("expands retrieval when the model identifies missing evidence",async()=> {
     const {service,knowledge}=setup([plan,{...sufficient,sufficient:false,missingParts:["nước"],nextQueries:["nước sạch"]},sufficient,claims,grounded]);
     expect((await service.reply("Chuẩn bị gì?")).status).toBe("answered"); expect(knowledge.retrieve).toHaveBeenCalledTimes(2);

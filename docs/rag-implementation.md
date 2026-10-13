@@ -32,7 +32,7 @@ docker build -f Dockerfile.rag -t vietflood-retrieval:local .
 
 The backend Compose files include `rag-retrieval` on the private service network. Set `RAG_SERVICE_IMAGE` to the image built/published for the server and `RAG_CORPUS_DIR` to that server's synchronized `data` directory, including releases and snapshots. `RAG_DOCKER_SERVICE_URL` defaults to `http://rag-retrieval:8001`. The Python standalone `docker-compose.rag.yml` is for local administration/testing. A remote deployment must receive the corpus artifacts before starting retrieval; a green Qdrant collection alone does not supply citation snapshots or model revision metadata.
 
-Use `GOOGLE_API_KEY` and optional `GEMINI_CHAT_MODEL` for the model. The configured default is `gemini-3.7-flash`. Google documents this identifier as deprecated and automatically routed to `gemini-3.8-flash`: https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash. Gemini uses JSON-schema structured output for routing, sufficiency, generation and grounding.
+Generation uses native Ollama with `qwen3:1.7b-q4_K_M`; no Google API key or LangChain provider is used. Configure `OLLAMA_BASE_URL` (local `http://127.0.0.1:11434`, Docker `http://ollama:11434`), `OLLAMA_CHAT_MODEL`, `OLLAMA_REQUEST_TIMEOUT_MS=120000`, `OLLAMA_NUM_CTX=16384`, `RAG_REQUEST_TIMEOUT_MS=300000`, and `RAG_RETRIEVAL_TIMEOUT_MS=90000`. See [Ollama deployment](ollama-deployment.md).
 
 ## Query and answer contract
 
@@ -48,13 +48,13 @@ Source support percentage counts only claims that survived model grounding and e
 
 ## Diagnostics and evaluation
 
-Startup checks alias/physical collection, dense dimensions/distance, sparse presence, model revision and exact count vs release manifest. Gateway requests have X-Request-Id; internal search and Gemini logs share it. Logs include stages/counts/status/type/timing/point IDs and omit keys, raw provider bodies, user messages, prompts and passage contents. The retrieval API uses `X-Rag-Token` and must stay private.
+Startup checks alias/physical collection, dense dimensions/distance, sparse presence, model revision and exact count vs release manifest. Gateway requests have X-Request-Id; internal search and Ollama logs share it. Logs include stages/counts/status/type/timing/point IDs and omit keys, raw provider bodies, user messages, prompts and passage contents. The retrieval API uses `X-Rag-Token` and must stay private.
 
-Local verification passes 58 chatbot unit/security tests after the JSON/timeout/citation fixes; 14 opt-in tests are skipped by default. Earlier checks passed 5 HTTP tests with real retrieval and a deterministic model stub and four tokenizer checks. The latest live Gemini attempt passed planning, retrieval and sufficiency assessment but failed generation with HTTP 429 RESOURCE_EXHAUSTED: the provider reports the free-tier request quota of 20 is exhausted. Full live generation and citation verification remain unvalidated after the final citation-label change. Gemini 3 Flash is configured as `gemini-3-flash-preview` because that is the available API identifier.
+The unit suite tests JSON schema validation, provider timeouts, source grounding and security. The opt-in live suite evaluates the actual configured Ollama model and retrieval service. Production requires a separate run after deployment: unit success does not establish model quality or server latency.
 
 ```sh
 npm test -- --run apps/api-gateway/src/chat
-# Opt-in live HTTP tests use local .env, real Qdrant/retrieval/Gemini,
+# Opt-in live HTTP tests use local .env, real Qdrant/retrieval/Ollama,
 # JWT/controller path and an isolated encrypted history store (no production writes).
 RAG_LIVE_TESTS=1 npx vitest run apps/api-gateway/src/chat/rag.production.http.spec.ts
 ```
@@ -63,6 +63,12 @@ Python `test_pipeline.py` checks actual token limits, lossless splits, IDs and n
 
 ## JSON and timeout diagnostics
 
-Each model stage (`plan`, `assess`, `generate`, `grounding`, `action`) has a service-enforced 25-second deadline, including parsing and one shared retry for malformed/truncated JSON or transient HTTP 500/502/503/504 errors. SDK automatic retries are disabled. The overall knowledge request still has a 90-second deadline. Gemini 3 uses low thinking; JSON stages start with 4096 output tokens (action 1024), with a ceiling of 8192 on the single output retry. Transient HTTP errors wait 1000–1249 ms before the single retry. Blocked output, authentication/billing/quota errors (401/402/403/429) and timeout are not retried. Strict JSON parsing rejects truncated or empty output; partial JSON is never repaired into an accepted answer.
+Each model stage (`plan`, `assess`, `generate`, `grounding`, `action`) has a shared deadline of `OLLAMA_REQUEST_TIMEOUT_MS` (default 120 seconds), including response parsing and at most one retry. The entire knowledge request is limited by `RAG_REQUEST_TIMEOUT_MS` (default 300 seconds). Ollama requests use `stream:false`, `think:false`, and a JSON schema in `format`. Only `message.content` is parsed; `message.thinking` is never treated as final JSON. JSON.parse plus AJV validate the output locally. Empty, truncated, malformed or schema-invalid output is retried once; truncated output is never repaired or accepted. HTTP 500/502/503/504 allow one retry after 1 second, within the same deadline. Other HTTP errors and request timeouts are not retried.
 
-Logs include request ID, stage, the resolved configured model, elapsed time, finish reason, response length and output token count. They do not log raw questions, evidence, model response bodies or API keys. Citation generation and verification use short K1/K2 labels constrained by the current evidence schema; the gateway resolves labels to exact chunk UUIDs before publishing citations. Document IDs and unrelated payload metadata are excluded from the generation input to prevent ambiguous references.
+Output budgets start at 768 tokens for planning, 1024 for sufficiency/action, and 2048 for generation/grounding; the single output retry doubles the budget up to 4096. Input UTF-8 bytes plus output reserve and template margin conservatively bound the Qwen byte-level tokenizer context. Oversized prompts are rejected explicitly before invocation instead of allowing silent truncation. This may reject inputs that would fit; it is a safety bound, not exact Qwen token counting.
+
+Logs include request ID, provider, stage, model, elapsed time, finish reason and token/character counts. They omit user text, evidence and model bodies. Citation generation/checking use K1/K2 labels constrained to current evidence, mapped back to chunk UUIDs by the gateway. Startup checks the installed exact model; deployment also checks retrieval readiness and preloads model weights. Operational failures return notices, not canned knowledge answers.
+
+Retrieval uses a shared `RAG_RETRIEVAL_TIMEOUT_MS` deadline (default 90 seconds) covering network and JSON parsing, enforced by a service timer. Readiness uses 10 seconds. Invalid base URLs are rejected explicitly; DNS, refused connections, TLS, timeout and malformed response errors have distinct safe reason codes. Only the service origin is logged, excluding URL credentials and query strings.
+
+Candidate limits (20/40/60) are total budgets across unique subqueries. The gateway calls single-query search with each query's share and merges passage lists round-robin, deduplicating chunk IDs. This avoids Python's full queries × pooled-candidates reranking matrix. The smaller initial per-query pool requires a recall check on the golden question set after deployment. No knowledge answer is accepted without the existing sufficiency and claim grounding checks.

@@ -21,6 +21,12 @@ FROM node:20-alpine AS runtime
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV OLLAMA_BASE_URL=http://ollama:11434
+ENV OLLAMA_CHAT_MODEL=qwen3:1.7b-q4_K_M
+ENV OLLAMA_REQUEST_TIMEOUT_MS=120000
+ENV OLLAMA_NUM_CTX=16384
+ENV RAG_REQUEST_TIMEOUT_MS=300000
+ENV RAG_RETRIEVAL_TIMEOUT_MS=90000
 ENV API_GATEWAY_PORT=8081
 ENV QDRANT_URL=https://qdrant.ndtd.indevs.in:443
 ENV QDRANT_COLLECTION=flood_kb_staging_2026_01
@@ -38,7 +44,7 @@ COPY --from=build /app/dist/apps/auth-service ./dist/auth-service
 COPY --from=build /app/dist/apps/reports-service ./dist/reports-service
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 COPY db/migrations/20261009_chat_history.sql db/migrations/20261009_chat_small_talk_kind.sql db/migrations/20261009_chat_community_reports_kind.sql ./db/migrations/
-COPY scripts/migrate-chat-history.js scripts/rotate-chat-history-key.js ./scripts/
+COPY scripts/migrate-chat-history.js scripts/rotate-chat-history-key.js scripts/check-chat-runtime.js ./scripts/
 
 RUN chmod +x /docker-entrypoint.sh
 

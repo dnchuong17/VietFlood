@@ -36,7 +36,7 @@ describe("ChatActionService", () => {
     updateUserById: vi.fn(),
     deleteUser: vi.fn(),
   };
-  const gemini = { understandAction: vi.fn() };
+  const ollama = { understandAction: vi.fn(), isConfigured: vi.fn(() => true) };
   const logger = { warn: vi.fn() };
   const crypto = {
     encrypt: vi.fn((content: string) => ({
@@ -57,19 +57,19 @@ describe("ChatActionService", () => {
     values.clear();
     locks.clear();
     vi.clearAllMocks();
-    vi.stubEnv("GOOGLE_API_KEY", "test-key");
+    ollama.isConfigured.mockReturnValue(true);
     service = new ChatActionService(
       redis as never,
       reports as never,
       auth as never,
-      gemini as never,
+      ollama as never,
       logger as never,
       crypto as never,
     );
   });
 
   it("keeps a report draft encrypted and does not write until confirmation", async () => {
-    gemini.understandAction.mockResolvedValue({
+    ollama.understandAction.mockResolvedValue({
       intent: "create_report",
       arguments: {
         category: "flood",
@@ -116,7 +116,7 @@ describe("ChatActionService", () => {
   });
 
   it("collects missing report fields across turns and accepts corrections", async () => {
-    gemini.understandAction
+    ollama.understandAction
       .mockResolvedValueOnce({
         intent: "create_report",
         arguments: { category: ["flood"], description: "Ngập đường", province: "Đà Nẵng" },
@@ -140,7 +140,7 @@ describe("ChatActionService", () => {
   });
 
   it("rejects unsupported report categories and allows a correction", async () => {
-    gemini.understandAction
+    ollama.understandAction
       .mockResolvedValueOnce({
         intent: "create_report",
         arguments: { category: "earthquake", description: "Sự cố", province: "Đà Nẵng", ward: "Hải Châu", addressLine: "Đường A" },
@@ -157,7 +157,7 @@ describe("ChatActionService", () => {
   });
 
   it("passes optional coordinates and evidence only after confirmation", async () => {
-    gemini.understandAction.mockResolvedValue({
+    ollama.understandAction.mockResolvedValue({
       intent: "create_report",
       arguments: { category: "flood", description: "Ngập đường", province: "Đà Nẵng", ward: "Hải Châu", addressLine: "Đường A" },
     });
@@ -180,7 +180,7 @@ describe("ChatActionService", () => {
   });
 
   it("rejects an incomplete GPS pair and supports omitting GPS", async () => {
-    gemini.understandAction.mockResolvedValue({
+    ollama.understandAction.mockResolvedValue({
       intent: "create_report",
       arguments: { category: "flood", description: "Ngập đường", province: "Đà Nẵng", ward: "Hải Châu", addressLine: "Đường A" },
     });
@@ -194,7 +194,7 @@ describe("ChatActionService", () => {
   });
 
   it("rejects replayed confirmations after one successful report creation", async () => {
-    gemini.understandAction.mockResolvedValue({
+    ollama.understandAction.mockResolvedValue({
       intent: "create_report",
       arguments: { category: "flood", description: "Ngập đường", province: "Đà Nẵng", ward: "Hải Châu", addressLine: "Đường A" },
     });
@@ -205,7 +205,7 @@ describe("ChatActionService", () => {
   });
 
   it("exposes only the pending action ID and phase for an owned session", async () => {
-    gemini.understandAction.mockResolvedValue({
+    ollama.understandAction.mockResolvedValue({
       intent: "delete_report",
       arguments: { reportId: 22 },
     });
@@ -222,7 +222,7 @@ describe("ChatActionService", () => {
   });
 
   it("rejects unauthorized staff operations before calling a service", async () => {
-    gemini.understandAction.mockResolvedValue({
+    ollama.understandAction.mockResolvedValue({
       intent: "all_reports",
       arguments: {},
     });
@@ -250,11 +250,11 @@ describe("ChatActionService", () => {
   it("does not send ordinary knowledge questions to the action classifier", async () => {
     const result = await service.handle(citizen, sessionId, "Lũ quét là gì?");
     expect(result.handled).toBe(false);
-    expect(gemini.understandAction).not.toHaveBeenCalled();
+    expect(ollama.understandAction).not.toHaveBeenCalled();
   });
 
   it("cancels a proposed write without calling the mutation service", async () => {
-    gemini.understandAction.mockResolvedValue({
+    ollama.understandAction.mockResolvedValue({
       intent: "delete_report",
       arguments: { reportId: 22 },
     });
@@ -271,7 +271,7 @@ describe("ChatActionService", () => {
   });
 
   it("prevents a second write after the pending action has been consumed", async () => {
-    gemini.understandAction.mockResolvedValue({
+    ollama.understandAction.mockResolvedValue({
       intent: "delete_report",
       arguments: { reportId: 22 },
     });
@@ -296,7 +296,7 @@ describe("ChatActionService", () => {
   });
 
   it("rejects duplicate confirmation while an action is still pending", async () => {
-    gemini.understandAction.mockResolvedValue({
+    ollama.understandAction.mockResolvedValue({
       intent: "delete_report",
       arguments: { reportId: 22 },
     });

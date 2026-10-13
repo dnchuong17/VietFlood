@@ -43,7 +43,7 @@ Tin nhắn thông thường tiếp tục dùng JSON. Khi xác nhận báo cáo c
 
 Khi chatbot chuẩn bị thao tác, response có thể thêm trường `action` gồm `id`, `status` (`collecting`, `awaiting_confirmation`, `completed` hoặc `cancelled`) và `intent` khi có. Khi cần thêm thông tin, gửi câu trả lời tiếp theo bằng cùng `sessionId`; đề xuất được giữ tối đa 15 phút. Để xác nhận hoặc hủy, gửi `message`, `sessionId`, `actionId` và `actionDecision`. Xác nhận lặp trong lúc thao tác đang xử lý trả `409`; ID đã dùng, sai hoặc hết hạn trả `400`. Trường `action` là tùy chọn nên client cũ vẫn đọc được `answer` và `sessionId`.
 
-Các thao tác dùng LangChain structured output với Gemini để phân loại câu lệnh khi `GOOGLE_API_KEY` được cấu hình. Chatbot chỉ gọi thao tác trong allowlist và kiểm tra role từ JWT; đề xuất chờ được mã hóa trong Redis. Tạo báo cáo cần đủ loại báo cáo, mô tả, tỉnh/thành, phường/xã và địa chỉ; GPS và ảnh minh chứng là tùy chọn. Báo cáo chỉ được lưu sau khi người dùng xác nhận bản xem lại. ID người tạo luôn lấy từ JWT. Thao tác báo cáo/hồ sơ cần xác nhận; chatbot không thu thập mật khẩu. Công dân chỉ thao tác trên báo cáo của mình; admin/cứu hộ dùng các chức năng được role cho phép; chỉ admin có thể xóa tài khoản. Dữ liệu tài khoản trong kết quả không gồm password.
+Các thao tác dùng Ollama JSON schema để phân loại câu lệnh. Chatbot chỉ gọi thao tác trong allowlist và kiểm tra role từ JWT; đề xuất chờ được mã hóa trong Redis. Tạo báo cáo cần đủ loại báo cáo, mô tả, tỉnh/thành, phường/xã và địa chỉ; GPS và ảnh minh chứng là tùy chọn. Báo cáo chỉ được lưu sau khi người dùng xác nhận bản xem lại. ID người tạo luôn lấy từ JWT. Thao tác báo cáo/hồ sơ cần xác nhận; chatbot không thu thập mật khẩu. Công dân chỉ thao tác trên báo cáo của mình; admin/cứu hộ dùng các chức năng được role cho phép; chỉ admin có thể xóa tài khoản. Dữ liệu tài khoản trong kết quả không gồm password.
 
 Lưu `sessionId` để gửi tiếp tin nhắn và để tải/xóa hội thoại. Hội thoại gắn với tài khoản từ JWT. Mỗi lần gửi thành công, API lưu cả tin nhắn người dùng và câu trả lời. Nếu câu hỏi là câu tiếp nối, tối đa hai câu trả lời kiến thức trước đó của trợ lý có thể giúp làm rõ ngữ cảnh; tin nhắn cũ của người dùng không được gửi đến mô hình.
 
@@ -175,15 +175,12 @@ const olderPage = await fetch(
 
 ## 5. Hành vi của câu trả lời
 
-- Câu hỏi về an toàn lũ dùng nội dung phù hợp từ kho kiến thức VietFlood. Khi backend bật Gemini, LangChain có thể tổng hợp câu trả lời từ collection đã duyệt; nếu Gemini không khả dụng, API dùng câu trả lời trích xuất cục bộ. Nếu không có đoạn đủ liên quan, API nêu phạm vi hỗ trợ và gợi ý câu hỏi cụ thể. Một số hướng dẫn sơ cứu đã rà soát được trả trực tiếp.
-- Lời chào, cảm ơn, tiếng cười và câu trêu đùa nhẹ được trả lời bằng các quy tắc cục bộ ngắn gọn, không truy vấn kho kiến thức.
-- Câu hỏi về địa điểm ngập gần đây dùng báo cáo flood đã xác minh trong 24 giờ gần nhất. Câu trả lời chỉ nêu phường/tỉnh, số báo cáo và thời điểm mới nhất; dữ liệu này là báo cáo cộng đồng, không phải cảnh báo thời gian thực. Không có báo cáo trong khoảng đó không đồng nghĩa chắc chắn không có lũ.
-- Câu hỏi như “Bây giờ lũ ở đâu?” dùng riêng luồng tổng hợp báo cáo đã xác minh. Nếu dịch vụ báo cáo không phản hồi hoặc trả dữ liệu không hợp lệ, API trả `503` để client giữ nội dung và cho phép thử lại; API không thay thế bằng kết quả từ kho kiến thức.
-- Câu hỏi thống kê như “Có bao nhiêu báo cáo lũ đã xác minh?” đọc số lượng tổng hợp từ Reports service trong 24 giờ gần nhất, có thể lọc theo lũ/ngập, sự cố, hạ tầng hoặc cứu hộ. Chatbot chỉ nhận số đếm, không nhận mô tả, địa chỉ, tọa độ hoặc thông tin người gửi.
-- Khi Gemini không tạo được câu trả lời, tối đa ba passage cục bộ phù hợp được làm sạch URL/markup và giới hạn khoảng 400 ký tự mỗi đoạn. API ưu tiên cắt ở cuối câu; nếu câu đầu quá dài thì cắt ở ranh giới từ và thêm dấu rút gọn.
-- Chat có thể hướng dẫn cách dùng biểu mẫu báo cáo hoặc đọc trạng thái báo cáo của chính người dùng. Việc gửi báo cáo và tải ảnh/video vẫn thực hiện qua API báo cáo hiện có.
-- Nội dung `answer` là văn bản để hiển thị trong giao diện. Mặc định câu trả lời bằng tiếng Việt.
-- Với cấu hình Gemini, backend chỉ gửi câu hỏi hiện tại, các đoạn từ collection kiến thức đã duyệt và tối đa hai câu trả lời kiến thức trước đó của trợ lý trong câu hỏi tiếp nối. Khi truy xuất Qdrant cho câu hỏi tiếp nối, backend kết hợp tối đa hai câu hỏi kiến thức gần nhất với câu hỏi hiện tại và loại các đoạn đã trả lời trước đó; các câu hỏi trước không được gửi cho Gemini. Nếu không tìm thấy thông tin mới, chatbot sẽ nói rõ thay vì lặp lại câu trả lời cũ. Các luồng báo cáo và sơ cứu vẫn xử lý cục bộ.
+- Kiến thức tĩnh được truy xuất qua E5/BM25/RRF và BGE từ collection đã duyệt. Ollama Qwen đánh giá tài liệu, tổng hợp khẳng định và kiểm chứng nguồn trước khi trả lời.
+- Không tìm được đủ căn cứ: `no_knowledge`. Lỗi kết nối, timeout hoặc JSON không hợp lệ sau retry: `unavailable`. Không dùng câu trả lời kiến thức hardcode hay trích xuất dự phòng.
+- Câu hỏi cần cảnh báo hoặc tình hình hiện tại: `unsupported_dynamic`; phần kiến thức tĩnh trong câu nhiều ý vẫn có thể được trả lời với nguồn.
+- Chỉ lời giới thiệu chatbot được trả trực tiếp. Câu tiếp nối gửi tối đa phần lịch sử kiến thức cần để xác định chủ đề; kết quả thao tác báo cáo/hồ sơ không trở thành nguồn kiến thức.
+- `answer` là văn bản tiếng Việt kèm số trích dẫn. `sources` cung cấp URL nguồn và snapshot theo phiên bản để kiểm chứng. Phần trăm thể hiện mức hỗ trợ của nguồn qua kiểm tra, không phải xác suất sự thật.
+- Thao tác tài khoản/báo cáo giữ kiểm tra JWT, quyền và bước xác nhận trước khi ghi dữ liệu.
 
 ## 6. Lỗi và cách xử lý
 

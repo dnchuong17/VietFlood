@@ -34,19 +34,59 @@ services:
       RAG_SERVICE_TOKEN: ${RAG_SERVICE_TOKEN}
       QDRANT_API_KEY: ${QDRANT_API_KEY:-}
       QDRANT_TEXT_FIELD: ${QDRANT_TEXT_FIELD:-text}
-      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
-      GEMINI_CHAT_MODEL: ${GEMINI_CHAT_MODEL:-gemini-3.7-flash}
+      OLLAMA_BASE_URL: ${OLLAMA_DOCKER_BASE_URL:-http://ollama:11434}
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-qwen3:1.7b-q4_K_M}
+      OLLAMA_REQUEST_TIMEOUT_MS: ${OLLAMA_REQUEST_TIMEOUT_MS:-120000}
+      OLLAMA_NUM_CTX: ${OLLAMA_NUM_CTX:-16384}
+      RAG_REQUEST_TIMEOUT_MS: ${RAG_REQUEST_TIMEOUT_MS:-300000}
+      RAG_RETRIEVAL_TIMEOUT_MS: ${RAG_RETRIEVAL_TIMEOUT_MS:-90000}
       CHAT_KEYRING_B64: ${CHAT_KEYRING_B64}
       CHAT_KEY_CURRENT: ${CHAT_KEY_CURRENT}
       CHAT_DB_CA_BASE64: ${CHAT_DB_CA_BASE64}
       CHAT_HISTORY_ENABLED: ${CHAT_HISTORY_ENABLED:-true}
     depends_on:
-      - redis
-      - rabbitmq
-      - auth-service
-      - reports-service
+      ollama-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+      auth-service:
+        condition: service_started
+      reports-service:
+        condition: service_started
     restart: unless-stopped
 
+
+  ollama:
+    image: ${OLLAMA_IMAGE:-ollama/ollama:latest}
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_KEEP_ALIVE: 10m
+      OLLAMA_NUM_PARALLEL: 1
+    expose:
+      - "11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+    restart: unless-stopped
+
+  ollama-init:
+    image: ${OLLAMA_IMAGE:-ollama/ollama:latest}
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-qwen3:1.7b-q4_K_M}
+    entrypoint: ["/bin/sh", "-c"]
+    command: ['ollama pull "$$OLLAMA_CHAT_MODEL"']
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
 
   rag-retrieval:
     image: ${RAG_SERVICE_IMAGE:-vietflood-retrieval:local}
@@ -128,4 +168,5 @@ services:
     restart: unless-stopped
 
 volumes:
+  ollama_models:
   rag_model_cache:

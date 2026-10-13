@@ -63,17 +63,21 @@ QDRANT_CHAT_COLLECTION=flood_kb_active
 RAG_SERVICE_URL=http://rag-retrieval:8001
 RAG_SERVICE_TOKEN=<shared internal-service secret>
 QDRANT_TEXT_FIELD=text
-GOOGLE_API_KEY=<Gemini Paid API key; leave unset to disable Gemini>
-GEMINI_CHAT_MODEL=gemini-3.7-flash
+OLLAMA_BASE_URL=http://ollama:11434
+OLLAMA_CHAT_MODEL=qwen3:1.7b-q4_K_M
+OLLAMA_REQUEST_TIMEOUT_MS=120000
+OLLAMA_NUM_CTX=16384
+RAG_REQUEST_TIMEOUT_MS=300000
+RAG_RETRIEVAL_TIMEOUT_MS=90000
 ```
 
 Add `QDRANT_API_KEY` only if the Qdrant host requires one. Jenkins creates
 `RABBITMQ_URL` and sets `REDIS_HOST`, `REDIS_PORT`, `REDIS_DB`, and
-`API_GATEWAY_PORT`; they do not need entries in the protected file. Gemini
-generation stays disabled unless both `QDRANT_CHAT_COLLECTION` and
-`GOOGLE_API_KEY` are configured. Keep the approved collection separate from
-the staging `QDRANT_COLLECTION`; do not copy staging passages into it without
-review. `CHAT_TEST_DATABASE_URL` and
+`API_GATEWAY_PORT`; they do not need entries in the protected file. Jenkins also
+starts Ollama and pulls the configured model when `OLLAMA_BASE_URL` points to
+`http://ollama:11434`. Keep the approved alias separate from the staging
+`QDRANT_COLLECTION`. Remove obsolete Google provider settings from the protected
+file; the gateway no longer reads them. `CHAT_TEST_DATABASE_URL` and
 `CHAT_TEST_DATABASE_ISOLATED` are only for disposable integration tests.
 `NPM_TOKEN`, if required to fetch private GitHub Packages, is a build
 credential and is not consumed by the runtime env file.
@@ -97,8 +101,10 @@ Set these server-side environment variables in Jenkins' protected
 | `CHAT_BACKUP_RETENTION_DAYS` | Actual verified backup/PITR retention in days, recorded before release. |
 | `CHAT_BACKUP_VERIFIED_AT` | Date the plan, backup encryption, and access permissions were checked. |
 | `QDRANT_URL`, `QDRANT_COLLECTION`, `QDRANT_TEXT_FIELD` | Local flood knowledge retrieval; current field is `text`. |
-| `QDRANT_CHAT_COLLECTION` | Separate curated Qdrant collection whose passages may be sent to Gemini; unset disables generation. |
-| `GOOGLE_API_KEY`, `GEMINI_CHAT_MODEL` | Server-side Gemini Paid API credentials and model; generation is disabled if the key or approved collection is absent. Never expose the key to a client. |
+| `QDRANT_CHAT_COLLECTION` | Approved active alias; retrieval validates its manifest. |
+| `RAG_SERVICE_URL`, `RAG_SERVICE_TOKEN` | Token-authenticated Python retrieval service. |
+| `OLLAMA_BASE_URL`, `OLLAMA_CHAT_MODEL` | Private Ollama endpoint and exact installed model tag; no cloud API key. |
+| `OLLAMA_REQUEST_TIMEOUT_MS`, `OLLAMA_NUM_CTX`, `RAG_REQUEST_TIMEOUT_MS` | Stage deadline, input/output context capacity and total RAG deadline. |
 
 Generate a 32-byte key with a cryptographically secure random generator. Keep
 the unencoded key and the encoded keyring in the secret store; base64 is only
@@ -153,35 +159,28 @@ is unrecoverable. Redis retains the per-user rate-limit key for about two
 minutes. Report-status replies can be stored in history, but are excluded from
 any future model context.
 
-Knowledge questions now use the internal token-authenticated Python retrieval service. It queries the approved active alias with E5 dense and BM25 sparse vectors, fuses/reranks results and returns source metadata. Only `license_status=APPROVED_FOR_RAG` is required for this accepted corpus. There is no staging excerpt fallback or direct text/scroll search. Gemini receives selected evidence for sufficiency checks, grounded claims and independent quote validation. It uses minimal prior knowledge turns for query rewriting; account/report action results are excluded from knowledge context.
+Knowledge questions now use the internal token-authenticated Python retrieval service. It queries the approved active alias with E5 dense and BM25 sparse vectors, fuses/reranks results and returns source metadata. Only `license_status=APPROVED_FOR_RAG` is required for this accepted corpus. There is no staging excerpt fallback or direct text/scroll search. Ollama receives selected evidence for sufficiency checks, grounded claims and independent quote validation. It uses minimal prior knowledge turns for query rewriting; account/report action results are excluded from knowledge context.
 
-Explicit report/profile actions are classified separately. Their current user message may contain information the user supplies for an operation and is sent to Gemini for intent/argument extraction. Retrieved account/report records are not sent as knowledge evidence. Missing model/retrieval configuration or provider errors return operational unavailable notices rather than substantive advice. Dynamic alerts/flood conditions are currently unsupported.
+Explicit report/profile actions are classified separately. Their current user message may contain information the user supplies for an operation and is sent to Ollama for intent/argument extraction. Retrieved account/report records are not sent as knowledge evidence. Missing model/retrieval configuration or provider errors return operational unavailable notices rather than substantive advice. Dynamic alerts/flood conditions are currently unsupported.
 
 Source citations and reply metadata are stored inside encrypted assistant messages and remain accessible through owner-protected history. Approved source snapshots are served through JWT-authenticated `/chat/sources/:documentId/versions/:version`. External URLs are validated as HTTP(S) and constructed from corpus metadata; models cannot supply their own links.
 
-Use a Gemini Paid API project and do not opt in to Google log or dataset
-sharing. Under Google's current terms, paid prompts and responses are not used
-to improve Google products, but limited retention may apply for abuse
-monitoring; zero-data-retention is a separate approved configuration. Review
-Google's current [zero data retention](https://ai.google.dev/gemini-api/docs/zdr?hl=en)
-and [logs and datasets](https://ai.google.dev/gemini-api/docs/logs-datasets)
-documentation before changing provider or retention settings. Do not log chat
-content, prompts, passages, model responses, JWTs, refresh tokens, passwords,
-API keys, ciphertext keys, or raw database errors.
+Model inference runs in the configured Ollama instance. Keep port 11434 on the
+private Docker network; it is not published to the host. An external
+`OLLAMA_BASE_URL` changes where user text is processed and should point only to
+your trusted inference host. Do not log chat content, prompts, passages, model
+responses, JWTs, refresh tokens, passwords or encryption keys.
 
-For current flood-location questions, the gateway requests a Reports service
-aggregate of verified flood reports created during the previous 24 hours. The
-query returns only province, ward, count, and latest report time. It does not
-send addresses, coordinates, descriptions, evidence, report IDs, or user IDs to
-the chat service or a model provider.
+Current flood-location/alert knowledge questions are unsupported; the static
+RAG flow returns a scope notice. Explicit authenticated report operations remain
+separate from knowledge and cannot turn reports into model evidence.
 
 Before release, record the **actual** Supabase plan, daily backup and PITR
 retention windows, encryption, and who can download/restore backups. The
 Jenkins variables are a deployment gate, not proof that these settings are
 correct. Deleted content can remain in retained backups until those backups
 expire. No fixed deletion deadline is promised until the actual settings are
-verified. Rotate the previously shared Gemini key and refresh token before
-rollout.
+verified. Retire obsolete cloud keys and rotate any previously disclosed refresh token.
 
 ## Restore runbook
 

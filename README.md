@@ -14,10 +14,10 @@ See the [chatbot flow diagram](docs/chat-flow.md) for the request and answer pat
 Conversations belong to the verified JWT user and remain in Supabase
 PostgreSQL until hard deletion. Message bodies are encrypted before storage.
 `POST /chat` allows 20 requests per user per minute. Flood answers use local
-Qdrant retrieval; when a separate curated collection and Gemini API key are
-configured, approved passages can be sent to Gemini for grounded synthesis.
-Staging passages are never sent to Gemini. The chatbot
-can also explain the existing report form and read only the signed-in user's
-report status. For recent flood-location questions, it shows area-level
-summaries of verified VietFlood flood reports from the last 24 hours without
-exposing report descriptions, exact addresses, coordinates, or reporter data.
+hybrid Qdrant retrieval through the Python service and native Ollama
+`qwen3:1.7b-q4_K_M` for source-grounded synthesis. Only the approved active
+collection supplies evidence. See [Ollama deployment](docs/ollama-deployment.md).
+The chatbot can perform authenticated report/profile actions with role checks
+and confirmation. Current alerts and flood conditions are unsupported in the
+static knowledge flow. Missing evidence or unavailable inference produces an
+explicit notice rather than a canned knowledge answer.

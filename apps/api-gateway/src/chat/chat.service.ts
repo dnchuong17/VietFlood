@@ -13,7 +13,7 @@ import { ReportsService } from "../reports/reports.service";
 import { ChatRequestDto } from "./dto/chat.dto";
 import { ChatHistoryRepository, ChatKind, ChatTurn } from "./chat-history.repository";
 import { QdrantKnowledgeService } from "./qdrant-knowledge.service";
-import { GeminiChatService } from "./gemini-chat.service";
+import { OllamaChatService } from "./ollama-chat.service";
 import { ChatActionService } from "./chat-action.service";
 import { RagAnswerService } from "./rag-answer.service";
 import { RagDetails } from "./rag.types";
@@ -57,7 +57,7 @@ export class ChatService {
     private readonly knowledge: QdrantKnowledgeService,
     private readonly history: ChatHistoryRepository,
     private readonly logger: LoggerService,
-    private readonly gemini: GeminiChatService,
+    private readonly ollama: OllamaChatService,
     private readonly actions: ChatActionService,
     private readonly rag: RagAnswerService,
   ) {

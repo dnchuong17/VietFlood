@@ -31,10 +31,10 @@ describe("ChatService", () => {
     getRecentVerifiedReportCount: vi.fn(),
   };
   const knowledge = { search: vi.fn(), searchApproved: vi.fn() };
-  const gemini = {
+  const ollama = {
     isConfigured: vi.fn(() => false),
-    configurationStatus: vi.fn((): "ready" | "missing_api_key" =>
-      gemini.isConfigured() ? "ready" : "missing_api_key",
+    configurationStatus: vi.fn((): "ready" | "missing_model_configuration" =>
+      ollama.isConfigured() ? "ready" : "missing_model_configuration",
     ),
     answer: vi.fn(),
   };
@@ -100,7 +100,7 @@ describe("ChatService", () => {
     cache.clear();
     requestCount = 0;
     vi.clearAllMocks();
-    vi.stubEnv("GOOGLE_API_KEY", "");
+
     vi.stubEnv("QDRANT_CHAT_COLLECTION", "");
     service = new ChatService(
       redis as never,
@@ -108,7 +108,7 @@ describe("ChatService", () => {
       knowledge as never,
       history as never,
       logger as never,
-      gemini as never,
+      ollama as never,
       actions as never,
       rag as never,
     );

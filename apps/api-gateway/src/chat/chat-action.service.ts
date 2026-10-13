@@ -9,7 +9,7 @@ import { randomUUID } from "node:crypto";
 import { AuthService } from "../auth/auth.service";
 import { ReportsService } from "../reports/reports.service";
 import { LoggerService, RedisService } from "vietflood-common";
-import { ChatActionIntent, OllamaChatService } from "./ollama-chat.service";
+import { ChatActionIntent, OpenAIChatService } from "./openai-chat.service";
 import { ChatCryptoService, EncryptedMessage } from "./chat-crypto.service";
 
 type ReportLocation = { latitude?: number; longitude?: number; clearLocation?: boolean };
@@ -32,7 +32,7 @@ export class ChatActionService {
     private readonly redis: RedisService,
     private readonly reports: ReportsService,
     private readonly auth: AuthService,
-    private readonly ollama: OllamaChatService,
+    private readonly model: OpenAIChatService,
     private readonly logger: LoggerService,
     private readonly crypto: ChatCryptoService,
   ) {}
@@ -101,7 +101,7 @@ export class ChatActionService {
     }
     if (actionId)
       throw new BadRequestException("actionDecision is required with actionId");
-    if (!this.ollama.isConfigured()) {
+    if (!this.model.isConfigured()) {
       if (pending)
         return {
           handled: true,
@@ -112,7 +112,7 @@ export class ChatActionService {
       return { handled: false };
     }
     if (!pending && !this.mayBeAction(message)) return { handled: false };
-    const parsed = await this.ollama.understandAction(
+    const parsed = await this.model.understandAction(
       message,
       actor.role,
       pending,

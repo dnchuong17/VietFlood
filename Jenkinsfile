@@ -17,7 +17,6 @@ pipeline {
     DOCKER_NETWORK = 'jenkins_default'
     REDIS_CONTAINER_NAME = 'vietflood-redis'
     RABBITMQ_CONTAINER_NAME = 'vietflood-rabbitmq'
-    OLLAMA_CONTAINER_NAME = 'vietflood-ollama'
   }
 
   stages {
@@ -138,7 +137,7 @@ pipeline {
       }
     }
 
-    stage('Prepare Ollama and Check RAG') {
+    stage('Check OpenAI and RAG Configuration') {
       options { timeout(time: 20, unit: 'MINUTES') }
       steps {
         sh '''
@@ -147,45 +146,18 @@ pipeline {
           set -a
           . "$ENV_FILE"
           set +a
-          export OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-http://ollama:11434}"
-          export OLLAMA_CHAT_MODEL="${OLLAMA_CHAT_MODEL:-qwen3:1.7b-q4_K_M}"
-          export OLLAMA_REQUEST_TIMEOUT_MS="${OLLAMA_REQUEST_TIMEOUT_MS:-120000}"
-          export OLLAMA_NUM_CTX="${OLLAMA_NUM_CTX:-16384}"
+          export OPENAI_BASE_URL="${OPENAI_BASE_URL:-https://api.openai.com/v1}"
+          export OPENAI_CHAT_MODEL="${OPENAI_CHAT_MODEL:-gpt-4o-mini}"
+          export OPENAI_REQUEST_TIMEOUT_MS="${OPENAI_REQUEST_TIMEOUT_MS:-120000}"
           export RAG_REQUEST_TIMEOUT_MS="${RAG_REQUEST_TIMEOUT_MS:-300000}"
           export RAG_RETRIEVAL_TIMEOUT_MS="${RAG_RETRIEVAL_TIMEOUT_MS:-90000}"
+          : "${OPENAI_API_KEY:?Missing OPENAI_API_KEY in $ENV_FILE}"
           : "${RAG_SERVICE_URL:?Missing RAG_SERVICE_URL in $ENV_FILE}"
           : "${RAG_SERVICE_TOKEN:?Missing RAG_SERVICE_TOKEN in $ENV_FILE}"
-
-          if [ "$OLLAMA_BASE_URL" = "http://ollama:11434" ]; then
-            if docker container inspect "$OLLAMA_CONTAINER_NAME" >/dev/null 2>&1; then
-              docker start "$OLLAMA_CONTAINER_NAME" >/dev/null
-              docker network connect --alias ollama "$DOCKER_NETWORK" "$OLLAMA_CONTAINER_NAME" 2>/dev/null || true
-            else
-              docker run -d --name "$OLLAMA_CONTAINER_NAME" \
-                --network "$DOCKER_NETWORK" --network-alias ollama \
-                --restart unless-stopped \
-                -v vietflood_ollama_models:/root/.ollama \
-                -e OLLAMA_HOST=0.0.0.0:11434 -e OLLAMA_KEEP_ALIVE=10m \
-                -e OLLAMA_NUM_PARALLEL=1 \
-                "${OLLAMA_IMAGE:-ollama/ollama:latest}"
-            fi
-            for i in $(seq 1 60); do
-              if docker exec "$OLLAMA_CONTAINER_NAME" ollama list >/dev/null 2>&1; then
-                break
-              fi
-              if [ "$i" = "60" ]; then
-                echo "Ollama did not become ready; check vietflood-ollama logs in Portainer."
-                exit 1
-              fi
-              sleep 2
-            done
-            docker exec "$OLLAMA_CONTAINER_NAME" ollama pull "$OLLAMA_CHAT_MODEL"
-          fi
-
           # Fail before stopping the running backend if a dependency is unavailable.
           docker run --rm --network "$DOCKER_NETWORK" --env-file "$ENV_FILE" \
-            -e OLLAMA_BASE_URL -e OLLAMA_CHAT_MODEL -e OLLAMA_REQUEST_TIMEOUT_MS \
-            -e OLLAMA_NUM_CTX -e RAG_REQUEST_TIMEOUT_MS -e RAG_RETRIEVAL_TIMEOUT_MS \
+            -e OPENAI_BASE_URL -e OPENAI_CHAT_MODEL -e OPENAI_REQUEST_TIMEOUT_MS \
+            -e RAG_REQUEST_TIMEOUT_MS -e RAG_RETRIEVAL_TIMEOUT_MS \
             --entrypoint node "$IMAGE_NAME:$TIMESTAMP" /app/scripts/check-chat-runtime.js
         '''
       }
@@ -242,10 +214,9 @@ pipeline {
           : "${CHAT_DB_CA_BASE64:?Missing CHAT_DB_CA_BASE64 in $ENV_FILE}"
           RABBITMQ_URL="amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672"
           export RABBITMQ_URL
-          export OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-http://ollama:11434}"
-          export OLLAMA_CHAT_MODEL="${OLLAMA_CHAT_MODEL:-qwen3:1.7b-q4_K_M}"
-          export OLLAMA_REQUEST_TIMEOUT_MS="${OLLAMA_REQUEST_TIMEOUT_MS:-120000}"
-          export OLLAMA_NUM_CTX="${OLLAMA_NUM_CTX:-16384}"
+          export OPENAI_BASE_URL="${OPENAI_BASE_URL:-https://api.openai.com/v1}"
+          export OPENAI_CHAT_MODEL="${OPENAI_CHAT_MODEL:-gpt-4o-mini}"
+          export OPENAI_REQUEST_TIMEOUT_MS="${OPENAI_REQUEST_TIMEOUT_MS:-120000}"
           export RAG_REQUEST_TIMEOUT_MS="${RAG_REQUEST_TIMEOUT_MS:-300000}"
           export RAG_RETRIEVAL_TIMEOUT_MS="${RAG_RETRIEVAL_TIMEOUT_MS:-90000}"
 
@@ -260,8 +231,8 @@ pipeline {
             -e REDIS_PORT=6379 \
             -e REDIS_DB=0 \
             -e RABBITMQ_URL \
-            -e OLLAMA_BASE_URL -e OLLAMA_CHAT_MODEL \
-            -e OLLAMA_REQUEST_TIMEOUT_MS -e OLLAMA_NUM_CTX -e RAG_REQUEST_TIMEOUT_MS -e RAG_RETRIEVAL_TIMEOUT_MS \
+            -e OPENAI_BASE_URL -e OPENAI_CHAT_MODEL \
+            -e OPENAI_REQUEST_TIMEOUT_MS -e RAG_REQUEST_TIMEOUT_MS -e RAG_RETRIEVAL_TIMEOUT_MS \
             "$IMAGE_NAME:$TIMESTAMP"
         '''
       }

@@ -9,14 +9,14 @@ import { ChatAuditInterceptor } from "./chat-audit.interceptor";
 import { ChatHistoryRepository } from "./chat-history.repository";
 import { ChatService } from "./chat.service";
 import { QdrantKnowledgeService } from "./qdrant-knowledge.service";
-import { OllamaChatService } from "./ollama-chat.service";
+import { OpenAIChatService } from "./openai-chat.service";
 import { ChatActionService } from "./chat-action.service";
 import { RagAnswerService } from "./rag-answer.service";
 
 @Module({
   imports: [ReportsModule, AuthModule, RedisModule.forRoot()],
   controllers: [ChatController],
-  providers: [RagAnswerService, ChatService, ChatActionService, ChatCryptoService, ChatHistoryRepository, QdrantKnowledgeService, OllamaChatService,
+  providers: [RagAnswerService, ChatService, ChatActionService, ChatCryptoService, ChatHistoryRepository, QdrantKnowledgeService, OpenAIChatService,
     LoggerService,
     { provide: ChatAuditInterceptor,
       useFactory: (logger: LoggerService) => new ChatAuditInterceptor(logger),

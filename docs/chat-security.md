@@ -63,19 +63,17 @@ QDRANT_CHAT_COLLECTION=flood_kb_active
 RAG_SERVICE_URL=http://rag-retrieval:8001
 RAG_SERVICE_TOKEN=<shared internal-service secret>
 QDRANT_TEXT_FIELD=text
-OLLAMA_BASE_URL=http://ollama:11434
-OLLAMA_CHAT_MODEL=qwen3:1.7b-q4_K_M
-OLLAMA_REQUEST_TIMEOUT_MS=120000
-OLLAMA_NUM_CTX=16384
+OPENAI_API_KEY=<secret>
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_CHAT_MODEL=gpt-4o-mini
+OPENAI_REQUEST_TIMEOUT_MS=120000
 RAG_REQUEST_TIMEOUT_MS=300000
 RAG_RETRIEVAL_TIMEOUT_MS=90000
 ```
 
 Add `QDRANT_API_KEY` only if the Qdrant host requires one. Jenkins creates
 `RABBITMQ_URL` and sets `REDIS_HOST`, `REDIS_PORT`, `REDIS_DB`, and
-`API_GATEWAY_PORT`; they do not need entries in the protected file. Jenkins also
-starts Ollama and pulls the configured model when `OLLAMA_BASE_URL` points to
-`http://ollama:11434`. Keep the approved alias separate from the staging
+`API_GATEWAY_PORT`; they do not need entries in the protected file. Keep the approved alias separate from the staging
 `QDRANT_COLLECTION`. Remove obsolete Google provider settings from the protected
 file; the gateway no longer reads them. `CHAT_TEST_DATABASE_URL` and
 `CHAT_TEST_DATABASE_ISOLATED` are only for disposable integration tests.
@@ -103,8 +101,8 @@ Set these server-side environment variables in Jenkins' protected
 | `QDRANT_URL`, `QDRANT_COLLECTION`, `QDRANT_TEXT_FIELD` | Local flood knowledge retrieval; current field is `text`. |
 | `QDRANT_CHAT_COLLECTION` | Approved active alias; retrieval validates its manifest. |
 | `RAG_SERVICE_URL`, `RAG_SERVICE_TOKEN` | Token-authenticated Python retrieval service. |
-| `OLLAMA_BASE_URL`, `OLLAMA_CHAT_MODEL` | Private Ollama endpoint and exact installed model tag; no cloud API key. |
-| `OLLAMA_REQUEST_TIMEOUT_MS`, `OLLAMA_NUM_CTX`, `RAG_REQUEST_TIMEOUT_MS` | Stage deadline, input/output context capacity and total RAG deadline. |
+| `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_CHAT_MODEL` | Server-side secret, trusted HTTPS API endpoint, and chat model. Rotate the key if exposed. |
+| `OPENAI_REQUEST_TIMEOUT_MS`, `RAG_REQUEST_TIMEOUT_MS` | Model-stage timeout and total RAG deadline. |
 
 Generate a 32-byte key with a cryptographically secure random generator. Keep
 the unencoded key and the encoded keyring in the secret store; base64 is only
@@ -159,17 +157,16 @@ is unrecoverable. Redis retains the per-user rate-limit key for about two
 minutes. Report-status replies can be stored in history, but are excluded from
 any future model context.
 
-Knowledge questions now use the internal token-authenticated Python retrieval service. It queries the approved active alias with E5 dense and BM25 sparse vectors, fuses/reranks results and returns source metadata. Only `license_status=APPROVED_FOR_RAG` is required for this accepted corpus. There is no staging excerpt fallback or direct text/scroll search. Ollama receives selected evidence for sufficiency checks, grounded claims and independent quote validation. It uses minimal prior knowledge turns for query rewriting; account/report action results are excluded from knowledge context.
+Knowledge questions now use the internal token-authenticated Python retrieval service. It queries the approved active alias with E5 dense and BM25 sparse vectors, fuses/reranks results and returns source metadata. Only `license_status=APPROVED_FOR_RAG` is required for this accepted corpus. There is no staging excerpt fallback or direct text/scroll search. OpenAI receives selected evidence for sufficiency checks, grounded claims and independent quote validation. It uses minimal prior knowledge turns for query rewriting; account/report action results are excluded from knowledge context.
 
-Explicit report/profile actions are classified separately. Their current user message may contain information the user supplies for an operation and is sent to Ollama for intent/argument extraction. Retrieved account/report records are not sent as knowledge evidence. Missing model/retrieval configuration or provider errors return operational unavailable notices rather than substantive advice. Dynamic alerts/flood conditions are currently unsupported.
+Explicit report/profile actions are classified separately. Their current user message may contain information the user supplies for an operation and is sent to OpenAI for intent/argument extraction. Retrieved account/report records are not sent as knowledge evidence. Missing model/retrieval configuration or provider errors return operational unavailable notices rather than substantive advice. Dynamic alerts/flood conditions are currently unsupported.
 
 Source citations and reply metadata are stored inside encrypted assistant messages and remain accessible through owner-protected history. Approved source snapshots are served through JWT-authenticated `/chat/sources/:documentId/versions/:version`. External URLs are validated as HTTP(S) and constructed from corpus metadata; models cannot supply their own links.
 
-Model inference runs in the configured Ollama instance. Keep port 11434 on the
-private Docker network; it is not published to the host. An external
-`OLLAMA_BASE_URL` changes where user text is processed and should point only to
-your trusted inference host. Do not log chat content, prompts, passages, model
-responses, JWTs, refresh tokens, passwords or encryption keys.
+Model inference sends the user question and selected retrieved passages to the
+configured OpenAI endpoint. Keep `OPENAI_BASE_URL` on the official HTTPS API or
+another explicitly trusted HTTPS endpoint. Do not log chat content, prompts,
+passages, model responses, JWTs, refresh tokens, passwords or encryption keys.
 
 Current flood-location/alert knowledge questions are unsupported; the static
 RAG flow returns a scope notice. Explicit authenticated report operations remain

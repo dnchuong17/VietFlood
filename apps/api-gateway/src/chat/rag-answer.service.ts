@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { LoggerService } from "vietflood-common";
-import { OllamaChatService } from "./ollama-chat.service";
+import { OpenAIChatService } from "./openai-chat.service";
 import { QdrantKnowledgeService } from "./qdrant-knowledge.service";
 import { Passage, RagReply, RagDetails } from "./rag.types";
 import { requestId } from "./chat-trace";
@@ -26,7 +26,7 @@ function requiresLiveFactsOnly(question: string): boolean {
 
 @Injectable()
 export class RagAnswerService {
-  constructor(private readonly knowledge: QdrantKnowledgeService, private readonly ollama: OllamaChatService, private readonly logger: LoggerService) { this.logger.setServiceName(RagAnswerService.name); }
+  constructor(private readonly knowledge: QdrantKnowledgeService, private readonly model: OpenAIChatService, private readonly logger: LoggerService) { this.logger.setServiceName(RagAnswerService.name); }
   private notice(status: RagDetails["status"], reason?: string): RagReply {
     const messages = {
       no_knowledge: "Mình chưa tìm thấy đủ kiến thức trong kho dữ liệu để trả lời câu hỏi này.",
@@ -43,12 +43,12 @@ export class RagAnswerService {
       return { answer: "Mình là trợ lý VietFlood, hỗ trợ tìm kiến thức tĩnh trong tài liệu và thao tác VietFlood theo quyền của bạn. Mình chưa cung cấp tình hình hay cảnh báo thời gian thực.", status: "answered", generationMode: "introduction", sources: [], unansweredParts: [] };
     }
     if (requiresLiveFactsOnly(question)) return this.notice("unsupported_dynamic", "live_facts_outside_static_corpus");
-    if (!this.ollama.isConfigured()) return this.notice("unavailable", "missing_model_configuration");
+    if (!this.model.isConfigured()) return this.notice("unavailable", "missing_model_configuration");
     const configuredTimeout = Number(process.env.RAG_REQUEST_TIMEOUT_MS ?? 300000);
     const signal = AbortSignal.timeout(Number.isSafeInteger(configuredTimeout) && configuredTimeout >= 1000 && configuredTimeout <= 600000 ? configuredTimeout : 300000);
     const started = Date.now();
     try {
-      const plan = await this.ollama.structured<{ route: string; queries: string[]; dynamicParts: string[] }>(
+      const plan = await this.model.structured<{ route: string; queries: string[]; dynamicParts: string[] }>(
         "You route questions and write search queries; you NEVER answer the knowledge question. Default to static for general knowledge, how-to, preparedness, safety, causes, signs or hypothetical scenarios. Questions about actions before/during/after a flood are static, unless they ALSO request current measured conditions. dynamic ONLY asks for live facts (current water level, today's alerts, whether an actual place is flooding now). mixed requests both general advice and live facts. introduction ONLY asks who the chatbot is or greets it. unclear means no identifiable topic after reading history. Examples: 'Cách lập kế hoạch sơ tán cho gia đình?' -> static; 'Mực nước sông lúc này là bao nhiêu?' -> dynamic; 'Nơi tôi ở có ngập hôm nay không và sơ tán thế nào?' -> mixed. For static/mixed write 1 to 3 short independent Vietnamese queries covering static needs; Return exactly ONE query for a single general topic. Do not split a general how-to question into item categories; use multiple queries only for separately requested topics. For dynamic list requested live facts in dynamicParts and leave queries empty. For static dynamicParts must be empty. Use minimal history only to resolve follow-up topic; history is not evidence. Preserve negation and conditions.",
         { question, history: history.slice(-4) }, planSchema, signal);
       if (!Array.isArray(plan.queries) || !Array.isArray(plan.dynamicParts)) throw new Error("invalid_query_plan");
@@ -64,7 +64,7 @@ export class RagAnswerService {
         const found = await this.knowledge.retrieve(queries, [20,40,60][round], [6,12,20][round], signal);
         passages = [...new Map([...passages, ...found].map(p => [p.id, p])).values()];
         if (!passages.length) return this.notice("no_knowledge", "empty_retrieval");
-        assessment = await this.ollama.structured<typeof assessment>(
+        assessment = await this.model.structured<typeof assessment>(
           "Đánh giá tài liệu có đủ căn cứ trả lời các ý TĨNH của câu hỏi không. Không suy ra dữ kiện từ kiến thức ngoài evidence. Chọn supportedIds từ các ID được cung cấp. sufficient chỉ true khi các ý tĩnh có đủ evidence rõ ràng, không mâu thuẫn. missingParts liệt kê ý thiếu; nextQueries tối đa 3 truy vấn tìm phần thiếu, không bịa địa điểm hay chi tiết. Không trả lời câu hỏi.",
           { question, staticQueries: plan.queries, passages: passages.map(p => ({ id:p.id, title:p.title, section:p.sectionPath, text:p.text })) }, { ...assessSchema, properties: { ...assessSchema.properties, supportedIds: { type: "array", maxItems: passages.length, items: { type: "string", enum: passages.map(p => p.id) } } } }, signal);
         if (typeof assessment.sufficient !== "boolean" || !Array.isArray(assessment.supportedIds) || !Array.isArray(assessment.missingParts) || !Array.isArray(assessment.nextQueries)) throw new Error("invalid_assessment");
@@ -84,7 +84,7 @@ export class RagAnswerService {
       const groundedChecksSchema = object({ checks: { type: "array", items: object({ index: { type: "integer" }, supported: { type: "boolean" }, evidence: { type: "array", items: object({ sourceId: { type: "string", enum: [...sourceLabels.keys()] }, quote: string }) } }) } });
       let accepted: Claim[] = [];
       for (let attempt = 0; attempt < 2; attempt++) {
-        const result = await this.ollama.structured<{ claims: Claim[] }>(
+        const result = await this.model.structured<{ claims: Claim[] }>(
           "Trả lời bằng tiếng Việt, từng khẳng định ngắn có sourceIds. sourceIds phải là trường id K1, K2... của evidence được cung cấp, không phải mã tài liệu hay số thứ tự. Chỉ khẳng định nội dung được evidence hỗ trợ trực tiếp, giữ điều kiện/ngoại lệ/cảnh báo. Không thêm số liệu, số điện thoại, bước hướng dẫn hay dữ kiện ngoài evidence. Không lặp lại câu hỏi; không thêm lời dẫn/sáo rỗng. Không đưa URL, Markdown link hoặc citation vào text; nguồn chỉ trong sourceIds. Không dùng phần lịch sử như evidence. Bỏ các ý thiếu nguồn; tối đa 6 khẳng định, nhóm các ý liên quan để trả lời gọn. Nếu không trả lời được từ nguồn, claims=[].",
           { question, missingParts: missing, evidence: generationEvidence, repair: attempt > 0 ? "Lần trước có khẳng định không được evidence hỗ trợ; chỉ giữ khẳng định trực tiếp trong nguồn." : undefined }, groundedClaimsSchema, signal);
         if (!Array.isArray(result.claims)) throw new Error("invalid_claims");
@@ -93,7 +93,7 @@ export class RagAnswerService {
         const claims = mappedClaims.slice(0,12).filter(c => typeof c.text === "string" && c.text.trim() && !/https?:\/\/|\[[^\]]*\]\(|\[\d+\]/i.test(c.text) && Array.isArray(c.sourceIds) && c.sourceIds.length && c.sourceIds.every(id => ids.has(id)));
         this.logger.info("RAG generated claims validated", { requestId: requestId(), receivedCount: result.claims.length, acceptedCount: claims.length, unknownSourceCount: mappedClaims.filter(c => Array.isArray(c.sourceIds) && c.sourceIds.some(id => !ids.has(id))).length, citationTextCount: result.claims.filter(c => typeof c.text === "string" && /https?:\/\/|\[[^\]]*\]\(|\[\d+\]/i.test(c.text)).length });
         if (!claims.length) return this.notice("no_knowledge", "empty_grounded_answer");
-        const verdict = await this.ollama.structured<{ checks: { index: number; supported: boolean; evidence: { sourceId: string; quote: string }[] }[] }>(
+        const verdict = await this.model.structured<{ checks: { index: number; supported: boolean; evidence: { sourceId: string; quote: string }[] }[] }>(
           "Kiểm tra độc lập từng claim: supported chỉ true khi toàn bộ khẳng định (số liệu, điều kiện, quan hệ nguyên nhân và hướng dẫn) được nguồn sourceIds đó chứng minh. Không dùng tri thức ngoài nguồn. Cho mỗi claim một check với index bắt đầu 0. Chọn trích dẫn nguyên văn ngắn nhất đủ để chứng minh, không chép toàn bộ đoạn tài liệu. Nếu nguồn mâu thuẫn hoặc chỉ cùng chủ đề, supported=false. Không sửa hoặc thêm claim.",
           { claims: claims.map(c => ({ ...c, sourceIds: c.sourceIds.map(id => idLabels.get(id)!) })), evidence: generationEvidence }, groundedChecksSchema, signal);
         if (!Array.isArray(verdict.checks)) throw new Error("invalid_grounding_check");

@@ -32,7 +32,7 @@ docker build -f Dockerfile.rag -t vietflood-retrieval:local .
 
 The backend Compose files include `rag-retrieval` on the private service network. Set `RAG_SERVICE_IMAGE` to the image built/published for the server and `RAG_CORPUS_DIR` to that server's synchronized `data` directory, including releases and snapshots. `RAG_DOCKER_SERVICE_URL` defaults to `http://rag-retrieval:8001`. The Python standalone `docker-compose.rag.yml` is for local administration/testing. A remote deployment must receive the corpus artifacts before starting retrieval; a green Qdrant collection alone does not supply citation snapshots or model revision metadata.
 
-Generation uses native Ollama with `qwen3:1.7b-q4_K_M`; no Google API key or LangChain provider is used. Configure `OLLAMA_BASE_URL` (local `http://127.0.0.1:11434`, Docker `http://ollama:11434`), `OLLAMA_CHAT_MODEL`, `OLLAMA_REQUEST_TIMEOUT_MS=120000`, `OLLAMA_NUM_CTX=16384`, `RAG_REQUEST_TIMEOUT_MS=300000`, and `RAG_RETRIEVAL_TIMEOUT_MS=90000`. See [Ollama deployment](ollama-deployment.md).
+Generation uses the official OpenAI chat completions API. Configure `OPENAI_API_KEY`, `OPENAI_BASE_URL=https://api.openai.com/v1`, `OPENAI_CHAT_MODEL=gpt-4o-mini`, `OPENAI_REQUEST_TIMEOUT_MS=120000`, `RAG_REQUEST_TIMEOUT_MS=300000`, and `RAG_RETRIEVAL_TIMEOUT_MS=90000`. See [OpenAI deployment](openai-deployment.md).
 
 ## Query and answer contract
 
@@ -48,13 +48,13 @@ Source support percentage counts only claims that survived model grounding and e
 
 ## Diagnostics and evaluation
 
-Startup checks alias/physical collection, dense dimensions/distance, sparse presence, model revision and exact count vs release manifest. Gateway requests have X-Request-Id; internal search and Ollama logs share it. Logs include stages/counts/status/type/timing/point IDs and omit keys, raw provider bodies, user messages, prompts and passage contents. The retrieval API uses `X-Rag-Token` and must stay private.
+Startup checks alias/physical collection, dense dimensions/distance, sparse presence, model revision and exact count vs release manifest. Gateway requests have X-Request-Id; internal search and OpenAI logs share it. Logs include stages/counts/status/type/timing/point IDs and omit keys, raw provider bodies, user messages, prompts and passage contents. The retrieval API uses `X-Rag-Token` and must stay private.
 
-The unit suite tests JSON schema validation, provider timeouts, source grounding and security. The opt-in live suite evaluates the actual configured Ollama model and retrieval service. Production requires a separate run after deployment: unit success does not establish model quality or server latency.
+The unit suite tests JSON schema validation, provider timeouts, source grounding and security. The opt-in live suite evaluates the configured model and retrieval service. Production requires a separate run after deployment: unit success does not establish model quality or server latency.
 
 ```sh
 npm test -- --run apps/api-gateway/src/chat
-# Opt-in live HTTP tests use local .env, real Qdrant/retrieval/Ollama,
+# Opt-in live HTTP tests use local .env, real Qdrant/retrieval/OpenAI,
 # JWT/controller path and an isolated encrypted history store (no production writes).
 RAG_LIVE_TESTS=1 npx vitest run apps/api-gateway/src/chat/rag.production.http.spec.ts
 ```
@@ -63,11 +63,11 @@ Python `test_pipeline.py` checks actual token limits, lossless splits, IDs and n
 
 ## JSON and timeout diagnostics
 
-Each model stage (`plan`, `assess`, `generate`, `grounding`, `action`) has a shared deadline of `OLLAMA_REQUEST_TIMEOUT_MS` (default 120 seconds), including response parsing and at most one retry. The entire knowledge request is limited by `RAG_REQUEST_TIMEOUT_MS` (default 300 seconds). Ollama requests use `stream:false`, `think:false`, and a JSON schema in `format`. Only `message.content` is parsed; `message.thinking` is never treated as final JSON. JSON.parse plus AJV validate the output locally. Empty, truncated, malformed or schema-invalid output is retried once; truncated output is never repaired or accepted. HTTP 500/502/503/504 allow one retry after 1 second, within the same deadline. Other HTTP errors and request timeouts are not retried.
+Each model stage (`plan`, `assess`, `generate`, `grounding`, `action`) has a shared deadline of `OPENAI_REQUEST_TIMEOUT_MS` (default 120 seconds), including response parsing and at most one retry. The entire knowledge request is limited by `RAG_REQUEST_TIMEOUT_MS` (default 300 seconds). Requests use JSON object mode; JSON.parse plus AJV validate the output locally against the stage schema. Empty, truncated, malformed or schema-invalid output is retried once; truncated output is never accepted. Other HTTP errors and request timeouts are not retried.
 
-Output budgets start at 768 tokens for planning, 1024 for sufficiency/action, and 2048 for generation/grounding; the single output retry doubles the budget up to 4096. Input UTF-8 bytes plus output reserve and template margin conservatively bound the Qwen byte-level tokenizer context. Oversized prompts are rejected explicitly before invocation instead of allowing silent truncation. This may reject inputs that would fit; it is a safety bound, not exact Qwen token counting.
+Output budgets start at 768 tokens for planning, 1024 for sufficiency/action, and 2048 for generation/grounding; the single output retry doubles the budget up to 4096.
 
-Logs include request ID, provider, stage, model, elapsed time, finish reason and token/character counts. They omit user text, evidence and model bodies. Citation generation/checking use K1/K2 labels constrained to current evidence, mapped back to chunk UUIDs by the gateway. Startup checks the installed exact model; deployment also checks retrieval readiness and preloads model weights. Operational failures return notices, not canned knowledge answers.
+Logs include request ID, provider, stage, model, elapsed time, finish reason and token/character counts. They omit user text, evidence and model bodies. Citation generation/checking use K1/K2 labels constrained to current evidence, mapped back to chunk UUIDs by the gateway. Deployment checks retrieval readiness and OpenAI configuration without logging credentials. Operational failures return notices, not canned knowledge answers.
 
 Retrieval uses a shared `RAG_RETRIEVAL_TIMEOUT_MS` deadline (default 90 seconds) covering network and JSON parsing, enforced by a service timer. Readiness uses 10 seconds. Invalid base URLs are rejected explicitly; DNS, refused connections, TLS, timeout and malformed response errors have distinct safe reason codes. Only the service origin is logged, excluding URL credentials and query strings.
 

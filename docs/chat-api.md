@@ -43,7 +43,7 @@ Tin nhắn thông thường tiếp tục dùng JSON. Khi xác nhận báo cáo c
 
 Khi chatbot chuẩn bị thao tác, response có thể thêm trường `action` gồm `id`, `status` (`collecting`, `awaiting_confirmation`, `completed` hoặc `cancelled`) và `intent` khi có. Khi cần thêm thông tin, gửi câu trả lời tiếp theo bằng cùng `sessionId`; đề xuất được giữ tối đa 15 phút. Để xác nhận hoặc hủy, gửi `message`, `sessionId`, `actionId` và `actionDecision`. Xác nhận lặp trong lúc thao tác đang xử lý trả `409`; ID đã dùng, sai hoặc hết hạn trả `400`. Trường `action` là tùy chọn nên client cũ vẫn đọc được `answer` và `sessionId`.
 
-Các thao tác dùng Ollama JSON schema để phân loại câu lệnh. Chatbot chỉ gọi thao tác trong allowlist và kiểm tra role từ JWT; đề xuất chờ được mã hóa trong Redis. Tạo báo cáo cần đủ loại báo cáo, mô tả, tỉnh/thành, phường/xã và địa chỉ; GPS và ảnh minh chứng là tùy chọn. Báo cáo chỉ được lưu sau khi người dùng xác nhận bản xem lại. ID người tạo luôn lấy từ JWT. Thao tác báo cáo/hồ sơ cần xác nhận; chatbot không thu thập mật khẩu. Công dân chỉ thao tác trên báo cáo của mình; admin/cứu hộ dùng các chức năng được role cho phép; chỉ admin có thể xóa tài khoản. Dữ liệu tài khoản trong kết quả không gồm password.
+Các thao tác dùng OpenAI JSON để phân loại câu lệnh. Chatbot chỉ gọi thao tác trong allowlist và kiểm tra role từ JWT; đề xuất chờ được mã hóa trong Redis. Tạo báo cáo cần đủ loại báo cáo, mô tả, tỉnh/thành, phường/xã và địa chỉ; GPS và ảnh minh chứng là tùy chọn. Báo cáo chỉ được lưu sau khi người dùng xác nhận bản xem lại. ID người tạo luôn lấy từ JWT. Thao tác báo cáo/hồ sơ cần xác nhận; chatbot không thu thập mật khẩu. Công dân chỉ thao tác trên báo cáo của mình; admin/cứu hộ dùng các chức năng được role cho phép; chỉ admin có thể xóa tài khoản. Dữ liệu tài khoản trong kết quả không gồm password.
 
 Lưu `sessionId` để gửi tiếp tin nhắn và để tải/xóa hội thoại. Hội thoại gắn với tài khoản từ JWT. Mỗi lần gửi thành công, API lưu cả tin nhắn người dùng và câu trả lời. Nếu câu hỏi là câu tiếp nối, tối đa hai câu trả lời kiến thức trước đó của trợ lý có thể giúp làm rõ ngữ cảnh; tin nhắn cũ của người dùng không được gửi đến mô hình.
 
@@ -175,7 +175,7 @@ const olderPage = await fetch(
 
 ## 5. Hành vi của câu trả lời
 
-- Kiến thức tĩnh được truy xuất qua E5/BM25/RRF và BGE từ collection đã duyệt. Ollama Qwen đánh giá tài liệu, tổng hợp khẳng định và kiểm chứng nguồn trước khi trả lời.
+- Kiến thức tĩnh được truy xuất qua E5/BM25/RRF và BGE từ collection đã duyệt. OpenAI đánh giá tài liệu, tổng hợp khẳng định và kiểm chứng nguồn trước khi trả lời.
 - Không tìm được đủ căn cứ: `no_knowledge`. Lỗi kết nối, timeout hoặc JSON không hợp lệ sau retry: `unavailable`. Không dùng câu trả lời kiến thức hardcode hay trích xuất dự phòng.
 - Câu hỏi cần cảnh báo hoặc tình hình hiện tại: `unsupported_dynamic`; phần kiến thức tĩnh trong câu nhiều ý vẫn có thể được trả lời với nguồn.
 - Chỉ lời giới thiệu chatbot được trả trực tiếp. Câu tiếp nối gửi tối đa phần lịch sử kiến thức cần để xác định chủ đề; kết quả thao tác báo cáo/hồ sơ không trở thành nguồn kiến thức.

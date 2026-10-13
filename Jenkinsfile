@@ -118,6 +118,15 @@ pipeline {
             sleep 2
           done
 
+          echo "Checking Redis from the deployment network..."
+          docker run --rm \
+            --network "$DOCKER_NETWORK" \
+            --env REDIS_HOST="$REDIS_CONTAINER_NAME" \
+            --env REDIS_PORT=6379 \
+            --env REDIS_PASSWORD \
+            redis:7-alpine \
+            sh -ec 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" ping'
+
           echo "Waiting for RabbitMQ..."
           for i in $(seq 1 60); do
             if docker exec "$RABBITMQ_CONTAINER_NAME" rabbitmq-diagnostics -q ping >/dev/null 2>&1; then
@@ -151,11 +160,15 @@ pipeline {
           export OPENAI_REQUEST_TIMEOUT_MS="${OPENAI_REQUEST_TIMEOUT_MS:-120000}"
           export RAG_REQUEST_TIMEOUT_MS="${RAG_REQUEST_TIMEOUT_MS:-300000}"
           export RAG_RETRIEVAL_TIMEOUT_MS="${RAG_RETRIEVAL_TIMEOUT_MS:-90000}"
+          export REDIS_HOST="$REDIS_CONTAINER_NAME"
+          export REDIS_PORT=6379
+          export REDIS_DB=0
           : "${OPENAI_API_KEY:?Missing OPENAI_API_KEY in $ENV_FILE}"
           : "${RAG_SERVICE_URL:?Missing RAG_SERVICE_URL in $ENV_FILE}"
           : "${RAG_SERVICE_TOKEN:?Missing RAG_SERVICE_TOKEN in $ENV_FILE}"
           # Fail before stopping the running backend if a dependency is unavailable.
           docker run --rm --network "$DOCKER_NETWORK" --env-file "$ENV_FILE" \
+            -e REDIS_HOST -e REDIS_PORT -e REDIS_DB \
             -e OPENAI_BASE_URL -e OPENAI_CHAT_MODEL -e OPENAI_REQUEST_TIMEOUT_MS \
             -e RAG_REQUEST_TIMEOUT_MS -e RAG_RETRIEVAL_TIMEOUT_MS \
             --entrypoint node "$IMAGE_NAME:$TIMESTAMP" /app/scripts/check-chat-runtime.js
@@ -219,6 +232,9 @@ pipeline {
           export OPENAI_REQUEST_TIMEOUT_MS="${OPENAI_REQUEST_TIMEOUT_MS:-120000}"
           export RAG_REQUEST_TIMEOUT_MS="${RAG_REQUEST_TIMEOUT_MS:-300000}"
           export RAG_RETRIEVAL_TIMEOUT_MS="${RAG_RETRIEVAL_TIMEOUT_MS:-90000}"
+          export REDIS_HOST="$REDIS_CONTAINER_NAME"
+          export REDIS_PORT=6379
+          export REDIS_DB=0
 
           docker run -d \
             --name "$CONTAINER_NAME" \
@@ -227,9 +243,7 @@ pipeline {
             --restart unless-stopped \
             --env-file "$ENV_FILE" \
             -e API_GATEWAY_PORT="$CONTAINER_PORT" \
-            -e REDIS_HOST=redis \
-            -e REDIS_PORT=6379 \
-            -e REDIS_DB=0 \
+            -e REDIS_HOST -e REDIS_PORT -e REDIS_DB \
             -e RABBITMQ_URL \
             -e OPENAI_BASE_URL -e OPENAI_CHAT_MODEL \
             -e OPENAI_REQUEST_TIMEOUT_MS -e RAG_REQUEST_TIMEOUT_MS -e RAG_RETRIEVAL_TIMEOUT_MS \

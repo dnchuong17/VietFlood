@@ -34,6 +34,9 @@ RUN node -e "require('socket.io'); require('engine.io'); require('engine.io-pars
 FROM node:20-alpine
 
 ENV NODE_ENV=production
+ENV REDIS_HOST=redis
+ENV REDIS_PORT=6379
+ENV REDIS_DB=0
 ENV OPENAI_BASE_URL=https://api.openai.com/v1
 ENV OPENAI_CHAT_MODEL=gpt-4o-mini
 ENV OPENAI_REQUEST_TIMEOUT_MS=120000

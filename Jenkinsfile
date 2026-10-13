@@ -146,7 +146,7 @@ pipeline {
       }
     }
 
-    stage('Check OpenAI and RAG Configuration') {
+    stage('Check OpenAI and RAG Connectivity') {
       options { timeout(time: 20, unit: 'MINUTES') }
       steps {
         sh '''
@@ -167,6 +167,7 @@ pipeline {
           : "${RAG_SERVICE_URL:?Missing RAG_SERVICE_URL in $ENV_FILE}"
           : "${RAG_SERVICE_TOKEN:?Missing RAG_SERVICE_TOKEN in $ENV_FILE}"
           # Fail before stopping the running backend if a dependency is unavailable.
+          # Includes a small real OpenAI completion to verify key/model/network.
           docker run --rm --network "$DOCKER_NETWORK" --env-file "$ENV_FILE" \
             -e REDIS_HOST -e REDIS_PORT -e REDIS_DB \
             -e OPENAI_BASE_URL -e OPENAI_CHAT_MODEL -e OPENAI_REQUEST_TIMEOUT_MS \

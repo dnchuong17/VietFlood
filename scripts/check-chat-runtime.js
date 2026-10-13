@@ -1,4 +1,5 @@
 // Deployment preflight: never print credentials, response bodies or user data.
+const { openaiConfiguration, checkOpenAI } = require("./check-openai-runtime");
 function endpoint(value, name) {
   const url = new URL(value);
   if (
@@ -50,10 +51,7 @@ async function checkRedis() {
   try {
     const rag = endpoint(process.env.RAG_SERVICE_URL || "", "rag");
     if (!process.env.RAG_SERVICE_TOKEN) throw new Error("missing_rag_token");
-    if (!process.env.OPENAI_API_KEY) throw new Error("missing_openai_api_key");
-    const model = (process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini").trim();
-    if (!/^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,149}$/.test(model)) throw new Error("invalid_openai_model");
-    endpoint(process.env.OPENAI_BASE_URL || "https://api.openai.com/v1", "openai");
+    openaiConfiguration();
     stage = "redis";
     await checkRedis();
     console.log(JSON.stringify({ stage, status: "ready" }));
@@ -76,9 +74,9 @@ async function checkRedis() {
         pointCount: health.pointCount,
       }),
     );
-    console.log(
-      JSON.stringify({ stage: "configuration", status: "ready", provider: "openai", model }),
-    );
+    stage = "openai";
+    const openai = await checkOpenAI();
+    console.log(JSON.stringify({ stage, status: "ready", ...openai }));
   } catch (error) {
     const reason =
       /^(invalid_|missing_|dependency_http_|retrieval_not_|openai_)/.test(

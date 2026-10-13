@@ -11,7 +11,7 @@ import { ChatController } from "./chat.controller";
 import { ChatService } from "./chat.service";
 import { ChatAuditInterceptor } from "./chat-audit.interceptor";
 import { ChatCryptoService } from "./chat-crypto.service";
-import { OllamaChatService } from "./ollama-chat.service";
+import { OpenAIChatService } from "./openai-chat.service";
 import { QdrantKnowledgeService } from "./qdrant-knowledge.service";
 import { RagAnswerService } from "./rag-answer.service";
 
@@ -23,16 +23,16 @@ describe.skipIf(!live && !retrievalOnly)("Live production HTTP path with isolate
   const turns = new Map<string, { role: string; content: string; kind: string }[]>();
   beforeAll(async () => {
     for (const line of readFileSync(".env", "utf8").split("\n")) {
-      const index = line.indexOf("="); if (index > 0) { const key = line.slice(0,index).trim(); if (["OLLAMA_BASE_URL","OLLAMA_CHAT_MODEL","OLLAMA_REQUEST_TIMEOUT_MS","OLLAMA_NUM_CTX","RAG_REQUEST_TIMEOUT_MS","RAG_RETRIEVAL_TIMEOUT_MS","RAG_SERVICE_URL","RAG_SERVICE_TOKEN"].includes(key)) process.env[key] ??= line.slice(index+1).trim().replace(/^["']|["']$/g,""); }
+      const index = line.indexOf("="); if (index > 0) { const key = line.slice(0,index).trim(); if (["OPENAI_API_KEY","OPENAI_BASE_URL","OPENAI_CHAT_MODEL","OPENAI_REQUEST_TIMEOUT_MS","RAG_REQUEST_TIMEOUT_MS","RAG_RETRIEVAL_TIMEOUT_MS","RAG_SERVICE_URL","RAG_SERVICE_TOKEN"].includes(key)) process.env[key] ??= line.slice(index+1).trim().replace(/^["']|["']$/g,""); }
     }
-    if (live && !process.env.OLLAMA_BASE_URL) throw new Error("Local Ollama endpoint missing");
+    if (live && !process.env.OPENAI_API_KEY) throw new Error("OpenAI API key missing");
     process.env.JWT_SECRET = "isolated-live-evaluation-jwt";
     process.env.CHAT_KEY_CURRENT = "test";
     process.env.CHAT_KEYRING_B64 = Buffer.from(JSON.stringify({ test:randomBytes(32).toString("base64") })).toString("base64");
     const crypto = new ChatCryptoService();
     const logger = { setServiceName:()=>{}, info:(message:string,metadata?:object)=>console.log(message,metadata ?? {}), warn:(message:string,metadata?:object)=>console.log(message,metadata ?? {}) };
     const knowledge = new QdrantKnowledgeService(logger as never);
-    const ollama = retrievalOnly ? {
+    const model = retrievalOnly ? {
       isConfigured: () => true,
       structured: async (_instruction: string, data: any) => {
         if (data.claims) return { checks: data.claims.map((c: any,index: number) => ({ index, supported: true, evidence: [{ sourceId:c.sourceIds[0], quote:c.text }] })) };
@@ -40,8 +40,8 @@ describe.skipIf(!live && !retrievalOnly)("Live production HTTP path with isolate
         if (data.passages) return { sufficient: !data.question.includes("tên lửa"), supportedIds: data.question.includes("tên lửa") ? [] : [data.passages[0].id], missingParts: [], nextQueries: [] };
         return { route:data.question.includes("Hôm nay") ? "dynamic" : "static", queries:[data.question], dynamicParts:[] };
       },
-    } as unknown as OllamaChatService : new OllamaChatService(logger as never);
-    const rag = new RagAnswerService(knowledge,ollama,logger as never);
+    } as unknown as OpenAIChatService : new OpenAIChatService(logger as never);
+    const rag = new RagAnswerService(knowledge,model,logger as never);
     const save = async (_user:number,id:string,message:string,answer:string,kind:string) => {
       const encrypted=crypto.encrypt(answer,7,id,"assistant-id","assistant");
       const decoded=JSON.parse(crypto.decrypt(encrypted,7,id,"assistant-id","assistant"));
@@ -51,7 +51,7 @@ describe.skipIf(!live && !retrievalOnly)("Live production HTTP path with isolate
     const history={create:save,append:save,access:async (_u:number,id:string)=>turns.has(id)?"owned":"missing",recent:async (_u:number,id:string)=>turns.get(id)??[],recentKnowledgeQuestions:async (_u:number,id:string)=>(turns.get(id)??[]).filter(t=>t.role==="user"&&t.kind==="knowledge").slice(-2),recentKnowledgeAnswers:async (_u:number,id:string)=>(turns.get(id)??[]).filter(t=>t.role==="assistant"&&t.kind==="knowledge").slice(-2)};
     const redis={getClient:()=>({multi:()=>({incr:()=>({expire:()=>({exec:async()=>[[null,1],[null,1]]})})})})};
     const actions={handle:async()=>({handled:false})};
-    const service=new ChatService(redis as never,{} as never,knowledge,history as never,logger as never,ollama,actions as never,rag);
+    const service=new ChatService(redis as never,{} as never,knowledge,history as never,logger as never,model,actions as never,rag);
     class EvaluationModule {}
     Module({imports:[PassportModule],controllers:[ChatController],providers:[JwtStrategy,ChatAuditInterceptor,{provide:Reflect.getMetadata("design:paramtypes",ChatAuditInterceptor)[0],useValue:logger},{provide:ChatService,useValue:service},{provide:Reflect.getMetadata("design:paramtypes",ChatController)[0],useValue:service}]})(EvaluationModule);
     app=await NestFactory.create(EvaluationModule,{logger:false,abortOnError:false});await app.listen(0,"127.0.0.1");
@@ -65,7 +65,7 @@ describe.skipIf(!live && !retrievalOnly)("Live production HTTP path with isolate
     ["Làm gì khi người bị nạn chảy máu nhiều?", "knowledge"],
     ["Hôm nay phường tôi ngập bao nhiêu?", "unsupported_dynamic"],
     ["Công thức chế tạo động cơ tên lửa là gì?", "no_knowledge"],
-  ])("evaluates %s through JWT/controller/retrieval/Ollama", async (message,expected) => {
+  ])("evaluates %s through JWT/controller/retrieval/OpenAI", async (message,expected) => {
     const response=await fetch(base+"/chat",{method:"POST",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},body:JSON.stringify({message})});
     expect(response.status).toBe(200); const reply=await response.json();
     console.log(JSON.stringify({message,status:reply.status,sources:reply.sources?.map((s:{documentId:string})=>s.documentId)}));

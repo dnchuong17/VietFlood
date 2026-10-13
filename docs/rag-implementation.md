@@ -67,7 +67,7 @@ Each model stage (`plan`, `assess`, `generate`, `grounding`, `action`) has a sha
 
 Output budgets start at 768 tokens for planning, 1024 for sufficiency/action, and 2048 for generation/grounding; the single output retry doubles the budget up to 4096.
 
-Logs include request ID, provider, stage, model, elapsed time, finish reason and token/character counts. They omit user text, evidence and model bodies. Citation generation/checking use K1/K2 labels constrained to current evidence, mapped back to chunk UUIDs by the gateway. Deployment checks retrieval readiness and OpenAI configuration without logging credentials. Operational failures return notices, not canned knowledge answers.
+Logs include request ID, provider, stage, model, elapsed time, finish reason and token/character counts. They omit user text, evidence and model bodies. Citation generation/checking use K1/K2 labels constrained to current evidence, mapped back to chunk UUIDs by the gateway. Deployment checks Redis/retrieval readiness and a small static OpenAI completion without logging credentials. Operational failures return notices, not canned knowledge answers.
 
 Retrieval uses a shared `RAG_RETRIEVAL_TIMEOUT_MS` deadline (default 90 seconds) covering network and JSON parsing, enforced by a service timer. Readiness uses 10 seconds. Invalid base URLs are rejected explicitly; DNS, refused connections, TLS, timeout and malformed response errors have distinct safe reason codes. Only the service origin is logged, excluding URL credentials and query strings.
 

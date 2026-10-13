@@ -11,6 +11,7 @@
     "build:api-gateway": "nest build api-gateway",
     "build:auth-service": "nest build auth-service",
     "build:reports-service": "nest build reports-service",
+    "check:openai": "node --env-file=.env scripts/check-openai-runtime.js",
     "test": "vitest run",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix"
   },

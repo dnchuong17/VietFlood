@@ -187,16 +187,38 @@ export class OpenAIChatService implements OnModuleInit {
     usage?: { completion_tokens?: number; prompt_tokens?: number };
   }> {
     signal.throwIfAborted();
-    const response = await fetch(config.baseUrl + "/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.apiKey}` },
-      body: JSON.stringify(body), signal,
+    let onAbort: () => void;
+    const aborted = new Promise<never>((_, reject) => {
+      onAbort = () => reject(signal.reason);
+      signal.addEventListener("abort", onAbort, { once: true });
     });
-    if (!response.ok) throw new OpenAIModelError(response.status === 401 ? "openai_authentication_failed" : "openai_http_error", response.status);
-    return await response.json() as {
-      choices?: { message?: { content?: string }; finish_reason?: string }[];
-      usage?: { completion_tokens?: number; prompt_tokens?: number };
+    const completion = async () => {
+      const response = await fetch(config.baseUrl + "/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.apiKey}` },
+        body: JSON.stringify(body), signal,
+      });
+      if (!response.ok) {
+        const reasons: Record<number, string> = {
+          401: "openai_authentication_failed", 403: "openai_permission_denied",
+          404: "openai_model_or_endpoint_not_found", 429: "openai_rate_limit_or_quota_exceeded",
+        };
+        let reason = reasons[response.status] ?? "openai_http_error";
+        if (response.status === 429) {
+          const knownCodes = ["insufficient_quota", "credit_balance_exhausted", "organization_spend_limit_exceeded", "project_spend_limit_exceeded", "organization_usage_limit_exceeded", "rate_limit_exceeded", "slow_down"];
+          const body = await response.json().catch(() => null) as { error?: { code?: string; type?: string } } | null;
+          const code = body?.error?.code ?? body?.error?.type;
+          if (code && knownCodes.includes(code)) reason = `openai_${code}`;
+        }
+        throw new OpenAIModelError(reason, response.status);
+      }
+      return await response.json() as {
+        choices?: { message?: { content?: string }; finish_reason?: string }[];
+        usage?: { completion_tokens?: number; prompt_tokens?: number };
+      };
     };
+    try { return await Promise.race([completion(), aborted]); }
+    finally { signal.removeEventListener("abort", onAbort!); }
   }
 
   private errorDetails(error: unknown): Record<string, string | number> {

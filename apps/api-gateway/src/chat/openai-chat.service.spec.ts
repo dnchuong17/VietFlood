@@ -16,8 +16,8 @@ describe("OpenAIChatService", () => {
   let logger: { setServiceName: ReturnType<typeof vi.fn>; info: ReturnType<typeof vi.fn>; warn: ReturnType<typeof vi.fn> };
   beforeEach(() => {
     vi.stubEnv("OPENAI_API_KEY", "test-openai-key");
-    vi.stubEnv("OPENAI_BASE_URL", "https://api.openai.com/v1");
-    vi.stubEnv("OPENAI_CHAT_MODEL", "gpt-4o-mini");
+    vi.stubEnv("OPENAI_BASE_URL", "https://cheapkeyai.shop/v1");
+    vi.stubEnv("OPENAI_CHAT_MODEL", "gpt-5-nano");
     vi.stubEnv("OPENAI_REQUEST_TIMEOUT_MS", "120000");
     vi.stubEnv("GEMINI_API_KEY", "");
     vi.stubEnv("GOOGLE_API_KEY", "");
@@ -35,20 +35,40 @@ describe("OpenAIChatService", () => {
   it("uses OpenAI bearer authentication and JSON mode without Gemini credentials", async () => {
     expect(await call(service)).toEqual({ route: "static" });
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe("https://api.openai.com/v1/chat/completions");
+    expect(url).toBe("https://cheapkeyai.shop/v1/chat/completions");
     expect(init.headers.Authorization).toBe("Bearer test-openai-key");
     const body = JSON.parse(init.body);
-    expect(body).toMatchObject({ model: "gpt-4o-mini", response_format: { type: "json_object" }, temperature: 0, max_tokens: 768 });
+    expect(body).toMatchObject({ model: "gpt-5-nano", response_format: { type: "json_object" }, reasoning_effort: "minimal", max_completion_tokens: 2048 });
     expect(body.messages[0]).toMatchObject({ role: "system" });
     expect(body.messages[0].content).toContain("JSON");
     expect(JSON.stringify(logger.info.mock.calls)).not.toMatch(/private question|test-openai-key/);
+  });
+  it.each([
+    ["route", 2048], ["sufficient", 2048], ["claims", 4096], ["checks", 4096],
+  ])("uses the nano request contract for %s", async (property, budget) => {
+    const stageSchema = { type: "object", properties: { [property]: { type: "string" } }, required: [property] };
+    fetchMock.mockResolvedValue(completed(JSON.stringify({ [property]: "test" })));
+    await service.structured("Return JSON", {}, stageSchema, new AbortController().signal);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.max_completion_tokens).toBe(budget);
+    expect(body.reasoning_effort).toBe("minimal");
+    expect(body).not.toHaveProperty("temperature");
+    expect(body).not.toHaveProperty("max_tokens");
+  });
+  it("uses configured defaults when provider and model overrides are absent", async () => {
+    delete process.env.OPENAI_BASE_URL;
+    delete process.env.OPENAI_CHAT_MODEL;
+    await call(service);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("https://cheapkeyai.shop/v1/chat/completions");
+    expect(JSON.parse(init.body).model).toBe("gpt-5-nano");
   });
   it.each(["not JSON", '{"route":"unknown"}', '{"route":"static","injected":true}'])
   ("retries rejected output once and validates the replacement: %s", async (content) => {
     fetchMock.mockResolvedValueOnce(completed(content));
     expect(await call(service)).toEqual({ route: "static" });
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body).max_tokens).toBe(1536);
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).max_completion_tokens).toBe(4096);
   });
   it("rejects truncated JSON even when it passes the local schema", async () => {
     fetchMock.mockResolvedValue(completed(undefined, "length"));
@@ -95,7 +115,7 @@ describe("OpenAIChatService", () => {
   });
   it("reports startup configuration safely and rejects a missing key", () => {
     service.onModuleInit();
-    expect(logger.info).toHaveBeenCalledWith("OpenAI chatbot configuration ready", expect.objectContaining({ provider: "openai", model: "gpt-4o-mini" }));
+    expect(logger.info).toHaveBeenCalledWith("OpenAI chatbot configuration ready", expect.objectContaining({ provider: "openai", model: "gpt-5-nano" }));
     vi.stubEnv("OPENAI_API_KEY", "");
     expect(service.isConfigured()).toBe(false);
     service.onModuleInit();

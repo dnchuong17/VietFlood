@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { checkOpenAI, openaiConfiguration } from "./check-openai-runtime.js";
 
 const env = {
-  OPENAI_API_KEY: "probe-test-key", OPENAI_BASE_URL: "https://api.openai.com/v1/",
-  OPENAI_CHAT_MODEL: "gpt-4o-mini", OPENAI_REQUEST_TIMEOUT_MS: "120000",
+  OPENAI_API_KEY: "probe-test-key", OPENAI_BASE_URL: "https://cheapkeyai.shop/v1/",
+  OPENAI_CHAT_MODEL: "gpt-5-nano", OPENAI_REQUEST_TIMEOUT_MS: "120000",
 };
 const completed = (content = '{"ready":true}', finish_reason = "stop") => ({
   ok: true, json: async () => ({ choices: [{ message: { content }, finish_reason }] }),
@@ -17,12 +17,12 @@ describe("OpenAI deployment probe", () => {
   afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
   it("verifies a real completion contract and returns only safe metadata", async () => {
     const result = await checkOpenAI(env);
-    expect(result).toMatchObject({ provider: "openai", model: "gpt-4o-mini", serviceOrigin: "https://api.openai.com" });
+    expect(result).toMatchObject({ provider: "openai", model: "gpt-5-nano", serviceOrigin: "https://cheapkeyai.shop" });
     expect(JSON.stringify(result)).not.toContain("probe-test-key");
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe("https://api.openai.com/v1/chat/completions");
+    expect(url).toBe("https://cheapkeyai.shop/v1/chat/completions");
     expect(init.headers.Authorization).toBe("Bearer probe-test-key");
-    expect(JSON.parse(init.body)).toMatchObject({ model: "gpt-4o-mini", max_tokens: 32, response_format: { type: "json_object" } });
+    expect(JSON.parse(init.body)).toMatchObject({ model: "gpt-5-nano", max_completion_tokens: 1024, reasoning_effort: "minimal", response_format: { type: "json_object" } });
   });
   it.each([401, 403, 404, 429, 503])("fails deployment on HTTP %i without exposing API bodies", async (status) => {
     const json = vi.fn().mockResolvedValue({ error: "private response" });

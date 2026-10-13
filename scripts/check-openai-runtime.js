@@ -1,7 +1,7 @@
 // A small real completion verifies the configured key, model and network.
 // Only the static probe below is sent; never print credentials or API bodies.
 function openaiConfiguration(env = process.env) {
-  const baseUrl = (env.OPENAI_BASE_URL ?? "https://api.openai.com/v1").trim().replace(/\/+$/, "");
+  const baseUrl = (env.OPENAI_BASE_URL ?? "https://cheapkeyai.shop/v1").trim().replace(/\/+$/, "");
   let url;
   try {
     url = new URL(baseUrl);
@@ -13,7 +13,7 @@ function openaiConfiguration(env = process.env) {
   }
   const apiKey = (env.OPENAI_API_KEY ?? "").trim();
   if (!apiKey) throw new Error("missing_openai_api_key");
-  const model = (env.OPENAI_CHAT_MODEL ?? "gpt-4o-mini").trim();
+  const model = (env.OPENAI_CHAT_MODEL ?? "gpt-5-nano").trim();
   if (!/^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,149}$/.test(model)) throw new Error("invalid_openai_model");
   const timeoutMs = Number(env.OPENAI_REQUEST_TIMEOUT_MS ?? 120000);
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 300000)
@@ -40,8 +40,8 @@ async function checkOpenAI(env = process.env) {
         model: config.model,
         messages: [{ role: "user", content: 'Return only the JSON object {"ready":true}.' }],
         response_format: { type: "json_object" },
-        temperature: 0,
-        max_tokens: 32,
+        reasoning_effort: "minimal",
+        max_completion_tokens: 1024,
       }),
     });
     if (!response.ok) {

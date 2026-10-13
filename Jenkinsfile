@@ -155,8 +155,8 @@ pipeline {
           set -a
           . "$ENV_FILE"
           set +a
-          export OPENAI_BASE_URL="${OPENAI_BASE_URL:-https://api.openai.com/v1}"
-          export OPENAI_CHAT_MODEL="${OPENAI_CHAT_MODEL:-gpt-4o-mini}"
+          export OPENAI_BASE_URL="${OPENAI_BASE_URL:-https://cheapkeyai.shop/v1}"
+          export OPENAI_CHAT_MODEL="${OPENAI_CHAT_MODEL:-gpt-5-nano}"
           export OPENAI_REQUEST_TIMEOUT_MS="${OPENAI_REQUEST_TIMEOUT_MS:-120000}"
           export RAG_REQUEST_TIMEOUT_MS="${RAG_REQUEST_TIMEOUT_MS:-300000}"
           export RAG_RETRIEVAL_TIMEOUT_MS="${RAG_RETRIEVAL_TIMEOUT_MS:-90000}"
@@ -230,8 +230,8 @@ pipeline {
           : "${CHAT_DB_CA_BASE64:?Missing CHAT_DB_CA_BASE64 in $ENV_FILE}"
           RABBITMQ_URL="amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672"
           export RABBITMQ_URL
-          export OPENAI_BASE_URL="${OPENAI_BASE_URL:-https://api.openai.com/v1}"
-          export OPENAI_CHAT_MODEL="${OPENAI_CHAT_MODEL:-gpt-4o-mini}"
+          export OPENAI_BASE_URL="${OPENAI_BASE_URL:-https://cheapkeyai.shop/v1}"
+          export OPENAI_CHAT_MODEL="${OPENAI_CHAT_MODEL:-gpt-5-nano}"
           export OPENAI_REQUEST_TIMEOUT_MS="${OPENAI_REQUEST_TIMEOUT_MS:-120000}"
           export RAG_REQUEST_TIMEOUT_MS="${RAG_REQUEST_TIMEOUT_MS:-300000}"
           export RAG_RETRIEVAL_TIMEOUT_MS="${RAG_RETRIEVAL_TIMEOUT_MS:-90000}"

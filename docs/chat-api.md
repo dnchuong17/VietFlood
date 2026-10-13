@@ -175,7 +175,7 @@ const olderPage = await fetch(
 
 ## 5. Hành vi của câu trả lời
 
-- Kiến thức tĩnh được truy xuất qua E5/BM25/RRF và BGE từ collection đã duyệt. OpenAI đánh giá tài liệu, tổng hợp khẳng định và kiểm chứng nguồn trước khi trả lời.
+- Kiến thức tĩnh được truy xuất qua text-embedding-3-small/BM25/RRF và BGE từ collection đã duyệt. OpenAI đánh giá tài liệu, tổng hợp khẳng định và kiểm chứng nguồn trước khi trả lời.
 - Không tìm được đủ căn cứ: `no_knowledge`. Lỗi kết nối, timeout hoặc JSON không hợp lệ sau retry: `unavailable`. Không dùng câu trả lời kiến thức hardcode hay trích xuất dự phòng.
 - Câu hỏi cần cảnh báo hoặc tình hình hiện tại: `unsupported_dynamic`; phần kiến thức tĩnh trong câu nhiều ý vẫn có thể được trả lời với nguồn.
 - Chỉ lời giới thiệu chatbot được trả trực tiếp. Câu tiếp nối gửi tối đa phần lịch sử kiến thức cần để xác định chủ đề; kết quả thao tác báo cáo/hồ sơ không trở thành nguồn kiến thức.

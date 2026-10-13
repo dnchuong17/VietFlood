@@ -1,6 +1,6 @@
 # OpenAI deployment
 
-VietFlood uses OpenAI for intent planning, grounded answer synthesis, source checks, and report-action extraction. The existing Python retrieval service and approved Qdrant collection remain the only source of flood knowledge; the model does not replace retrieval or role checks.
+VietFlood uses the OpenAI-compatible cheapkeyai.shop API with `gpt-5-nano` for intent planning, grounded answer synthesis, source checks, and report-action extraction. The existing Python retrieval service and approved Qdrant collection remain the only source of flood knowledge; the model does not replace retrieval or role checks.
 
 ## Local setup
 
@@ -8,8 +8,8 @@ Keep the API key in the ignored root `.env` file or another local secret manager
 
 ```dotenv
 OPENAI_API_KEY=<OpenAI API key>
-OPENAI_BASE_URL=https://api.openai.com/v1
-OPENAI_CHAT_MODEL=gpt-4o-mini
+OPENAI_BASE_URL=https://cheapkeyai.shop/v1
+OPENAI_CHAT_MODEL=gpt-5-nano
 OPENAI_REQUEST_TIMEOUT_MS=120000
 RAG_REQUEST_TIMEOUT_MS=300000
 RAG_RETRIEVAL_TIMEOUT_MS=90000
@@ -27,7 +27,7 @@ docker compose up -d --build
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-Both Compose files pass the key only to the API gateway. Ollama containers and model downloads are not needed. The gateway still depends on the retrieval, auth, and report services.
+Both Compose files pass the key to the API gateway for chat and the private retrieval service for query embeddings. Set `EMBEDDING_MODEL=text-embedding-3-small` and `EMBEDDING_DIMENSIONS=1536` for retrieval. Ollama containers and model downloads are not needed. The gateway still depends on the retrieval, auth, and report services.
 
 ## Jenkins deployment
 
@@ -43,9 +43,11 @@ For a container managed manually in Portainer, recreate the backend with the new
 
 The reference service's `src/services/legacy-genai-client.service.ts` uses Bearer authentication, `/chat/completions`, `gpt-4o-mini`, and a 60-second HTTP timeout. These match the request shape used by VietFlood; VietFlood keeps its configurable 120-second model-stage deadline and 300-second total RAG deadline.
 
-LibBuddy hardcodes `https://v98store.com/v1` for both chat and embeddings. VietFlood defaults to the official `https://api.openai.com/v1`; a direct OpenAI project key should be used with that endpoint. No reference-project credentials are copied.
+LibBuddy hardcodes `https://v98store.com/v1` for both chat and embeddings. VietFlood uses the user-selected `https://cheapkeyai.shop/v1` endpoint with a key issued by that provider. No reference-project credentials are copied.
 
-LibBuddy's `OPENAI_MODEL` default in `src/utils/config.ts` is an embedding model (`text-embedding-3-small`). VietFlood uses `OPENAI_CHAT_MODEL` for chat. Its retrieval service continues to use the existing E5 embeddings and Qdrant index; switching embeddings requires reindexing, even when vector dimensions match.
+LibBuddy's `OPENAI_MODEL` default in `src/utils/config.ts` is an embedding model (`text-embedding-3-small`). VietFlood uses `OPENAI_CHAT_MODEL` for chat. Its retrieval service uses `text-embedding-3-small` for both documents and queries. The previous E5 index must be replaced through a validated candidate; see the RAG repository’s `PIPELINE_README.md` for manual cutover and rollback.
+
+GPT-5 nano requests omit `temperature`, use `reasoning_effort=minimal`, and set `max_completion_tokens` to 2048 for planning/assessment/actions or 4096 for generation/grounding. The single output retry doubles these limits; the deployment probe uses 1024.
 
 VietFlood requests JSON object mode and validates each response against its local AJV schema, preserving optional action fields. This follows the distinction between JSON mode and schema-constrained output described in the [official OpenAI documentation](https://developers.openai.com/api/docs/guides/structured-outputs?api-mode=chat).
 
@@ -67,4 +69,4 @@ Provider regression tests use mocked HTTP responses, not a paid API:
 npm test -- apps/api-gateway/src/chat/openai-chat.service.spec.ts scripts/check-openai-runtime.spec.ts
 ```
 
-For production, rotate any key that has been pasted into chat, committed, or otherwise exposed. Restrict the key to the required project and monitor usage limits in the OpenAI platform.
+For production, rotate any key that has been pasted into chat, committed, or otherwise exposed. Restrict the key to the required project and monitor usage limits with the configured provider.

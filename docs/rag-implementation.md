@@ -1,18 +1,18 @@
-# VietFlood RAG v2
+# VietFlood RAG v3
 
 The 34 supplied sources are accepted as APPROVED_FOR_RAG. This implementation checks only this flag; it does not add reviewer, medical or licensing workflows.
 
 ## Actual pipeline
 
-Markdown → registry/version/content hash → sections → chunks counted with the E5 tokenizer → normalized E5 dense vectors (768/Cosine) + FastEmbed BM25 sparse vectors → candidate collection → exact ID/hash/vector/count validation → atomic `flood_kb_active` alias switch → release manifest and immutable source snapshots.
+Markdown → registry/version/content hash → sections → chunks counted with cl100k_base → API text-embedding-3-small dense vectors (1536/Cosine) + FastEmbed BM25 sparse vectors → candidate collection → exact ID/hash/vector/count validation → atomic `flood_kb_active` alias switch → release manifest and immutable source snapshots.
 
-The current corpus has 34 documents / 212 section-aware chunks, compared with 76 larger chunks previously. Actual E5 inputs include `passage:`, titles, headings and special tokens and do not exceed 450 tokens (512 is a hard model ceiling). Lists and paragraphs remain intact when possible; long blocks split into sentences and then lossless word ranges if necessary. Adjacent chunks carry previous/next IDs within a parent section. A block that cannot fit safely is rejected; model truncation is never accepted. Smaller complete sections are retained, rather than padded to an arbitrary size.
+The corpus contains 34 approved documents. Chunk counts are recorded per release. Embedding inputs include titles and headings, without E5 prefixes; chunks stay within 450 cl100k_base tokens with 50-token overlap. The API hard input ceiling is 8191 tokens. Lists and paragraphs remain intact when possible; long blocks split into sentences and then lossless word ranges if necessary. Adjacent chunks carry previous/next IDs within a parent section. A block that cannot fit safely is rejected; model truncation is never accepted. Smaller complete sections are retained, rather than padded to an arbitrary size.
 
-The registry increments document versions on content/title/source URL changes. Synchronization constructs the complete desired corpus. Updated and deleted chunks are absent from the newly active release; unchanged vectors are reused only when content/model revision/pipeline fingerprints match. Previous releases are retained for rollback and are not queried by the active alias. To rollback, use Qdrant's atomic alias update to the previous collection named in the manifest.
+The registry increments document versions on content/title/source URL changes. Synchronization constructs the complete desired corpus. Updated and deleted chunks are absent from the newly active release; unchanged vectors are reused only when content/endpoint/model/dimensions/tokenizer/pipeline fingerprints match. Previous releases are retained for rollback and are not queried by the active alias. To rollback, use Qdrant's atomic alias update to the previous collection named in the manifest.
 
 ## Services and configuration
 
-Python source directory: `VietFlood_python/VietFlood`. Use a Python environment outside OneDrive to avoid file hydration timeouts. The local environment used for verification is `~/.cache/vietflood/rag-venv`.
+Python source directory: `VietFlood_RAG`. Use a Python environment outside OneDrive to avoid file hydration timeouts. The local environment used for verification is `~/.cache/vietflood/rag-venv`.
 
 ```sh
 python -m pip install -r requirements.txt
@@ -27,18 +27,18 @@ Configure the same secret `RAG_SERVICE_TOKEN` in the gateway and Python environm
 For Docker, build the Python image from its directory:
 
 ```sh
-docker build -f Dockerfile.rag -t vietflood-retrieval:local .
+docker build -f Dockerfile -t vietflood-retrieval:local .
 ```
 
-The backend Compose files include `rag-retrieval` on the private service network. Set `RAG_SERVICE_IMAGE` to the image built/published for the server and `RAG_CORPUS_DIR` to that server's synchronized `data` directory, including releases and snapshots. `RAG_DOCKER_SERVICE_URL` defaults to `http://rag-retrieval:8001`. The Python standalone `docker-compose.rag.yml` is for local administration/testing. A remote deployment must receive the corpus artifacts before starting retrieval; a green Qdrant collection alone does not supply citation snapshots or model revision metadata.
+The backend Compose files include `rag-retrieval` on the private service network. Set `RAG_SERVICE_IMAGE` to the image built/published for the server and `RAG_CORPUS_DIR` to that server's synchronized `data` directory, including releases and snapshots. `RAG_DOCKER_SERVICE_URL` defaults to `http://rag-retrieval:8001`. The Python standalone `docker-compose.rag.yml` is for local administration/testing. A remote deployment must receive the corpus artifacts before starting retrieval; a green Qdrant collection alone does not supply citation snapshots or embedding identity metadata.
 
-Generation uses the official OpenAI chat completions API. Configure `OPENAI_API_KEY`, `OPENAI_BASE_URL=https://api.openai.com/v1`, `OPENAI_CHAT_MODEL=gpt-4o-mini`, `OPENAI_REQUEST_TIMEOUT_MS=120000`, `RAG_REQUEST_TIMEOUT_MS=300000`, and `RAG_RETRIEVAL_TIMEOUT_MS=90000`. See [OpenAI deployment](openai-deployment.md).
+Generation uses the OpenAI-compatible cheapkeyai.shop chat completions API. Configure `OPENAI_API_KEY`, `OPENAI_BASE_URL=https://cheapkeyai.shop/v1`, `OPENAI_CHAT_MODEL=gpt-5-nano`, `OPENAI_REQUEST_TIMEOUT_MS=120000`, `RAG_REQUEST_TIMEOUT_MS=300000`, and `RAG_RETRIEVAL_TIMEOUT_MS=90000`. See [OpenAI deployment](openai-deployment.md).
 
 ## Query and answer contract
 
 Gateway → query planner (up to 3 queries / minimum conversation context) → dense + sparse Query API / RRF → multilingual BGE reranking → evidence sufficiency check → optional query expansion (at most 3 rounds) → structured factual claims → independent model evidence check plus exact supporting quote validation → citations.
 
-There is no `/points/scroll`, `match.text`, or matching-term count retrieval. BM25 operates on indexed sparse vectors with stemming disabled and no stopword removal so negation is retained. Dense E5 documents use `passage:` and queries use `query:`. Reranking uses `BAAI/bge-reranker-v2-m3`; scores are rankings, not correctness probabilities. Models are loaded once. CPU/GPU latency must be measured on the deployment host: large multilingual rerankers can take tens of seconds on CPU or on the first accelerated request.
+There is no `/points/scroll`, `match.text`, or matching-term count retrieval. BM25 operates on indexed sparse vectors with stemming disabled and no stopword removal so negation is retained. Document and query vectors both use the same text-embedding-3-small API configuration without E5 prefixes. Embedding requests have a 30-second timeout and at most one transient-error retry. Reranking uses `BAAI/bge-reranker-v2-m3`; scores are rankings, not correctness probabilities. Models are loaded once. CPU/GPU latency must be measured on the deployment host: large multilingual rerankers can take tens of seconds on CPU or on the first accelerated request.
 
 `POST /chat` keeps answer/sessionId/action and adds status/sources/sourceSupportPercent/generationMode/unansweredParts. It does not generate substantive advice when retrieval is empty or insufficient. Static first aid and app guidance now use the corpus. Introduction alone may be fixed. Missing-source/service/scope messages are operational notices. Explicit report/profile operations retain role checks and confirmation. Current alerts/weather/flood conditions are unsupported; static parts of mixed questions may be answered with citations.
 
@@ -48,7 +48,7 @@ Source support percentage counts only claims that survived model grounding and e
 
 ## Diagnostics and evaluation
 
-Startup checks alias/physical collection, dense dimensions/distance, sparse presence, model revision and exact count vs release manifest. Gateway requests have X-Request-Id; internal search and OpenAI logs share it. Logs include stages/counts/status/type/timing/point IDs and omit keys, raw provider bodies, user messages, prompts and passage contents. The retrieval API uses `X-Rag-Token` and must stay private.
+Startup checks alias/physical collection, dense dimensions/distance, sparse presence, embedding identity/fingerprint and exact count vs release manifest. Gateway requests have X-Request-Id; internal search and OpenAI logs share it. Logs include stages/counts/status/type/timing/point IDs and omit keys, raw provider bodies, user messages, prompts and passage contents. The retrieval API uses `X-Rag-Token` and must stay private.
 
 The unit suite tests JSON schema validation, provider timeouts, source grounding and security. The opt-in live suite evaluates the configured model and retrieval service. Production requires a separate run after deployment: unit success does not establish model quality or server latency.
 
@@ -65,7 +65,7 @@ Python `test_pipeline.py` checks actual token limits, lossless splits, IDs and n
 
 Each model stage (`plan`, `assess`, `generate`, `grounding`, `action`) has a shared deadline of `OPENAI_REQUEST_TIMEOUT_MS` (default 120 seconds), including response parsing and at most one retry. The entire knowledge request is limited by `RAG_REQUEST_TIMEOUT_MS` (default 300 seconds). Requests use JSON object mode; JSON.parse plus AJV validate the output locally against the stage schema. Empty, truncated, malformed or schema-invalid output is retried once; truncated output is never accepted. Other HTTP errors and request timeouts are not retried.
 
-Output budgets start at 768 tokens for planning, 1024 for sufficiency/action, and 2048 for generation/grounding; the single output retry doubles the budget up to 4096.
+Requests omit temperature and use minimal reasoning effort. Completion budgets start at 2048 tokens for planning/sufficiency/action and 4096 for generation/grounding; the single output retry doubles the budget up to 8192. These budgets include reasoning tokens.
 
 Logs include request ID, provider, stage, model, elapsed time, finish reason and token/character counts. They omit user text, evidence and model bodies. Citation generation/checking use K1/K2 labels constrained to current evidence, mapped back to chunk UUIDs by the gateway. Deployment checks Redis/retrieval readiness and a small static OpenAI completion without logging credentials. Operational failures return notices, not canned knowledge answers.
 

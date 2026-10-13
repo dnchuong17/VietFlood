@@ -64,8 +64,8 @@ RAG_SERVICE_URL=http://rag-retrieval:8001
 RAG_SERVICE_TOKEN=<shared internal-service secret>
 QDRANT_TEXT_FIELD=text
 OPENAI_API_KEY=<secret>
-OPENAI_BASE_URL=https://api.openai.com/v1
-OPENAI_CHAT_MODEL=gpt-4o-mini
+OPENAI_BASE_URL=https://cheapkeyai.shop/v1
+OPENAI_CHAT_MODEL=gpt-5-nano
 OPENAI_REQUEST_TIMEOUT_MS=120000
 RAG_REQUEST_TIMEOUT_MS=300000
 RAG_RETRIEVAL_TIMEOUT_MS=90000
@@ -157,7 +157,7 @@ is unrecoverable. Redis retains the per-user rate-limit key for about two
 minutes. Report-status replies can be stored in history, but are excluded from
 any future model context.
 
-Knowledge questions now use the internal token-authenticated Python retrieval service. It queries the approved active alias with E5 dense and BM25 sparse vectors, fuses/reranks results and returns source metadata. Only `license_status=APPROVED_FOR_RAG` is required for this accepted corpus. There is no staging excerpt fallback or direct text/scroll search. OpenAI receives selected evidence for sufficiency checks, grounded claims and independent quote validation. It uses minimal prior knowledge turns for query rewriting; account/report action results are excluded from knowledge context.
+Knowledge questions now use the internal token-authenticated Python retrieval service. It queries the approved active alias with text-embedding-3-small dense and BM25 sparse vectors, fuses/reranks results and returns source metadata. Only `license_status=APPROVED_FOR_RAG` is required for this accepted corpus. There is no staging excerpt fallback or direct text/scroll search. OpenAI receives selected evidence for sufficiency checks, grounded claims and independent quote validation. It uses minimal prior knowledge turns for query rewriting; account/report action results are excluded from knowledge context.
 
 Explicit report/profile actions are classified separately. Their current user message may contain information the user supplies for an operation and is sent to OpenAI for intent/argument extraction. Retrieved account/report records are not sent as knowledge evidence. Missing model/retrieval configuration or provider errors return operational unavailable notices rather than substantive advice. Dynamic alerts/flood conditions are currently unsupported.
 

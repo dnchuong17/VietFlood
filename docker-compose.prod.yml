@@ -35,8 +35,8 @@ services:
       QDRANT_API_KEY: ${QDRANT_API_KEY:-}
       QDRANT_TEXT_FIELD: ${QDRANT_TEXT_FIELD:-text}
       OPENAI_API_KEY: ${OPENAI_API_KEY:?Set OPENAI_API_KEY in the environment}
-      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
-      OPENAI_CHAT_MODEL: ${OPENAI_CHAT_MODEL:-gpt-4o-mini}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://cheapkeyai.shop/v1}
+      OPENAI_CHAT_MODEL: ${OPENAI_CHAT_MODEL:-gpt-5-nano}
       OPENAI_REQUEST_TIMEOUT_MS: ${OPENAI_REQUEST_TIMEOUT_MS:-120000}
       RAG_REQUEST_TIMEOUT_MS: ${RAG_REQUEST_TIMEOUT_MS:-300000}
       RAG_RETRIEVAL_TIMEOUT_MS: ${RAG_RETRIEVAL_TIMEOUT_MS:-90000}
@@ -63,6 +63,10 @@ services:
       QDRANT_CHAT_COLLECTION: ${QDRANT_CHAT_COLLECTION:-flood_kb_active}
       RAG_SERVICE_TOKEN: ${RAG_SERVICE_TOKEN}
       RAG_DATA_DIR: /app/data
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?Set OPENAI_API_KEY in the environment}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://cheapkeyai.shop/v1}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-1536}
       HF_HOME: /models/huggingface
       FASTEMBED_CACHE_PATH: /models/fastembed
     expose:

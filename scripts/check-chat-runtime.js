@@ -1,6 +1,7 @@
 // Deployment preflight: never print credentials, response bodies or user data.
 const { openaiConfiguration, checkOpenAI } = require("./check-openai-runtime");
 function endpoint(value, name) {
+  value = value.trim();
   const url = new URL(value);
   if (
     !["http:", "https:"].includes(url.protocol) ||
@@ -11,6 +12,29 @@ function endpoint(value, name) {
   )
     throw new Error(`invalid_${name}_url`);
   return value.replace(/\/+$/, "");
+}
+class RetrievalReadinessError extends Error {
+  constructor(reason, details) {
+    super(reason);
+    this.details = details;
+  }
+}
+function validateRetrieval(health, expectedAlias) {
+  const identifier = (value) => typeof value === "string" && /^[A-Za-z0-9_.-]{1,160}$/.test(value)
+    ? value : value == null ? "[missing]" : "[invalid]";
+  const details = {
+    expectedAlias: identifier(expectedAlias),
+    reportedAlias: identifier(health?.alias),
+    reportedStatus: identifier(health?.status),
+    pointCount: typeof health?.pointCount === "number" && Number.isFinite(health.pointCount) ? health.pointCount : "[invalid]",
+  };
+  if (!health || typeof health !== "object" || Array.isArray(health))
+    throw new RetrievalReadinessError("retrieval_invalid_health_response", details);
+  if (health.status !== "ready") throw new RetrievalReadinessError("retrieval_not_ready", details);
+  if (health.alias !== expectedAlias) throw new RetrievalReadinessError("retrieval_alias_mismatch", details);
+  if (!Number.isSafeInteger(health.pointCount) || health.pointCount <= 0)
+    throw new RetrievalReadinessError("retrieval_empty_or_invalid_point_count", details);
+  return { alias: health.alias, pointCount: health.pointCount };
 }
 async function request(url, options, timeout = 15000) {
   const response = await fetch(url, {
@@ -46,32 +70,27 @@ async function checkRedis() {
     redis.disconnect();
   }
 }
-(async () => {
+async function checkChatRuntime() {
   let stage = "configuration";
   try {
     const rag = endpoint(process.env.RAG_SERVICE_URL || "", "rag");
-    if (!process.env.RAG_SERVICE_TOKEN) throw new Error("missing_rag_token");
+    const token = (process.env.RAG_SERVICE_TOKEN || "").trim();
+    if (!token) throw new Error("missing_rag_token");
     openaiConfiguration();
     stage = "redis";
     await checkRedis();
     console.log(JSON.stringify({ stage, status: "ready" }));
     stage = "retrieval";
     const health = await request(rag + "/health/ready", {
-      headers: { "X-Rag-Token": process.env.RAG_SERVICE_TOKEN },
+      headers: { "X-Rag-Token": token },
     });
-    if (
-      health.status !== "ready" ||
-      health.alias !==
-        (process.env.QDRANT_CHAT_COLLECTION || "flood_kb_active") ||
-      !(health.pointCount > 0)
-    )
-      throw new Error("retrieval_not_ready_or_wrong_alias");
+    const expectedAlias = (process.env.QDRANT_CHAT_COLLECTION || "flood_kb_active").trim();
+    const retrieval = validateRetrieval(health, expectedAlias);
     console.log(
       JSON.stringify({
         stage,
         status: "ready",
-        alias: health.alias,
-        pointCount: health.pointCount,
+        ...retrieval,
       }),
     );
     stage = "openai";
@@ -79,12 +98,16 @@ async function checkRedis() {
     console.log(JSON.stringify({ stage, status: "ready", ...openai }));
   } catch (error) {
     const reason =
-      /^(invalid_|missing_|dependency_http_|retrieval_not_|openai_)/.test(
+      /^(invalid_|missing_|dependency_http_|retrieval_|openai_)/.test(
         error.message || "",
       )
         ? error.message
         : error.name;
-    console.error(JSON.stringify({ stage, status: "unavailable", reason }));
+    console.error(JSON.stringify({ stage, status: "unavailable", reason,
+      ...(error instanceof RetrievalReadinessError ? error.details : {}),
+    }));
     process.exitCode = 1;
   }
-})();
+}
+module.exports = { validateRetrieval };
+if (require.main === module) checkChatRuntime();

@@ -33,6 +33,8 @@ Both Compose files pass the key only to the API gateway. Ollama containers and m
 
 Add `OPENAI_API_KEY` to the protected `/opt/env/vietflood.env` on the Jenkins agent. Set `OPENAI_BASE_URL`, `OPENAI_CHAT_MODEL`, and timeout values there as needed. The pipeline checks Redis and retrieval readiness, then sends a small static JSON probe to the configured OpenAI chat model before replacing the running backend. This verifies network access, key permissions, model access, and JSON output. It consumes a small amount of API usage and prints only safe status/model/timing metadata. Failures leave the existing backend running.
 
+Set `QDRANT_CHAT_COLLECTION=flood_kb_active` in that protected file. This is the approved active alias, not its versioned physical collection (for example, `flood_kb_active_20261012170418_13a14650`). The preflight compares it with the retrieval service's reported `alias`; a mismatch stops deployment and reports `expectedAlias`, `reportedAlias`, `reportedStatus`, and `pointCount`. Jenkins explicitly passes the shell-loaded alias, RAG endpoint/token and OpenAI key into its check and backend containers so quoted env-file values are handled consistently.
+
 The Jenkinsfile and code must both be on the branch Jenkins checks out. Editing the local `.env`, adding an OpenAI key to an existing Gemini image, or restarting that image does not change its provider. Build and deploy the updated source. Confirm startup logs say `OpenAI chatbot configuration ready` and model-stage logs include `provider=openai`.
 
 For a container managed manually in Portainer, recreate the backend with the newly built image and the same OpenAI variables. Keep Redis and RabbitMQ on the backend's Docker network and use their container names or network aliases as hosts.

@@ -160,6 +160,7 @@ pipeline {
           export OPENAI_REQUEST_TIMEOUT_MS="${OPENAI_REQUEST_TIMEOUT_MS:-120000}"
           export RAG_REQUEST_TIMEOUT_MS="${RAG_REQUEST_TIMEOUT_MS:-300000}"
           export RAG_RETRIEVAL_TIMEOUT_MS="${RAG_RETRIEVAL_TIMEOUT_MS:-90000}"
+          export QDRANT_CHAT_COLLECTION="${QDRANT_CHAT_COLLECTION:-flood_kb_active}"
           export REDIS_HOST="$REDIS_CONTAINER_NAME"
           export REDIS_PORT=6379
           export REDIS_DB=0
@@ -170,6 +171,7 @@ pipeline {
           # Includes a small real OpenAI completion to verify key/model/network.
           docker run --rm --network "$DOCKER_NETWORK" --env-file "$ENV_FILE" \
             -e REDIS_HOST -e REDIS_PORT -e REDIS_DB \
+            -e QDRANT_CHAT_COLLECTION -e RAG_SERVICE_URL -e RAG_SERVICE_TOKEN -e OPENAI_API_KEY \
             -e OPENAI_BASE_URL -e OPENAI_CHAT_MODEL -e OPENAI_REQUEST_TIMEOUT_MS \
             -e RAG_REQUEST_TIMEOUT_MS -e RAG_RETRIEVAL_TIMEOUT_MS \
             --entrypoint node "$IMAGE_NAME:$TIMESTAMP" /app/scripts/check-chat-runtime.js
@@ -233,6 +235,7 @@ pipeline {
           export OPENAI_REQUEST_TIMEOUT_MS="${OPENAI_REQUEST_TIMEOUT_MS:-120000}"
           export RAG_REQUEST_TIMEOUT_MS="${RAG_REQUEST_TIMEOUT_MS:-300000}"
           export RAG_RETRIEVAL_TIMEOUT_MS="${RAG_RETRIEVAL_TIMEOUT_MS:-90000}"
+          export QDRANT_CHAT_COLLECTION="${QDRANT_CHAT_COLLECTION:-flood_kb_active}"
           export REDIS_HOST="$REDIS_CONTAINER_NAME"
           export REDIS_PORT=6379
           export REDIS_DB=0
@@ -246,6 +249,7 @@ pipeline {
             -e API_GATEWAY_PORT="$CONTAINER_PORT" \
             -e REDIS_HOST -e REDIS_PORT -e REDIS_DB \
             -e RABBITMQ_URL \
+            -e QDRANT_CHAT_COLLECTION -e RAG_SERVICE_URL -e RAG_SERVICE_TOKEN -e OPENAI_API_KEY \
             -e OPENAI_BASE_URL -e OPENAI_CHAT_MODEL \
             -e OPENAI_REQUEST_TIMEOUT_MS -e RAG_REQUEST_TIMEOUT_MS -e RAG_RETRIEVAL_TIMEOUT_MS \
             "$IMAGE_NAME:$TIMESTAMP"

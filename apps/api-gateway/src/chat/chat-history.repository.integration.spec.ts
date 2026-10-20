@@ -7,6 +7,7 @@ import { ServiceUnavailableException } from "@nestjs/common";
 
 import { ChatCryptoService } from "./chat-crypto.service";
 import { ChatHistoryRepository } from "./chat-history.repository";
+import { applyChatMigrations } from "../../../../scripts/migrate-chat-history.js";
 
 const testUrl = process.env.CHAT_TEST_DATABASE_URL;
 const isolated = process.env.CHAT_TEST_DATABASE_ISOLATED === "YES";
@@ -114,6 +115,15 @@ describe.skipIf(!testUrl || !isolated)("ChatHistoryRepository isolated PostgreSQ
       { role: "user", kind: "action", content: "Xóa báo cáo 22" },
       { role: "assistant", kind: "action", content: "Xác nhận trước khi xóa." },
     ]);
+    await repository.delete(owner, id);
+  });
+
+  it("reruns deployment migrations without rejecting existing action rows", async () => {
+    const id = randomUUID();
+    await repository.create(owner, id, "action question", "action answer", "action");
+    await applyChatMigrations(pool);
+    await repository.append(owner, id, "another action", "action answer", "action");
+    expect((await repository.messages(owner, id, 20))?.items).toHaveLength(4);
     await repository.delete(owner, id);
   });
 

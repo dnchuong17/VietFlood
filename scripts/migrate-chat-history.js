@@ -2,6 +2,29 @@ const { readFileSync } = require("node:fs");
 const path = require("node:path");
 const { Pool } = require("pg");
 
+async function applyChatMigrations(pool) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SELECT pg_advisory_xact_lock(20261009)");
+    // Apply the latest cumulative constraint directly. Replaying the older,
+    // narrower constraints would reject existing community_reports/action rows.
+    for (const migration of [
+      "20261009_chat_history.sql",
+      "20261009_chat_action_kind.sql",
+    ]) {
+      const sql = readFileSync(path.join(__dirname, `../db/migrations/${migration}`), "utf8");
+      await client.query(sql);
+    }
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function main() {
   const connectionString = process.env.DATABASE_URL;
   const caEncoded = process.env.CHAT_DB_CA_BASE64;
@@ -18,30 +41,16 @@ async function main() {
   if (ssl && !ssl.ca.includes("BEGIN CERTIFICATE"))
     throw new Error("Chat database CA is invalid");
   const pool = new Pool({ connectionString: parsedUrl.toString(), ssl, max: 1 });
-  const client = await pool.connect();
   try {
-    await client.query("BEGIN");
-    await client.query("SELECT pg_advisory_xact_lock(20261009)");
-    for (const migration of [
-      "20261009_chat_history.sql",
-      "20261009_chat_small_talk_kind.sql",
-      "20261009_chat_community_reports_kind.sql",
-    ]) {
-      const sql = readFileSync(path.join(__dirname, `../db/migrations/${migration}`), "utf8");
-      await client.query(sql);
-    }
-    await client.query("COMMIT");
+    await applyChatMigrations(pool);
     process.stdout.write("Chat history migration applied\n");
-  } catch (error) {
-    await client.query("ROLLBACK").catch(() => undefined);
-    throw error;
   } finally {
-    client.release();
     await pool.end();
   }
 }
 
-main().catch(() => {
+module.exports = { applyChatMigrations };
+if (require.main === module) main().catch(() => {
   process.stderr.write("Chat history migration failed; inspect database access and schema permissions\n");
   process.exitCode = 1;
 });

@@ -19,6 +19,11 @@ postgres-derived backend role**, which can bypass it. Keep the tables out of
 the exposed Supabase API schemas and retain the SQL ownership predicates.
 Never expose `DATABASE_URL` or any privileged Supabase credential to a client.
 
+The deployment runner applies `20261009_chat_history.sql` followed by the
+cumulative `20261009_chat_action_kind.sql`, which includes `small_talk`,
+`community_reports`, and `action`. It skips the older intermediate kind
+constraints so reruns also work with existing messages of those kinds.
+
 Message content is stored as AES-256-GCM ciphertext, random nonce, tag, and key
 version. Authenticated associated data binds the user ID, session ID, message
 ID, and role. Titles are derived from decrypted first messages on read; there
@@ -27,6 +32,14 @@ rest and controlled, encrypted backups are still required. Chat responses are
 marked `Cache-Control: private, no-store` on history routes.
 
 ## Configuration and deployment
+
+If action replies fail with HTTP `503`, rebuild the image and rerun the Jenkins
+deployment, including **Migrate Chat History**. Both Docker images include the
+latest kind constraint. For other database failures, the gateway logs only the
+error `code` and constraint identifier; `23514` with `messages_kind_check`
+identifies a schema mismatch. It does not log database error messages or SQL
+parameters. Idle connection errors are handled, failed rollback connections are
+discarded, and the services retire idle sockets after ten seconds.
 
 ### One-time Jenkins environment checklist
 

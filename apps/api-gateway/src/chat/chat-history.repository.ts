@@ -43,11 +43,12 @@ type SqlClient = {
     sql: string,
     values?: unknown[],
   ): Promise<SqlResult<T>>;
-  release(): void;
+  release(destroy?: boolean): void;
 };
 type SqlPool = SqlClient & {
   connect(): Promise<SqlClient>;
   end(): Promise<void>;
+  on(event: "error", listener: (error: unknown) => void): void;
 };
 type MessageRow = {
   id: string;
@@ -114,7 +115,19 @@ export class ChatHistoryRepository implements OnModuleInit, OnModuleDestroy {
     if (ssl && !ssl.ca.includes("BEGIN CERTIFICATE"))
       throw new Error("CHAT_DB_CA_BASE64 is invalid");
     const { Pool } = require("pg") as { Pool: new (options: object) => SqlPool };
-    this.pool = new Pool({ connectionString: parsedUrl.toString(), ssl, max: 4 });
+    this.pool = new Pool({
+      connectionString: parsedUrl.toString(), ssl, max: 4,
+      idleTimeoutMillis: 10000,
+      connectionTimeoutMillis: 10000,
+      maxLifetimeSeconds: 60,
+      keepAlive: true,
+      keepAliveInitialDelayMillis: 10000,
+    });
+    // pg removes the failed idle client; handling this event keeps the process
+    // alive so the next request can acquire a fresh connection.
+    this.pool.on("error", (error) => {
+      this.logDatabaseError("Chat history idle connection failed", error);
+    });
   }
 
   async onModuleInit(): Promise<void> {
@@ -437,16 +450,17 @@ export class ChatHistoryRepository implements OnModuleInit, OnModuleDestroy {
   private async transaction<T>(work: (client: SqlClient) => Promise<T>): Promise<T> {
     return this.safe(async () => {
       const client = await this.pool.connect();
+      let destroy = false;
       try {
         await client.query("BEGIN");
         const result = await work(client);
         await client.query("COMMIT");
         return result;
       } catch (error) {
-        await client.query("ROLLBACK").catch(() => undefined);
+        await client.query("ROLLBACK").catch(() => { destroy = true; });
         throw error;
       } finally {
-        client.release();
+        client.release(destroy);
       }
     });
   }
@@ -456,8 +470,18 @@ export class ChatHistoryRepository implements OnModuleInit, OnModuleDestroy {
       return await work();
     } catch (error) {
       if (error instanceof HttpException) throw error;
-      this.logger.warn("Chat history database operation failed");
+      this.logDatabaseError("Chat history database operation failed", error);
       throw new ServiceUnavailableException("Chat history is unavailable");
     }
+  }
+
+  private logDatabaseError(message: string, error: unknown): void {
+    const details = error as { code?: unknown; constraint?: unknown } | null;
+    // Never log SQL, query parameters, database URLs, or driver error messages.
+    const code = typeof details?.code === "string" && /^[A-Z0-9_]{2,32}$/.test(details.code)
+      ? details.code : "unknown";
+    const constraint = typeof details?.constraint === "string" && /^[a-zA-Z0-9_]{1,100}$/.test(details.constraint)
+      ? details.constraint : undefined;
+    this.logger.warn(message, { code, ...(constraint ? { constraint } : {}) });
   }
 }

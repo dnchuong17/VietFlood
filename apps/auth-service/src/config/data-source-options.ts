@@ -13,7 +13,13 @@ const dataSourceOptions: DataSourceOptions = {
   logging: ["error", "schema"],
   extra: {
     max: 2,
-    min: 1,
+    // Retire idle sockets before a database proxy can leave them stale.
+    min: 0,
+    idleTimeoutMillis: 10000,
+    connectionTimeoutMillis: 10000,
+    maxLifetimeSeconds: 60,
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 10000,
   },
 };
 

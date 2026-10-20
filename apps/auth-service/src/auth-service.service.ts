@@ -67,6 +67,10 @@ export class AuthService {
   }
 
   async validateUser(username: string, password: string) {
+    if (typeof username !== "string" || !username.trim() ||
+        typeof password !== "string" || !password.trim()) {
+      throw new UnauthorizedException("Invalid username or password");
+    }
     const user = await this.userService.findUserWithUsername(username);
     try {
       if (user && (await bcrypt.compare(password, user.password))) {
@@ -80,7 +84,7 @@ export class AuthService {
   }
 
   async signIn(signIn: SigninDto) {
-    const isSignIn = await this.validateUser(signIn.username, signIn.password);
+    const isSignIn = await this.validateUser(signIn?.username, signIn?.password);
     if (isSignIn) {
       const user = await this.userService.findUserWithUsername(signIn.username);
       const payload = {

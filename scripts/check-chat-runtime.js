@@ -1,5 +1,5 @@
 // Deployment preflight: never print credentials, response bodies or user data.
-const { openaiConfiguration, checkOpenAI } = require("./check-openai-runtime");
+const { openaiConfiguration, checkOpenAI, openaiFailureDetails } = require("./check-openai-runtime");
 function endpoint(value, name) {
   value = value.trim();
   const url = new URL(value);
@@ -104,10 +104,11 @@ async function checkChatRuntime() {
         ? error.message
         : error.name;
     console.error(JSON.stringify({ stage, status: "unavailable", reason,
+      ...(stage === "openai" ? openaiFailureDetails(error) : {}),
       ...(error instanceof RetrievalReadinessError ? error.details : {}),
     }));
     process.exitCode = 1;
   }
 }
-module.exports = { validateRetrieval };
+module.exports = { validateRetrieval, checkChatRuntime };
 if (require.main === module) checkChatRuntime();

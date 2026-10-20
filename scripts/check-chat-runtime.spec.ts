@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { validateRetrieval } from "./check-chat-runtime.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { checkChatRuntime, validateRetrieval } from "./check-chat-runtime.js";
 
 const health = {
   status: "ready", alias: "flood_kb_active",
@@ -31,5 +31,40 @@ describe("Retrieval deployment readiness", () => {
       expect(error.details.reportedAlias).toBe("[invalid]");
       expect(JSON.stringify(error.details)).not.toMatch(/private-token|provider text/);
     }
+  });
+});
+
+describe("Jenkins preflight failure output", () => {
+  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
+
+  it("prints the underlying TLS code instead of only TypeError and fails deployment", async () => {
+    const Redis = require("ioredis");
+    vi.spyOn(Redis.prototype, "connect").mockResolvedValue(undefined);
+    vi.spyOn(Redis.prototype, "ping").mockResolvedValue("PONG");
+    vi.spyOn(Redis.prototype, "disconnect").mockImplementation(() => {});
+    for (const [name, value] of Object.entries({
+      RAG_SERVICE_URL: "http://retrieval.test", RAG_SERVICE_TOKEN: "private-rag-token",
+      REDIS_HOST: "redis.test", REDIS_PORT: "6379", REDIS_DB: "0",
+      OPENAI_API_KEY: "private-openai-key", OPENAI_BASE_URL: "https://provider.test/v1",
+      OPENAI_CHAT_MODEL: "gpt-5-nano", OPENAI_REQUEST_TIMEOUT_MS: "120000",
+      QDRANT_CHAT_COLLECTION: "flood_kb_active",
+    })) vi.stubEnv(name, value);
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const output = vi.spyOn(console, "error").mockImplementation(() => {});
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => health })
+      .mockRejectedValue(new TypeError("private driver details", { cause: { code: "UNABLE_TO_VERIFY_LEAF_SIGNATURE" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const previousExitCode = process.exitCode;
+    try {
+      await checkChatRuntime();
+      expect(process.exitCode).toBe(1);
+      expect(output).toHaveBeenCalledOnce();
+      expect(JSON.parse(output.mock.calls[0][0])).toEqual({ stage: "openai", status: "unavailable",
+        reason: "openai_tls_error", errorType: "TypeError",
+        errorCode: "UNABLE_TO_VERIFY_LEAF_SIGNATURE", errorCodes: ["UNABLE_TO_VERIFY_LEAF_SIGNATURE"] });
+      expect(JSON.stringify([...log.mock.calls, ...output.mock.calls])).not.toMatch(/private/);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally { process.exitCode = previousExitCode; }
   });
 });

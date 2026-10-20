@@ -1,5 +1,54 @@
 // A small real completion verifies the configured key, model and network.
 // Only the static probe below is sent; never print credentials or API bodies.
+const { setTimeout: wait } = require("node:timers/promises");
+
+const NETWORK_REASONS = {
+  ENOTFOUND: "openai_dns_error", EAI_AGAIN: "openai_dns_error",
+  ECONNREFUSED: "openai_connection_refused", ECONNRESET: "openai_connection_reset",
+  EHOSTUNREACH: "openai_network_unreachable", ENETUNREACH: "openai_network_unreachable",
+  ETIMEDOUT: "openai_connection_timeout", UND_ERR_CONNECT_TIMEOUT: "openai_connection_timeout",
+  UND_ERR_HEADERS_TIMEOUT: "openai_connection_timeout", UND_ERR_BODY_TIMEOUT: "openai_connection_timeout",
+  UND_ERR_SOCKET: "openai_connection_reset",
+  CERT_HAS_EXPIRED: "openai_tls_error", CERT_NOT_YET_VALID: "openai_tls_error",
+  UNABLE_TO_VERIFY_LEAF_SIGNATURE: "openai_tls_error",
+  UNABLE_TO_GET_ISSUER_CERT_LOCALLY: "openai_tls_error",
+  DEPTH_ZERO_SELF_SIGNED_CERT: "openai_tls_error", SELF_SIGNED_CERT_IN_CHAIN: "openai_tls_error",
+  ERR_TLS_CERT_ALTNAME_INVALID: "openai_tls_error",
+};
+const RETRYABLE_CODES = new Set([
+  "EAI_AGAIN", "ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "EHOSTUNREACH", "ENETUNREACH",
+  "UND_ERR_CONNECT_TIMEOUT", "UND_ERR_HEADERS_TIMEOUT", "UND_ERR_BODY_TIMEOUT", "UND_ERR_SOCKET",
+]);
+
+function openaiFailureDetails(error) {
+  // Undici can nest socket errors inside cause / AggregateError.errors. Only
+  // copy known codes, never messages, URLs, addresses, headers, or response data.
+  const queue = [error];
+  const seen = new Set();
+  const codes = new Set();
+  for (let i = 0; i < queue.length && i < 24; i++) {
+    const item = queue[i];
+    if (!item || typeof item !== "object" || seen.has(item)) continue;
+    seen.add(item);
+    if (typeof item.code === "string" && Object.hasOwn(NETWORK_REASONS, item.code)) codes.add(item.code);
+    if (item.cause) queue.push(item.cause);
+    if (Array.isArray(item.errors)) queue.push(...item.errors.slice(0, 8));
+  }
+  const errorCodes = [...codes];
+  const errorCode = errorCodes[0];
+  const errorType = ["TypeError", "Error", "SyntaxError", "TimeoutError", "AbortError", "AggregateError"].includes(error?.name)
+    ? error.name : "Error";
+  let reason;
+  if (errorType === "TimeoutError") reason = "openai_timeout";
+  else if (errorType === "AbortError") reason = "openai_aborted";
+  else if (errorCode) reason = NETWORK_REASONS[errorCode];
+  else if (errorType === "SyntaxError") reason = "openai_invalid_response_json";
+  else if (/^(invalid_|missing_|openai_)[a-z0-9_]{1,100}$/.test(error?.message || "")) reason = error.message;
+  else reason = errorType === "TypeError" && error.message === "fetch failed"
+    ? "openai_connection_failed" : "openai_probe_failed";
+  return { reason, errorType, ...(errorCode ? { errorCode, errorCodes } : {}) };
+}
+
 function openaiConfiguration(env = process.env) {
   const baseUrl = (env.OPENAI_BASE_URL ?? "https://cheapkeyai.shop/v1").trim().replace(/\/+$/, "");
   let url;
@@ -31,19 +80,33 @@ async function checkOpenAI(env = process.env) {
     onAbort = () => reject(signal.reason);
     signal.addEventListener("abort", onAbort, { once: true });
   });
+  let attempts = 0;
   const completion = async () => {
-    const response = await fetch(config.baseUrl + "/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${config.apiKey}`, "Content-Type": "application/json" },
-      signal,
-      body: JSON.stringify({
-        model: config.model,
-        messages: [{ role: "user", content: 'Return only the JSON object {"ready":true}.' }],
-        response_format: { type: "json_object" },
-        reasoning_effort: "minimal",
-        max_completion_tokens: 1024,
-      }),
-    });
+    let response;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      signal.throwIfAborted();
+      attempts++;
+      try {
+        response = await fetch(config.baseUrl + "/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${config.apiKey}`, "Content-Type": "application/json" },
+          signal,
+          body: JSON.stringify({
+            model: config.model,
+            messages: [{ role: "user", content: 'Return only the JSON object {"ready":true}.' }],
+            response_format: { type: "json_object" },
+            reasoning_effort: "minimal",
+            max_completion_tokens: 1024,
+          }),
+        });
+        break;
+      } catch (error) {
+        const { errorCodes = [] } = openaiFailureDetails(error);
+        if (signal.aborted || attempt === 2 || !errorCodes.length ||
+            !errorCodes.every((code) => RETRYABLE_CODES.has(code))) throw error;
+        await wait(500 * (attempt + 1), undefined, { signal });
+      }
+    }
     if (!response.ok) {
       const reasons = {
         401: "openai_authentication_failed", 403: "openai_permission_denied",
@@ -66,7 +129,7 @@ async function checkOpenAI(env = process.env) {
     try { value = JSON.parse(choice.message.content); }
     catch { throw new Error("openai_invalid_probe_response"); }
     if (value?.ready !== true) throw new Error("openai_invalid_probe_response");
-    return { provider: "openai", model: config.model, serviceOrigin: config.serviceOrigin, elapsedMs: Date.now() - started };
+    return { provider: "openai", model: config.model, serviceOrigin: config.serviceOrigin, attempts, elapsedMs: Date.now() - started };
   };
   try {
     return await Promise.race([completion(), aborted]);
@@ -75,14 +138,13 @@ async function checkOpenAI(env = process.env) {
   }
 }
 
-module.exports = { openaiConfiguration, checkOpenAI };
+module.exports = { openaiConfiguration, checkOpenAI, openaiFailureDetails };
 
 if (require.main === module) {
   checkOpenAI().then(
     (result) => console.log(JSON.stringify({ stage: "openai", status: "ready", ...result })),
     (error) => {
-      const reason = /^(invalid_|missing_|openai_)/.test(error.message || "") ? error.message : error.name;
-      console.error(JSON.stringify({ stage: "openai", status: "unavailable", reason }));
+      console.error(JSON.stringify({ stage: "openai", status: "unavailable", ...openaiFailureDetails(error) }));
       process.exitCode = 1;
     },
   );

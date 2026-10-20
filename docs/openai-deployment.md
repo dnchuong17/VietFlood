@@ -61,6 +61,28 @@ npm run check:openai
 
 This sends the same small static probe as Jenkins and can incur API usage. A successful result reports `stage=openai`, `status=ready`, and the configured model. Authentication, permission, model/endpoint, quota/rate-limit, malformed output, and timeout errors stop the check without printing the key or provider response body. It does not test retrieval or the complete chatbot conversation.
 
+The probe makes up to three connection attempts, waiting 500 ms and 1000 ms
+between temporary transport failures, within one shared request deadline.
+Authentication, quota, HTTP errors, invalid output, and certificate failures
+are not retried. Success includes the number of `attempts` used.
+
+Connection failures include a safe `reason`, `errorType`, `errorCode`, and
+`errorCodes` (including nested socket errors), rather than just `TypeError`:
+
+| Reason | Check on the Jenkins agent / backend Docker network |
+| --- | --- |
+| `openai_dns_error` | DNS resolution for the hostname in `OPENAI_BASE_URL`; `EAI_AGAIN` indicates a temporary resolver failure. |
+| `openai_connection_refused` / `openai_connection_reset` | Outbound HTTPS access, proxy/firewall rules, and provider connectivity. |
+| `openai_network_unreachable` | Container routing and outbound IPv4/IPv6 connectivity. |
+| `openai_connection_timeout` / `openai_timeout` | Outbound connectivity and the configured request deadline. |
+| `openai_tls_error` | Agent time, the provider certificate chain/hostname, and any required trusted proxy CA. Preserve TLS verification. |
+
+No raw driver message, stack trace, authorization header, or provider response
+body is printed. A persistent failure still stops deployment before the old
+backend is stopped. These checks run against the configured compatible
+provider; a successful check on a developer machine does not establish
+connectivity from the Jenkins Docker network.
+
 For HTTP 429, logs include only recognized OpenAI error codes. `insufficient_quota`, credit-balance and spend-limit errors require checking the account's credits or limits; increasing request timeout does not restore access. `rate_limit_exceeded` and `slow_down` indicate request pacing is needed. See the [official OpenAI error guide](https://developers.openai.com/api/docs/guides/error-codes).
 
 Provider regression tests use mocked HTTP responses, not a paid API:

@@ -1,5 +1,6 @@
 import {
   Body,
+  BadRequestException,
   Controller,
   Delete,
   Get,
@@ -103,7 +104,13 @@ export class AuthController {
   }
 
   @Post("logout")
-  async logout(@Body() body: any) {
-    return this.authService.logout(body);
+  async logout(
+    @Body() body: { refresh?: unknown; refresh_token?: unknown } | undefined,
+  ) {
+    const token = body?.refresh ?? body?.refresh_token;
+    if (typeof token !== "string" || !token.trim()) {
+      throw new BadRequestException("A refresh token is required");
+    }
+    return this.authService.logout(token);
   }
 }

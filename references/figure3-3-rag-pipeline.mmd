@@ -1,0 +1,49 @@
+graph LR
+    subgraph "1. MARC Data Ingestion"
+        DOCS["Book Metadata<br/>MARC Records<br/>Title, Author, ISBN, etc."]
+        LOAD["Data Parser<br/>MARC Fields Extraction"]
+        SPLIT["Metadata Assembly<br/>Concatenate Fields<br/>Title + Author + Subject"]
+        DOCS --> LOAD --> SPLIT
+    end
+
+    subgraph "2. Embedding Generation"
+        EMBED["OpenAI Embeddings<br/>text-embedding-3-small<br/>768 dimensions"]
+        SPLIT --> EMBED
+    end
+
+    subgraph "3. Vector Storage"
+        VECTOR[(Vector Database<br/>Qdrant<br/>HNSW Index)]
+        EMBED --> VECTOR
+    end
+
+    subgraph "4. Query Processing"
+        USER_Q["User Query<br/>Find books about AI"]
+        Q_EMBED["Query Embedding"]
+        SEARCH["Semantic Search<br/>Cosine Similarity"]
+        TOPK["Top-K Retrieval<br/>k=5 books"]
+
+        USER_Q --> Q_EMBED --> SEARCH
+        VECTOR -.->|similarity search| SEARCH
+        SEARCH --> TOPK
+    end
+
+    subgraph "5. Response Generation"
+        CONTEXT["Context Assembly<br/>Book metadata +<br/>System prompt"]
+        LLM["ChatGPT API<br/>GPT-4o-mini<br/>temperature=0.2"]
+        VALIDATE["Response Validation<br/>Metadata accuracy"]
+        RESPONSE["Book Recommendations<br/>with Details"]
+
+        TOPK --> CONTEXT --> LLM --> VALIDATE --> RESPONSE
+    end
+
+    subgraph "6. Storage & Logging"
+        POSTGRES[("Chat Sessions<br/>PostgreSQL")]
+        VALIDATE --> POSTGRES
+    end
+
+    RESPONSE --> OUTPUT["Return to User"]
+
+    style DOCS fill:#e3f2fd
+    style VECTOR fill:#f3e5f5
+    style LLM fill:#fff3e0
+    style RESPONSE fill:#e8f5e9

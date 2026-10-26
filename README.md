@@ -1,5 +1,12 @@
 # VietFlood
 
+## Hướng dẫn sử dụng website
+
+Xem [Sổ tay hướng dẫn sử dụng website VietFlood](docs/vietflood-user-guide.md)
+để bắt đầu với vai trò người dân, đội cứu trợ hoặc quản trị viên. Tài liệu bằng
+tiếng Việt gồm hướng dẫn từng bước, bảng quyền, sơ đồ luồng, bài thực hành và
+cách xử lý sự cố thường gặp trên máy tính và trình duyệt điện thoại.
+
 ## Chatbot API
 
 The API gateway exposes authenticated `POST /chat`, `GET /chat/sessions`,

@@ -1,0 +1,65 @@
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#e0f7fa','primaryTextColor':'#000','primaryBorderColor':'#00acc1','lineColor':'#00acc1','secondaryColor':'#e0f7fa','tertiaryColor':'#e8f5e9'}, 'fontFamily':'Poppins'}}%%
+graph TB
+
+    %% Top: User Input
+    subgraph Input["User Input"]
+        direction TB
+        QUERY["User Query:<br/>Find books about machine learning"]
+    end
+
+    %% Retrieval phase beneath input
+    subgraph Retrieval["Retrieval Phase"]
+        direction TB
+        EMBED["Query Embedding<br/>Convert to Vector"]
+        VECTOR[("Vector DB<br/>Qdrant")]
+        SEARCH["Similarity Search<br/>Top-k Results"]
+        DOCS["Retrieved Books:<br/>- Book metadata (MARC)<br/>- Title, Author, Subject<br/>- Call numbers, ISBN"]
+
+        EMBED --> VECTOR
+        VECTOR --> SEARCH
+        SEARCH --> DOCS
+    end
+
+    %% Context augmentation
+    subgraph Augmentation["Context Augmentation"]
+        direction TB
+        CONTEXT["Context Assembly:<br/>Query + Book Metadata"]
+        PROMPT["Prompt Template:<br/>Given context... Answer the question..."]
+        CONTEXT --> PROMPT
+    end
+
+    %% LLM generation
+    subgraph Generation["LLM Generation"]
+        direction TB
+        LLM["Large Language Model<br/>ChatGPT / GPT-4"]
+        RESPONSE["Book Recommendations:<br/>Relevant titles with metadata"]
+        PROMPT --> LLM
+        LLM --> RESPONSE
+    end
+
+    %% Final output at bottom
+    RESPONSE --> OUTPUT[Final Answer to User]
+
+    %% Knowledge base sits to the side but feeds indexing into Vector DB
+    subgraph Knowledge["Knowledge Base"]
+        direction TB
+        KB["Book Catalog:<br/>- MARC records<br/>- Metadata fields<br/>- Subject classifications"]
+        KB -.Indexed.-> VECTOR
+    end
+
+    %% Connect flow
+    QUERY --> EMBED
+    DOCS --> CONTEXT
+
+    %% Styling
+    style Input fill:#e1f5ff,stroke:#00acc1
+    style EMBED fill:#fff3e0,stroke:#00acc1
+    style VECTOR fill:#f3e5f5,stroke:#00acc1
+    style SEARCH fill:#fff3e0,stroke:#00acc1
+    style DOCS fill:#c8e6c9,stroke:#00acc1
+    style CONTEXT fill:#fff9c4,stroke:#00acc1
+    style PROMPT fill:#fff9c4,stroke:#00acc1
+    style LLM fill:#e0f7fa,stroke:#00acc1
+    style RESPONSE fill:#c8e6c9,stroke:#00acc1
+    style KB fill:#fce4ec,stroke:#00acc1
+    style OUTPUT fill:#a5d6a7,stroke:#00acc1

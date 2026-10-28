@@ -44,7 +44,7 @@ describe("OpenAIChatService", () => {
     expect(JSON.stringify(logger.info.mock.calls)).not.toMatch(/private question|test-openai-key/);
   });
   it.each([
-    ["route", 2048], ["sufficient", 2048], ["claims", 4096], ["checks", 4096],
+    ["route", 2048], ["sufficient", 2048], ["claims", 8192], ["checks", 2048],
   ])("uses the nano request contract for %s", async (property, budget) => {
     const stageSchema = { type: "object", properties: { [property]: { type: "string" } }, required: [property] };
     fetchMock.mockResolvedValue(completed(JSON.stringify({ [property]: "test" })));
@@ -113,6 +113,49 @@ describe("OpenAIChatService", () => {
     fetchMock.mockResolvedValue(completed('{"intent":"execute_sql","arguments":{}}'));
     expect(await service.understandAction("SQL", "citizen")).toBeNull();
   });
+  it("supplies bounded allowlisted draft fields and missing fields for terse followups", async () => {
+    fetchMock.mockResolvedValue(completed('{"intent":"create_report","arguments":{"ward":"Phường Bùi Đình Túy"}}'));
+    await service.understandAction("Phường Bùi Đình Túy", "citizen", {
+      intent: "create_report",
+      arguments: { category: ["flood"], description: "Ngập đường", province: "TP.HCM", ward: " ", addressLine: "12 Đường A", userId: 999, reportId: 123, role: "admin", password: "private", token: "secret", extra: "untrusted" },
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const data = JSON.parse(body.messages[1].content);
+    expect(data).toEqual({ role: "citizen", message: "Phường Bùi Đình Túy", pendingIntent: "create_report", pendingArguments: { category: ["flood"], description: "Ngập đường", province: "TP.HCM", addressLine: "12 Đường A" }, missingFields: ["ward"] });
+    expect(body.messages[0].content).toContain("Không tự suy ra");
+    expect(body.response_format).toEqual({ type: "json_object" });
+  });
+
+  it("recovers action parsing after a transient connection timeout without changing the prompt", async () => {
+    vi.useFakeTimers();
+    fetchMock.mockRejectedValueOnce(Object.assign(new TypeError("private provider connection"), { cause: { code: "ETIMEDOUT" } }));
+    fetchMock.mockResolvedValue(completed('{"intent":"create_report","arguments":{"description":"ngập"}}'));
+    const result = service.understandAction("private question", "citizen");
+    await vi.advanceTimersByTimeAsync(250);
+    expect(await result).toEqual({ intent: "create_report", arguments: { description: "ngập" } });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0][1].body).toBe(fetchMock.mock.calls[1][1].body);
+    expect(logger.warn).toHaveBeenCalledWith("RAG model transport retry", expect.objectContaining({ stage: "action", errorCode: "ETIMEDOUT", reason: "connection_timeout", nextAttempt: 2 }));
+    expect(JSON.stringify(logger.warn.mock.calls)).not.toMatch(/private provider connection|private question|test-openai-key/);
+  });
+
+  it("stops persistent connection failures after three transport attempts", async () => {
+    vi.useFakeTimers();
+    fetchMock.mockRejectedValue(new TypeError("private upstream", { cause: new AggregateError([Object.assign(new Error(), { code: "ETIMEDOUT" })]) }));
+    const assertion = expect(call(service)).rejects.toBeInstanceOf(TypeError);
+    await vi.advanceTimersByTimeAsync(750);
+    await assertion;
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(logger.warn).toHaveBeenCalledWith("RAG model stage failed", expect.objectContaining({ reason: "connection_timeout", errorCode: "ETIMEDOUT" }));
+  });
+
+  it("does not retry a TLS verification failure", async () => {
+    fetchMock.mockRejectedValue(Object.assign(new TypeError("private TLS details"), { cause: { code: "UNABLE_TO_VERIFY_LEAF_SIGNATURE" } }));
+    await expect(call(service)).rejects.toBeInstanceOf(TypeError);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(logger.warn).toHaveBeenCalledWith("RAG model stage failed", expect.objectContaining({ reason: "tls_failure" }));
+  });
+
   it("reports startup configuration safely and rejects a missing key", () => {
     service.onModuleInit();
     expect(logger.info).toHaveBeenCalledWith("OpenAI chatbot configuration ready", expect.objectContaining({ provider: "openai", model: "gpt-5-nano" }));

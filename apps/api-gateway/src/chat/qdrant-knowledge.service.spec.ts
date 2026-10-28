@@ -61,6 +61,42 @@ it("shares the candidate budget across subqueries and preserves coverage", async
   expect(fetchMock.mock.calls.map(c => JSON.parse(c[1].body).queries.length)).toEqual([1,1,1]);
   expect(passages.map(p => p.id)).toEqual(["nước","sơ tán","giấy tờ","shared"]);
 });
+it("recovers a retrieval connection timeout and preserves the query and evidence", async () => {
+  vi.useFakeTimers(); vi.stubEnv("RAG_SERVICE_URL", "http://rag:8001"); vi.stubEnv("RAG_SERVICE_TOKEN", "private-token");
+  const passage = { id: "recovered", text: "Nguồn", title: "Source", documentId: "E01", version: 1, sectionPath: [] };
+  const fetchMock = vi.fn().mockRejectedValueOnce(Object.assign(new TypeError("private connection failure"), { cause: { code: "ETIMEDOUT" } }))
+    .mockResolvedValue({ ok: true, json: async () => ({ passages: [passage] }) });
+  vi.stubGlobal("fetch", fetchMock);
+  const result = new QdrantKnowledgeService(logger as never).retrieve(["private query"], 20, 6);
+  await vi.advanceTimersByTimeAsync(250);
+  expect(await result).toEqual([passage]);
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  expect(fetchMock.mock.calls[0][1].body).toBe(fetchMock.mock.calls[1][1].body);
+  expect(logger.warn).toHaveBeenCalledWith("RAG service transport retry", expect.objectContaining({ reason: "connection_timeout", errorCode: "ETIMEDOUT", nextAttempt: 2 }));
+  expect(JSON.stringify(logger.warn.mock.calls)).not.toMatch(/private-token|private query|private connection failure/);
+});
+
+it("reports exhausted connection attempts separately from a retrieval deadline", async () => {
+  vi.useFakeTimers(); vi.stubEnv("RAG_SERVICE_URL", "http://rag:8001"); vi.stubEnv("RAG_SERVICE_TOKEN", "token");
+  const fetchMock = vi.fn().mockRejectedValue(Object.assign(new TypeError("fetch failed"), { cause: { code: "ETIMEDOUT" } }));
+  vi.stubGlobal("fetch", fetchMock);
+  const assertion = expect(new QdrantKnowledgeService(logger as never).retrieve(["query"], 20, 6)).rejects.toThrow("Retrieval unavailable");
+  await vi.advanceTimersByTimeAsync(750); await assertion;
+  expect(fetchMock).toHaveBeenCalledTimes(3);
+  expect(logger.warn).toHaveBeenCalledWith("RAG service connection failure", expect.objectContaining({ reason: "connection_timeout", elapsedMs: 750 }));
+});
+
+it("cancels retrieval backoff when the caller aborts", async () => {
+  vi.useFakeTimers(); vi.stubEnv("RAG_SERVICE_URL", "http://rag:8001"); vi.stubEnv("RAG_SERVICE_TOKEN", "token");
+  const caller = new AbortController();
+  const fetchMock = vi.fn().mockRejectedValue(Object.assign(new TypeError("fetch failed"), { cause: { code: "ETIMEDOUT" } }));
+  vi.stubGlobal("fetch", fetchMock);
+  const assertion = expect(new QdrantKnowledgeService(logger as never).retrieve(["query"], 20, 6, caller.signal)).rejects.toThrow("Retrieval unavailable");
+  await vi.advanceTimersByTimeAsync(0); caller.abort(); await assertion;
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(vi.getTimerCount()).toBe(0);
+});
+
 it("enforces the retrieval deadline even when fetch ignores cancellation", async () => {
   vi.useFakeTimers(); vi.stubEnv("RAG_SERVICE_URL", "http://rag:8001"); vi.stubEnv("RAG_SERVICE_TOKEN", "secret");
   vi.stubGlobal("fetch",vi.fn(async () => new Promise(() => {})));

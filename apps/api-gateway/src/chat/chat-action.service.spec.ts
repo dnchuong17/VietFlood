@@ -136,6 +136,108 @@ describe("ChatActionService", () => {
     expect(complete.action?.status).toBe("awaiting_confirmation");
     expect(complete.action?.intent).toBe("create_report");
     expect(complete.answer).toContain("GPS: chưa cung cấp (tùy chọn)");
+    expect(complete.answer).toContain("phường/xã: Hải Châu;");
+    expect(complete.answer).not.toContain("Hải Châu, đường A");
+    expect(reports.createReport).not.toHaveBeenCalled();
+  });
+
+  it.each(["null", "none", "blank", "unconfigured"])("preserves the pending report on %s extraction", async (mode) => {
+    ollama.understandAction.mockResolvedValueOnce({
+      intent: "create_report",
+      arguments: { category: ["flood"], description: "Ngập đường", province: "TP.HCM", addressLine: "Đường A" },
+    });
+    const draft = await service.handle(citizen, sessionId, "Tạo báo cáo");
+    ollama.isConfigured.mockReturnValue(mode !== "unconfigured");
+    ollama.understandAction.mockResolvedValue(mode === "null" ? null : {
+      intent: mode === "none" ? "none" : "create_report",
+      arguments: { category: [], description: "  ", province: undefined, addressLine: "" },
+    });
+    const next = await service.handle(citizen, sessionId, "Phường Bùi Đình Túy");
+    expect(next.handled).toBe(true);
+    expect(next.action).toEqual({ id: draft.action?.id, intent: "create_report", status: "awaiting_confirmation" });
+    expect(next.answer).toContain("Bùi Đình Túy");
+    expect(next.answer).toContain("Ngập đường");
+    expect(next.answer).toContain("TP.HCM");
+    expect(next.answer).toContain("Đường A");
+    expect(reports.createReport).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])("creates a report field by field without a working provider (configured=%s)", async (configured) => {
+    ollama.isConfigured.mockReturnValue(configured);
+    ollama.understandAction.mockResolvedValue(null);
+    let draft = await service.handle(citizen, sessionId, "Tôi muốn tạo báo cáo");
+    expect(draft.action?.status).toBe("collecting");
+    for (const reply of ["ngập lụt", "Mô tả: Ngập đường sau mưa", "TP.HCM", "Phường Bùi Đình Túy", "Địa chỉ: 12 Đường A"]) {
+      draft = await service.handle(citizen, sessionId, reply);
+      expect(draft.handled).toBe(true);
+      expect(reports.createReport).not.toHaveBeenCalled();
+    }
+    expect(draft.action?.status).toBe("awaiting_confirmation");
+    expect(draft.answer).toContain("Bùi Đình Túy");
+    expect(redis.set).toHaveBeenLastCalledWith(expect.any(String), expect.any(String), 900);
+    expect(crypto.encrypt).toHaveBeenCalled();
+    const done = await service.handle(citizen, sessionId, "Xác nhận", draft.action?.id, "confirm");
+    expect(done.action?.status).toBe("completed");
+    expect(reports.createReport).toHaveBeenCalledExactlyOnceWith({
+      category: ["flood"], description: "Ngập đường sau mưa", province: "TP.HCM", ward: "Phường Bùi Đình Túy", addressLine: "12 Đường A",
+    }, citizen.userId, []);
+    await expect(service.handle(citizen, sessionId, "Xác nhận", draft.action?.id, "confirm")).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("starts a strictly labeled nonurgent draft without inventing optional fields", async () => {
+    ollama.isConfigured.mockReturnValue(false);
+    const draft = await service.handle(citizen, sessionId, "Tạo báo cáo; Loại báo cáo: ngập lụt, hạ tầng; Mô tả: QA không khẩn cấp; Tỉnh/thành phố: TP.HCM; Phường/xã: Bùi Đình Túy; Địa chỉ: 12 Đường A");
+    expect(draft.action?.status).toBe("awaiting_confirmation");
+    expect(draft.answer).toContain("QA không khẩn cấp");
+    expect(draft.answer).toContain("ngập lụt, hạ tầng");
+    expect(draft.answer).not.toContain("cần hỗ trợ khẩn cấp:");
+    expect(draft.answer).toContain("GPS: chưa cung cấp");
+    expect(ollama.understandAction).not.toHaveBeenCalled();
+    expect(reports.createReport).not.toHaveBeenCalled();
+  });
+
+  it("retains a complete preview and ignores unrelated or negated followups while provider is down", async () => {
+    ollama.understandAction.mockResolvedValue({ intent: "create_report", arguments: { category: ["flood"], description: "Ngập đường", province: "TP.HCM", ward: "Bùi Đình Túy", addressLine: "12 Đường A" } });
+    const draft = await service.handle(citizen, sessionId, "Tạo báo cáo");
+    ollama.isConfigured.mockReturnValue(false);
+    for (const message of ["Thời tiết hôm nay ra sao?", "Đừng tạo báo cáo", "Xác nhận"]) {
+      const result = await service.handle(citizen, sessionId, message);
+      expect(result.action).toEqual(draft.action);
+      expect(result.answer).toContain("12 Đường A");
+      expect(reports.createReport).not.toHaveBeenCalled();
+    }
+  });
+
+  it.each(["Xác nhận", "Đồng ý", "OK", "Cảm ơn", "Thời tiết hôm nay ra sao?", "Đừng tạo báo cáo"])("does not consume conversational text as a requested description: %s", async (reply) => {
+    ollama.understandAction.mockResolvedValueOnce({ intent: "create_report", arguments: { category: ["flood"] } });
+    const first = await service.handle(citizen, sessionId, "Tạo báo cáo");
+    ollama.isConfigured.mockReturnValue(false);
+    const result = await service.handle(citizen, sessionId, reply);
+    expect(result.action).toEqual(first.action);
+    const stored = JSON.parse(crypto.encrypt.mock.calls.at(-1)![0]);
+    expect(stored.arguments).toEqual({ category: ["flood"] });
+    expect(reports.createReport).not.toHaveBeenCalled();
+  });
+
+  it("does not confirm an incomplete draft and allows completion afterwards", async () => {
+    ollama.understandAction.mockResolvedValue({ intent: "create_report", arguments: { category: ["flood"] } });
+    const draft = await service.handle(citizen, sessionId, "Tạo báo cáo");
+    const rejected = await service.handle(citizen, sessionId, "Xác nhận", draft.action?.id, "confirm");
+    expect(rejected.action?.status).toBe("collecting");
+    expect(rejected.answer).toContain("mô tả");
+    expect(reports.createReport).not.toHaveBeenCalled();
+    expect(await service.pendingAction(citizen, sessionId)).toMatchObject({ id: draft.action?.id, status: "collecting" });
+    ollama.understandAction.mockResolvedValue(null);
+    const ready = await service.handle(citizen, sessionId, "Mô tả: Ngập; Tỉnh/thành: TP.HCM; Phường/xã: Bùi Đình Túy; Địa chỉ: 12 Đường A");
+    expect(ready.action?.status).toBe("awaiting_confirmation");
+    expect((await service.handle(citizen, sessionId, "Xác nhận", ready.action?.id, "confirm")).action?.status).toBe("completed");
+    expect(reports.createReport).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["Không tạo báo cáo", "Đừng tạo báo cáo", "Tôi không muốn tạo báo cáo", "Cách tạo báo cáo", "Tạo báo cáo như thế nào?", "Lũ quét là gì?", "Tôi đã tạo báo cáo hôm qua"])("does not start a report for %s even if extraction invents create intent", async (message) => {
+    ollama.understandAction.mockResolvedValue({ intent: "create_report", arguments: {} });
+    expect((await service.handle(citizen, sessionId, message)).handled).toBe(false);
+    expect(values.size).toBe(0);
     expect(reports.createReport).not.toHaveBeenCalled();
   });
 

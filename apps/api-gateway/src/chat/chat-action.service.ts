@@ -69,22 +69,22 @@ export class ChatActionService {
           action: { id: pending.id, status: "cancelled", intent: pending.intent },
         };
       }
-      const lockKey = "chat:action-lock:" + pending.id;
-      const lock = await this.redis
-        .getClient()
-        .set(lockKey, "1", "EX", 900, "NX");
-      if (lock !== "OK")
-        throw new ConflictException("Chat action has already been confirmed");
       const confirmed = this.withLocation(pending, location);
-      const invalid = this.invalidReportFields(confirmed);
+      const missing = this.missing(confirmed.intent, confirmed.arguments);
+      const invalid = missing.length ? this.ask(missing) : this.invalidReportFields(confirmed);
       if (invalid) {
-        await this.redis.del(lockKey);
         return {
           handled: true,
           answer: invalid,
           action: { id: pending.id, status: "collecting", intent: pending.intent },
         };
       }
+      const lockKey = "chat:action-lock:" + pending.id;
+      const lock = await this.redis
+        .getClient()
+        .set(lockKey, "1", "EX", 900, "NX");
+      if (lock !== "OK")
+        throw new ConflictException("Chat action has already been confirmed");
       let answer: string;
       try {
         answer = await this.execute(actor, confirmed, files);
@@ -101,32 +101,33 @@ export class ChatActionService {
     }
     if (actionId)
       throw new BadRequestException("actionDecision is required with actionId");
-    if (!this.model.isConfigured()) {
-      if (pending)
-        return {
-          handled: true,
-          answer:
-            "Mình đang chờ thông tin để hoàn tất thao tác. Bạn có thể tiếp tục cung cấp thông tin cần thiết hoặc hủy thao tác.",
-          action: { id: pending.id, status: "collecting", intent: pending.intent },
-        };
-      return { handled: false };
-    }
-    if (!pending && !this.mayBeAction(message)) return { handled: false };
-    const parsed = await this.model.understandAction(
-      message,
-      actor.role,
-      pending,
-    );
-    const intent = parsed?.intent ?? pending?.intent ?? "none";
+    if (pending && pending.role !== actor.role)
+      throw new BadRequestException("Pending action role has changed");
+    const explicitCreate = this.explicitCreateReport(message);
+    if (!pending && !explicitCreate && !this.mayBeAction(message)) return { handled: false };
+    const parsed = this.model.isConfigured()
+      ? await this.model.understandAction(message, actor.role, pending ?? undefined)
+      : null;
+    // A report draft owns subsequent turns until explicitly confirmed/cancelled.
+    const intent = pending?.intent === "create_report" || explicitCreate
+      ? "create_report"
+      : parsed?.intent ?? pending?.intent ?? "none";
+    if (!pending && intent === "create_report" && !explicitCreate) return { handled: false };
     if (intent === "none") return { handled: false };
     const denied = this.roleError(actor.role, intent);
     if (denied) {
       await this.redis.del(key);
       return { handled: true, answer: denied };
     }
+    const extracted = Object.fromEntries(Object.entries(parsed?.intent === intent ? parsed.arguments ?? {} : {}).filter(([, value]) =>
+      value !== undefined && value !== null &&
+      !(typeof value === "string" && !value.trim()) &&
+      !(Array.isArray(value) && !value.some((item) => typeof item === "string" && item.trim())),
+    ));
     const args = {
       ...(pending?.arguments ?? {}),
-      ...(parsed?.arguments ?? {}),
+      ...extracted,
+      ...(intent === "create_report" ? this.reportFields(message, pending, extracted) : {}),
     };
     const withLocation = intent === "create_report"
       ? this.withLocation({ id: pending?.id ?? "", role: actor.role, intent, arguments: args }, location).arguments
@@ -203,6 +204,55 @@ export class ChatActionService {
         ? "collecting"
         : "awaiting_confirmation",
     };
+  }
+
+  private explicitCreateReport(message: string): boolean {
+    // Only inspect the request clause; labeled descriptions can legitimately say "không khẩn cấp".
+    const request = message.trim().split(/[;\n]/u)[0];
+    if (this.notFieldReply(request)) return false;
+    return /^(?:(?:tôi|mình|em)\s+(?:muốn|cần)\s+)?(?:(?:hãy|vui lòng|giúp tôi|giúp mình)\s+)?(?:tạo|lập|gửi|đăng)\s+(?:một\s+)?báo cáo(?:\s|[.:;,]|$)/iu.test(message.trim()) ||
+      /^(?:please\s+)?create\s+(?:a\s+)?report(?:\s|[.:;,]|$)/iu.test(message.trim());
+  }
+
+  private notFieldReply(message: string): boolean {
+    return /^(?:xác nhận|đồng ý|ok|cảm ơn|confirm|yes|thanks)[.!\s]*$/iu.test(message.trim()) ||
+      /[?？]|(?:không|đừng|chưa|hủy|huỷ|cách|hướng dẫn|làm thế nào|như thế nào|thời tiết|là gì|how to|how do i|do not|don't|cancel)/iu.test(message);
+  }
+
+  private reportFields(message: string, pending: Pending | null, extracted: Record<string, unknown>): Record<string, unknown> {
+    const fields: Record<string, unknown> = {};
+    const labels: Record<string, string> = {
+      "loại": "category", "loại sự cố": "category", "loại báo cáo": "category",
+      "mô tả": "description", "tỉnh": "province", "thành phố": "province",
+      "tỉnh/thành": "province", "tỉnh/thành phố": "province",
+      "phường": "ward", "xã": "ward", "phường/xã": "ward", "địa chỉ": "addressLine",
+    };
+    const categoryValues: Record<string, string> = {
+      "ngập lụt": "flood", flood: "flood", "sự cố": "incident", incident: "incident",
+      "hạ tầng": "infrastructure", infrastructure: "infrastructure", "cứu hộ": "rescue", rescue: "rescue",
+    };
+    const assign = (key: string, value: string) => {
+      if (!value) return;
+      if (key === "category") {
+        const categories = value.toLowerCase().split(/[,/]/u).map((item) => categoryValues[item.trim()]);
+        if (categories.length && categories.every(Boolean)) fields.category = [...new Set(categories)];
+      } else fields[key] = value;
+    };
+    let labeled = false;
+    for (const part of message.split(/[;\n]/u)) {
+      const match = /^\s*([^:]+):\s*(.*?)\s*$/u.exec(part);
+      if (!match) continue;
+      labeled = true;
+      const key = labels[match[1].trim().toLowerCase()];
+      if (key) assign(key, match[2].trim());
+    }
+    // Only the first requested field may consume an unlabeled, single-line reply.
+    if (!labeled && pending?.intent === "create_report" && !this.notFieldReply(message) &&
+      !this.mayBeAction(message) && !/[;\n]/u.test(message) && message.trim().length <= 500) {
+      const field = this.missing("create_report", pending.arguments)[0];
+      if (field && extracted[field] === undefined) assign(field, message.trim());
+    }
+    return fields;
   }
 
   private mayBeAction(message: string): boolean {
@@ -377,7 +427,8 @@ export class ChatActionService {
     return (
       "Để tiếp tục, bạn cho mình biết " +
       fields.map((key) => labels[key] ?? key).join(", ") +
-      " nhé." + reportHelp
+      " nhé." + reportHelp +
+      (reportHelp ? ` Bạn có thể trả lời riêng ${labels[fields[0]] ?? fields[0]} trước, hoặc gửi các giá trị có nhãn, phân cách bằng dấu chấm phẩy hoặc xuống dòng.` : "")
     );
   }
 

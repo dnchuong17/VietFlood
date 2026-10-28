@@ -43,10 +43,10 @@ describe("RAG answer contract",()=> {
     expect((await service.reply("Chuẩn bị gì?")).status).toBe("answered"); expect(knowledge.retrieve).toHaveBeenCalledTimes(2);
     expect(knowledge.retrieve.mock.calls[1].slice(0,3)).toEqual([["nước sạch"],40,12]);
   });
-  it("rejects fabricated supporting quotes even if the evaluator says supported",async()=> {
-    const fake={checks:[{index:0,supported:true,evidence:[{sourceId:"p1",quote:"this text is not in any source"}]}]};
-    const {service}=setup([plan,sufficient,claims,fake,claims,fake]);
-    expect((await service.reply("Chuẩn bị gì?")).status).toBe("no_knowledge");
+  it("returns a cited answer without a second model review",async()=> {
+    const {service,model}=setup([plan,sufficient,claims]);
+    expect((await service.reply("Chuẩn bị gì?")).status).toBe("answered");
+    expect(model.structured).toHaveBeenCalledTimes(3);
   });
   it("rejects citations to unknown passages",async()=> {
     const {service}=setup([plan,sufficient,{claims:[{text:"Do something",sourceIds:["unknown"]}]}]);
@@ -71,7 +71,6 @@ describe("RAG answer contract",()=> {
     const generation = model.structured.mock.calls[2];
     expect(generation[1].evidence[0]).toEqual({ id: "K1", title: p.title, sectionPath: p.sectionPath, text: p.text });
     expect(generation[2].properties.claims.items.properties.sourceIds.items.enum).toEqual(["K1"]);
-    expect(model.structured.mock.calls[3][2].properties.checks.items.properties.evidence.items.properties.sourceId.enum).toEqual(["K1"]);
   });
 
 });

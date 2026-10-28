@@ -2,6 +2,7 @@ import { Injectable, OnModuleInit, ServiceUnavailableException } from "@nestjs/c
 import { LoggerService } from "vietflood-common";
 import { Passage } from "./rag.types";
 import { requestId } from "./chat-trace";
+import { transportFailureDetails, withTransportRetries } from "./chat-http";
 
 @Injectable()
 export class QdrantKnowledgeService implements OnModuleInit {
@@ -68,14 +69,18 @@ export class QdrantKnowledgeService implements OnModuleInit {
     const deadline = setTimeout(() => controller.abort(new DOMException("Retrieval timed out", "TimeoutError")), timeoutMs);
     const requestSignal = signal ? AbortSignal.any([signal, controller.signal]) : controller.signal;
     try {
-      return await this.boundedRequest((async () => {
+      return await withTransportRetries(async () => {
         const response = await fetch(url + path, { method: body ? "POST" : "GET", headers: { "Content-Type": "application/json", "X-Rag-Token": token }, body: body ? JSON.stringify(body) : undefined, signal: requestSignal });
         if (!response.ok) {
           this.logger.warn("RAG service HTTP failure", { requestId: requestId(), status: response.status, serviceOrigin, endpoint: path.startsWith("/documents/") ? "source" : path, elapsedMs: Date.now() - started });
           throw new ServiceUnavailableException("Retrieval unavailable");
         }
         return await response.json() as T;
-      })(), requestSignal);
+      }, requestSignal, details => {
+        this.logger.warn("RAG service transport retry", {
+          requestId: requestId(), serviceOrigin, endpoint: path.startsWith("/documents/") ? "source" : path, ...details,
+        });
+      });
     } catch (error) {
       if (error instanceof ServiceUnavailableException) throw error;
       this.logger.warn("RAG service connection failure", { requestId: requestId(), serviceOrigin, endpoint: path.startsWith("/documents/") ? "source" : path, elapsedMs: Date.now() - started, ...this.connectionDetails(error) });
@@ -89,32 +94,9 @@ export class QdrantKnowledgeService implements OnModuleInit {
     return value;
   }
 
-  private boundedRequest<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
-    return new Promise((resolve, reject) => {
-      const abort = () => { signal.removeEventListener("abort", abort); reject(signal.reason); };
-      if (signal.aborted) { abort(); operation.catch(() => {}); return; }
-      signal.addEventListener("abort", abort, { once: true });
-      operation.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
-    });
-  }
-
   private connectionDetails(error: unknown): Record<string, string> {
-    const details = { errorType: error instanceof Error ? error.name : "unknown", reason: "connection_failure" } as Record<string, string>;
-    if (error instanceof SyntaxError) details.reason = "invalid_service_json";
-    else if (error instanceof Error && error.name === "TimeoutError") details.reason = "retrieval_timeout";
-    else if (error instanceof Error && error.name === "AbortError") details.reason = "request_aborted";
-    const reasons: Record<string, string> = {
-      ENOTFOUND: "dns_failure", EAI_AGAIN: "dns_failure", ECONNREFUSED: "connection_refused",
-      ECONNRESET: "connection_reset", ETIMEDOUT: "retrieval_timeout", UND_ERR_CONNECT_TIMEOUT: "retrieval_timeout",
-      ERR_INVALID_URL: "invalid_service_url", ERR_INVALID_CHAR: "invalid_request_header",
-      CERT_HAS_EXPIRED: "tls_failure", UNABLE_TO_VERIFY_LEAF_SIGNATURE: "tls_failure",
-      DEPTH_ZERO_SELF_SIGNED_CERT: "tls_failure", ERR_TLS_CERT_ALTNAME_INVALID: "tls_failure",
-      ERR_SSL_WRONG_VERSION_NUMBER: "tls_failure",
-    };
-    const cause = (error as { cause?: { code?: unknown; errors?: { code?: unknown }[] } } | null)?.cause;
-    const codes = [cause?.code, ...(Array.isArray(cause?.errors) ? cause.errors.slice(0, 10).map(e => e.code) : [])];
-    const known = codes.find(code => typeof code === "string" && Object.prototype.hasOwnProperty.call(reasons, code));
-    if (typeof known === "string") { details.reason = reasons[known]; details.errorCode = known; }
+    const details = transportFailureDetails(error);
+    if (error instanceof Error && error.name === "TimeoutError") details.reason = "retrieval_timeout";
     return details;
   }
 

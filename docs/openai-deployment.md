@@ -1,6 +1,6 @@
 # OpenAI deployment
 
-VietFlood uses the OpenAI-compatible cheapkeyai.shop API with `gpt-5-nano` for intent planning, grounded answer synthesis, source checks, and report-action extraction. The existing Python retrieval service and approved Qdrant collection remain the only source of flood knowledge; the model does not replace retrieval or role checks.
+VietFlood uses the OpenAI-compatible cheapkeyai.shop API with `gpt-4.1-nano-2025-04-14` for intent planning, grounded answer synthesis, and report-action extraction. The existing Python retrieval service and approved Qdrant collection remain the only source of flood knowledge; the model does not replace retrieval or role checks.
 
 ## Local setup
 
@@ -9,7 +9,7 @@ Keep the API key in the ignored root `.env` file or another local secret manager
 ```dotenv
 OPENAI_API_KEY=<OpenAI API key>
 OPENAI_BASE_URL=https://cheapkeyai.shop/v1
-OPENAI_CHAT_MODEL=gpt-5-nano
+OPENAI_CHAT_MODEL=gpt-4.1-nano-2025-04-14
 OPENAI_REQUEST_TIMEOUT_MS=120000
 RAG_REQUEST_TIMEOUT_MS=300000
 RAG_RETRIEVAL_TIMEOUT_MS=90000
@@ -47,7 +47,7 @@ LibBuddy hardcodes `https://v98store.com/v1` for both chat and embeddings. VietF
 
 LibBuddy's `OPENAI_MODEL` default in `src/utils/config.ts` is an embedding model (`text-embedding-3-small`). VietFlood uses `OPENAI_CHAT_MODEL` for chat. Its retrieval service uses `text-embedding-3-small` for both documents and queries. The previous E5 index must be replaced through a validated candidate; see the RAG repository’s `PIPELINE_README.md` for manual cutover and rollback.
 
-GPT-5 nano requests omit `temperature`, use `reasoning_effort=minimal`, and set `max_completion_tokens` to 2048 for planning/assessment/actions or 4096 for generation/grounding. The single output retry doubles these limits; the deployment probe uses 1024.
+GPT-4.1 nano requests omit `temperature` and `reasoning_effort`, then set `max_completion_tokens` to 2048 for chat stages. The single output retry doubles this limit; the deployment probe uses 1024.
 
 VietFlood requests JSON object mode and validates each response against its local AJV schema, preserving optional action fields. This follows the distinction between JSON mode and schema-constrained output described in the [official OpenAI documentation](https://developers.openai.com/api/docs/guides/structured-outputs?api-mode=chat).
 

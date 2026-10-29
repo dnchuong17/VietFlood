@@ -17,7 +17,7 @@ describe("OpenAIChatService", () => {
   beforeEach(() => {
     vi.stubEnv("OPENAI_API_KEY", "test-openai-key");
     vi.stubEnv("OPENAI_BASE_URL", "https://cheapkeyai.shop/v1");
-    vi.stubEnv("OPENAI_CHAT_MODEL", "gpt-5-nano");
+    vi.stubEnv("OPENAI_CHAT_MODEL", "gpt-4.1-nano-2025-04-14");
     vi.stubEnv("OPENAI_REQUEST_TIMEOUT_MS", "120000");
     vi.stubEnv("GEMINI_API_KEY", "");
     vi.stubEnv("GOOGLE_API_KEY", "");
@@ -38,20 +38,21 @@ describe("OpenAIChatService", () => {
     expect(url).toBe("https://cheapkeyai.shop/v1/chat/completions");
     expect(init.headers.Authorization).toBe("Bearer test-openai-key");
     const body = JSON.parse(init.body);
-    expect(body).toMatchObject({ model: "gpt-5-nano", response_format: { type: "json_object" }, reasoning_effort: "minimal", max_completion_tokens: 2048 });
+    expect(body).toMatchObject({ model: "gpt-4.1-nano-2025-04-14", response_format: { type: "json_object" }, max_completion_tokens: 2048 });
+    expect(body).not.toHaveProperty("reasoning_effort");
     expect(body.messages[0]).toMatchObject({ role: "system" });
     expect(body.messages[0].content).toContain("JSON");
     expect(JSON.stringify(logger.info.mock.calls)).not.toMatch(/private question|test-openai-key/);
   });
   it.each([
-    ["route", 2048], ["sufficient", 2048], ["claims", 8192], ["checks", 2048],
+    ["route", 2048], ["sufficient", 2048], ["claims", 2048], ["checks", 2048],
   ])("uses the nano request contract for %s", async (property, budget) => {
     const stageSchema = { type: "object", properties: { [property]: { type: "string" } }, required: [property] };
     fetchMock.mockResolvedValue(completed(JSON.stringify({ [property]: "test" })));
     await service.structured("Return JSON", {}, stageSchema, new AbortController().signal);
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(body.max_completion_tokens).toBe(budget);
-    expect(body.reasoning_effort).toBe("minimal");
+    expect(body).not.toHaveProperty("reasoning_effort");
     expect(body).not.toHaveProperty("temperature");
     expect(body).not.toHaveProperty("max_tokens");
   });
@@ -61,7 +62,7 @@ describe("OpenAIChatService", () => {
     await call(service);
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("https://cheapkeyai.shop/v1/chat/completions");
-    expect(JSON.parse(init.body).model).toBe("gpt-5-nano");
+    expect(JSON.parse(init.body).model).toBe("gpt-4.1-nano-2025-04-14");
   });
   it.each(["not JSON", '{"route":"unknown"}', '{"route":"static","injected":true}'])
   ("retries rejected output once and validates the replacement: %s", async (content) => {
@@ -158,7 +159,7 @@ describe("OpenAIChatService", () => {
 
   it("reports startup configuration safely and rejects a missing key", () => {
     service.onModuleInit();
-    expect(logger.info).toHaveBeenCalledWith("OpenAI chatbot configuration ready", expect.objectContaining({ provider: "openai", model: "gpt-5-nano" }));
+    expect(logger.info).toHaveBeenCalledWith("OpenAI chatbot configuration ready", expect.objectContaining({ provider: "openai", model: "gpt-4.1-nano-2025-04-14" }));
     vi.stubEnv("OPENAI_API_KEY", "");
     expect(service.isConfigured()).toBe(false);
     service.onModuleInit();

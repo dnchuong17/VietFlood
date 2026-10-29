@@ -156,7 +156,7 @@ pipeline {
           . "$ENV_FILE"
           set +a
           export OPENAI_BASE_URL="${OPENAI_BASE_URL:-https://cheapkeyai.shop/v1}"
-          export OPENAI_CHAT_MODEL="${OPENAI_CHAT_MODEL:-gpt-5-nano}"
+          export OPENAI_CHAT_MODEL="${OPENAI_CHAT_MODEL:-gpt-4.1-nano-2025-04-14}"
           export OPENAI_REQUEST_TIMEOUT_MS="${OPENAI_REQUEST_TIMEOUT_MS:-120000}"
           export RAG_REQUEST_TIMEOUT_MS="${RAG_REQUEST_TIMEOUT_MS:-300000}"
           export RAG_RETRIEVAL_TIMEOUT_MS="${RAG_RETRIEVAL_TIMEOUT_MS:-90000}"

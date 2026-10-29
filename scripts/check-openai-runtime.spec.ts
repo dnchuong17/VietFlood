@@ -3,7 +3,7 @@ import { checkOpenAI, openaiConfiguration, openaiFailureDetails } from "./check-
 
 const env = {
   OPENAI_API_KEY: "probe-test-key", OPENAI_BASE_URL: "https://cheapkeyai.shop/v1/",
-  OPENAI_CHAT_MODEL: "gpt-5-nano", OPENAI_REQUEST_TIMEOUT_MS: "120000",
+  OPENAI_CHAT_MODEL: "gpt-4.1-nano-2025-04-14", OPENAI_REQUEST_TIMEOUT_MS: "120000",
 };
 const completed = (content = '{"ready":true}', finish_reason = "stop") => ({
   ok: true, json: async () => ({ choices: [{ message: { content }, finish_reason }] }),
@@ -17,12 +17,13 @@ describe("OpenAI deployment probe", () => {
   afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
   it("verifies a real completion contract and returns only safe metadata", async () => {
     const result = await checkOpenAI(env);
-    expect(result).toMatchObject({ provider: "openai", model: "gpt-5-nano", serviceOrigin: "https://cheapkeyai.shop" });
+    expect(result).toMatchObject({ provider: "openai", model: "gpt-4.1-nano-2025-04-14", serviceOrigin: "https://cheapkeyai.shop" });
     expect(JSON.stringify(result)).not.toContain("probe-test-key");
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("https://cheapkeyai.shop/v1/chat/completions");
     expect(init.headers.Authorization).toBe("Bearer probe-test-key");
-    expect(JSON.parse(init.body)).toMatchObject({ model: "gpt-5-nano", max_completion_tokens: 1024, reasoning_effort: "minimal", response_format: { type: "json_object" } });
+    expect(JSON.parse(init.body)).toMatchObject({ model: "gpt-4.1-nano-2025-04-14", max_completion_tokens: 1024, response_format: { type: "json_object" } });
+    expect(JSON.parse(init.body)).not.toHaveProperty("reasoning_effort");
   });
   it.each([401, 403, 404, 429, 503])("fails deployment on HTTP %i without exposing API bodies", async (status) => {
     const json = vi.fn().mockResolvedValue({ error: "private response" });
@@ -66,7 +67,7 @@ describe("OpenAI deployment probe", () => {
 
   it("recovers from a temporary connection reset within the same deadline", async () => {
     fetchMock.mockRejectedValueOnce(new TypeError("fetch failed", { cause: { code: "ECONNRESET" } }));
-    expect(await checkOpenAI(env)).toMatchObject({ attempts: 2, model: "gpt-5-nano" });
+    expect(await checkOpenAI(env)).toMatchObject({ attempts: 2, model: "gpt-4.1-nano-2025-04-14" });
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[0][1].signal).toBe(fetchMock.mock.calls[1][1].signal);
   });

@@ -62,7 +62,7 @@ function openaiConfiguration(env = process.env) {
   }
   const apiKey = (env.OPENAI_API_KEY ?? "").trim();
   if (!apiKey) throw new Error("missing_openai_api_key");
-  const model = (env.OPENAI_CHAT_MODEL ?? "gpt-5-nano").trim();
+  const model = (env.OPENAI_CHAT_MODEL ?? "gpt-4.1-nano-2025-04-14").trim();
   if (!/^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,149}$/.test(model)) throw new Error("invalid_openai_model");
   const timeoutMs = Number(env.OPENAI_REQUEST_TIMEOUT_MS ?? 120000);
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 300000)
@@ -87,17 +87,18 @@ async function checkOpenAI(env = process.env) {
       signal.throwIfAborted();
       attempts++;
       try {
+        const body = {
+          model: config.model,
+          messages: [{ role: "user", content: 'Return only the JSON object {"ready":true}.' }],
+          response_format: { type: "json_object" },
+          max_completion_tokens: 1024,
+          ...( /^gpt-5(?:[.-]|$)/i.test(config.model) ? { reasoning_effort: "minimal" } : {}),
+        };
         response = await fetch(config.baseUrl + "/chat/completions", {
           method: "POST",
           headers: { Authorization: `Bearer ${config.apiKey}`, "Content-Type": "application/json" },
           signal,
-          body: JSON.stringify({
-            model: config.model,
-            messages: [{ role: "user", content: 'Return only the JSON object {"ready":true}.' }],
-            response_format: { type: "json_object" },
-            reasoning_effort: "minimal",
-            max_completion_tokens: 1024,
-          }),
+          body: JSON.stringify(body),
         });
         break;
       } catch (error) {

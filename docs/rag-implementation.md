@@ -32,7 +32,7 @@ docker build -f Dockerfile -t vietflood-retrieval:local .
 
 The backend Compose files include `rag-retrieval` on the private service network. Set `RAG_SERVICE_IMAGE` to the image built/published for the server and `RAG_CORPUS_DIR` to that server's synchronized `data` directory, including releases and snapshots. `RAG_DOCKER_SERVICE_URL` defaults to `http://rag-retrieval:8001`. The Python standalone `docker-compose.rag.yml` is for local administration/testing. A remote deployment must receive the corpus artifacts before starting retrieval; a green Qdrant collection alone does not supply citation snapshots or embedding identity metadata.
 
-Generation uses the OpenAI-compatible cheapkeyai.shop chat completions API. Configure `OPENAI_API_KEY`, `OPENAI_BASE_URL=https://cheapkeyai.shop/v1`, `OPENAI_CHAT_MODEL=gpt-5-nano`, `OPENAI_REQUEST_TIMEOUT_MS=120000`, `RAG_REQUEST_TIMEOUT_MS=300000`, and `RAG_RETRIEVAL_TIMEOUT_MS=90000`. See [OpenAI deployment](openai-deployment.md).
+Generation uses the OpenAI-compatible cheapkeyai.shop chat completions API. Configure `OPENAI_API_KEY`, `OPENAI_BASE_URL=https://cheapkeyai.shop/v1`, `OPENAI_CHAT_MODEL=gpt-4.1-nano-2025-04-14`, `OPENAI_REQUEST_TIMEOUT_MS=120000`, `RAG_REQUEST_TIMEOUT_MS=300000`, and `RAG_RETRIEVAL_TIMEOUT_MS=90000`. See [OpenAI deployment](openai-deployment.md).
 
 ## Query and answer contract
 

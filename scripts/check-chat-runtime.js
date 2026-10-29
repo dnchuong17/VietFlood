@@ -1,5 +1,14 @@
 // Deployment preflight: never print credentials, response bodies or user data.
 const { openaiConfiguration, checkOpenAI, openaiFailureDetails } = require("./check-openai-runtime");
+const { setTimeout: wait } = require("node:timers/promises");
+const RETRYABLE_RETRIEVAL_CODES = new Set([
+  "EAI_AGAIN", "ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "EHOSTUNREACH", "ENETUNREACH",
+  "UND_ERR_CONNECT_TIMEOUT", "UND_ERR_HEADERS_TIMEOUT", "UND_ERR_BODY_TIMEOUT", "UND_ERR_SOCKET",
+]);
+function retrievalFailureDetails(error) {
+  const details = openaiFailureDetails(error);
+  return { ...details, reason: details.reason.replace(/^openai_/, "retrieval_") };
+}
 function endpoint(value, name) {
   value = value.trim();
   const url = new URL(value);
@@ -37,12 +46,29 @@ function validateRetrieval(health, expectedAlias) {
   return { alias: health.alias, pointCount: health.pointCount };
 }
 async function request(url, options, timeout = 15000) {
-  const response = await fetch(url, {
-    ...options,
-    signal: AbortSignal.timeout(timeout),
+  const signal = AbortSignal.timeout(timeout);
+  let onAbort;
+  const aborted = new Promise((_, reject) => {
+    onAbort = () => reject(signal.reason);
+    signal.addEventListener("abort", onAbort, { once: true });
   });
-  if (!response.ok) throw new Error(`dependency_http_${response.status}`);
-  return response.json();
+  const operation = async () => {
+    for (let attempt = 1; ; attempt++) {
+      signal.throwIfAborted();
+      try {
+        const response = await fetch(url, { ...options, signal });
+        if (!response.ok) throw new Error(`dependency_http_${response.status}`);
+        return await response.json();
+      } catch (error) {
+        const { errorCodes = [] } = retrievalFailureDetails(error);
+        if (signal.aborted || attempt >= 3 || !errorCodes.length ||
+            !errorCodes.every(code => RETRYABLE_RETRIEVAL_CODES.has(code))) throw error;
+        await wait(attempt * 250, undefined, { signal });
+      }
+    }
+  };
+  try { return await Promise.race([operation(), aborted]); }
+  finally { signal.removeEventListener("abort", onAbort); }
 }
 async function checkRedis() {
   const Redis = require("ioredis");
@@ -105,10 +131,12 @@ async function checkChatRuntime() {
         : error.name;
     console.error(JSON.stringify({ stage, status: "unavailable", reason,
       ...(stage === "openai" ? openaiFailureDetails(error) : {}),
+      ...(stage === "retrieval" && !(error instanceof RetrievalReadinessError) &&
+        !/^dependency_http_\d{3}$/.test(error.message || "") ? retrievalFailureDetails(error) : {}),
       ...(error instanceof RetrievalReadinessError ? error.details : {}),
     }));
     process.exitCode = 1;
   }
 }
-module.exports = { validateRetrieval, checkChatRuntime };
+module.exports = { validateRetrieval, checkChatRuntime, request };
 if (require.main === module) checkChatRuntime();

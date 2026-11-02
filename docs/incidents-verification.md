@@ -1,6 +1,6 @@
 # Incident implementation verification
 
-Checked on 2026-11-02. Changes remain local and preserve the pre-existing report/chat/mobile work. No production migration, deployment, commit, or push was performed.
+Initial implementation checks below were recorded on 2026-11-02 before the first source commits. Subsequent pushes preserve the pre-existing report/chat/mobile work; no production migration or automatic-mode activation was performed.
 
 | Check | Result |
 | --- | --- |
@@ -24,9 +24,9 @@ The recorded synthetic Vietnamese benchmark in `incident-evaluation.json` has 30
 
 ## Open verification and deployment limits
 
-- OneDrive now returns `Operation not permitted` for the recovered Python directory, including outside the sandbox. A fresh Python run and the final `RECOVERY.md` edit were blocked. The prior handoff recorded 12 passing Python tests, but that is not fresh evidence for the latest embedding-text change. Restore readable local access and run `python -m unittest test_incidents test_incident_routes -v` before deploying the recovered service. `test_incident_routes.py` covers the existing private token, strict input validation, embedding client reuse, and sanitized provider errors.
+- The Python source-access blocker was resolved by reconstructing the original writes and subsequent fixes from implementation session history into the correct repository, `/Users/macbook/VietFlood_RAG`. Fresh verification there passed **29 tests**: `python -m unittest test_incidents test_incident_routes test_embeddings test_retrieval_readiness -v`. This includes the final diacritic-preserving embedding input, existing private-token authentication, strict input validation, provider-error sanitization, and retrieval/embedding regressions. Providers and Qdrant were not exercised live; the old OneDrive copy remains unreadable and untouched.
 - The broader backend incident ESLint check is **not clean**. Remaining errors are concentrated in dynamic SQL/RPC/worker `any` boundaries, plus test files excluded by the repository's ESLint project configuration. Focused domain, summary, DTO, HTTP error and socket checks pass. Compilation and runtime checks do not replace resolving this lint debt.
 - RabbitMQ delivery, Redis, and provider responses in the database tests are doubles; browser APIs are fixtures. The separate configured-model smoke test does not prove the full live pipeline. PostGIS acceleration was not exercised; the tested database and target both use the coordinate/distance fallback.
 - Native changes are limited to archival confirmation copy; native builds were not rerun.
 
-Follow [the runbook](incidents.md) for backup, additive migration, recovered-source deployment, and enabling `INCIDENTS_ENABLED=true` with `INCIDENT_MATCH_MODE=review`. Re-evaluate the final Python embedding pipeline before considering any automatic attachment. Keep processing disabled until the migration and service configuration are ready. Rollback retains evidence and audit history.
+Follow [the runbook](incidents.md) for backup, additive migration, RAG repository deployment, and enabling `INCIDENTS_ENABLED=true` with `INCIDENT_MATCH_MODE=review`. Re-evaluate the final Python embedding pipeline before considering any automatic attachment. Keep processing disabled until the migration and service configuration are ready. Rollback retains evidence and audit history.

@@ -4,7 +4,7 @@ The existing reports service owns incident state and background processing. The 
 
 ## Enable a deployment
 
-1. Deploy the updated report writers and API gateway with `INCIDENTS_ENABLED=false`. All replicas must use the new retention behavior before enabling processing. Build and deploy the existing RAG image from the recovered source directory described below. No additional AI service is required.
+1. Deploy the updated report writers and API gateway with `INCIDENTS_ENABLED=false`. All replicas must use the new retention behavior before enabling processing. Build and deploy the existing RAG image from the `VietFlood_RAG` repository root described below. No additional AI service is required.
 2. Inspect the target database with `node --env-file=.env scripts/migrate-incidents.js`. This is read-only unless `--apply` is supplied. It reports whether reports/users, the incident schema, and PostGIS exist without exposing connection credentials.
 3. Back up the target database, then apply the additive migration with `node --env-file=.env scripts/migrate-incidents.js --apply`. The migration is transactional and repeatable. It does not rewrite original reports or put incident tables under TypeORM synchronization. Optional PostGIS indexes use the extension's actual schema; otherwise matching uses bounded coordinates plus Haversine distance.
 4. Set `INCIDENTS_ENABLED=true`, `INCIDENT_MATCH_MODE=review`, `RAG_SERVICE_URL`, `RAG_SERVICE_TOKEN`, and the existing `OPENAI_*` configuration on **reports-service**. The Compose files provide these settings only to the services that need them. Recreate all report-service replicas consistently.
@@ -12,7 +12,7 @@ The existing reports service owns incident state and background processing. The 
 
 No production migration, deployment, or automatic-mode activation is performed by the source changes. The feature defaults to processing disabled so existing deployments can apply migrations before startup.
 
-The original OneDrive Python source was unreadable. `VietFlood_RAG/recovered-source/` contains the recovered upstream revision `90467f8` and the inference extension. Its `RECOVERY.md` identifies the changed files. Build with that directory as Docker context. Preserve the original OneDrive files and compare them once hydrated before moving changes back into its Git working tree.
+The current local RAG repository is `/Users/macbook/VietFlood_RAG`. The inference extension now lives directly in its repository root; use that root as Docker context. The earlier implementation used a separate recovered checkout in an old OneDrive workspace. Its incident files and subsequent fixes were restored from the implementation session history because macOS still denies reads of the old directory. `VietFlood_RAG/RECOVERY.md` records the transfer; the old directory was left untouched.
 
 ## Invariants and processing
 
@@ -86,7 +86,7 @@ npx vitest run --config vitest.incidents.config.ts
 npm run build:reports-service
 npm run build:api-gateway
 
-# In the recovered Python source, using an environment with requirements installed:
+# In the VietFlood_RAG repository root, using an environment with requirements installed:
 python -m unittest test_incidents test_incident_routes -v
 
 # In the Next.js repository:

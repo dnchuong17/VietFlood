@@ -47,7 +47,8 @@ WORKDIR /app
 
 RUN apk add --no-cache dumb-init
 
-COPY --from=builder /app/dist/apps/api-gateway ./dist
+COPY --from=builder /app/dist/apps/api-gateway ./dist/apps/api-gateway
+COPY shared ./shared
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=prod-deps /app/package.json ./
 COPY db/migrations/20261009_chat_history.sql db/migrations/20261009_chat_action_kind.sql ./db/migrations/
@@ -59,4 +60,7 @@ USER nobody
 
 ENTRYPOINT ["dumb-init", "--"]
 
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/apps/api-gateway/main.js"]
+
+COPY db/migrations/20261101_incidents.sql ./db/migrations/
+COPY scripts/migrate-incidents.js ./scripts/

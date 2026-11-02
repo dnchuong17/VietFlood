@@ -630,6 +630,7 @@ export class ChatActionService {
         result = await this.reports.deleteReport(
           Number(args.reportId),
           await this.reportOwner(actor, Number(args.reportId)),
+          actor,
         );
         break;
       case "update_report_status":

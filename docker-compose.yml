@@ -117,6 +117,15 @@ services:
     container_name: vietflood-reports-service
     environment:
       NODE_ENV: production
+      INCIDENTS_ENABLED: ${INCIDENTS_ENABLED:-false}
+      INCIDENT_MATCH_MODE: ${INCIDENT_MATCH_MODE:-review}
+      INCIDENT_EVALUATION_PATH: ${INCIDENT_EVALUATION_PATH:-}
+      RAG_SERVICE_URL: ${RAG_DOCKER_SERVICE_URL:-http://rag-retrieval:8001}
+      RAG_SERVICE_TOKEN: ${RAG_SERVICE_TOKEN}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://cheapkeyai.shop/v1}
+      OPENAI_CHAT_MODEL: ${OPENAI_CHAT_MODEL:-gpt-4.1-nano-2025-04-14}
+      CHAT_DB_CA_BASE64: ${CHAT_DB_CA_BASE64}
       DATABASE_URL: ${DATABASE_URL}
       REDIS_HOST: redis
       REDIS_PORT: 6379

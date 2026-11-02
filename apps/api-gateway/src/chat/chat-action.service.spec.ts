@@ -395,6 +395,7 @@ describe("ChatActionService", () => {
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(reports.deleteReport).toHaveBeenCalledTimes(1);
+    expect(reports.deleteReport).toHaveBeenCalledWith(22, citizen.userId, citizen);
   });
 
   it("rejects duplicate confirmation while an action is still pending", async () => {

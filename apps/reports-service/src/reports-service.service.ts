@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Optional,
   NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -14,6 +15,8 @@ import {
 import { ReportEntity, type ReportEvidence } from "./entity/report.entity";
 import { CreateReportDto } from "./dto/report.dto";
 import { UpdateReportDto } from "./dto/update_report.dto";
+import { IncidentRepository } from "./incidents/incident.repository";
+import type { Actor } from "./incidents/incident-domain";
 import { ReportStatus } from "./enums/status.enum";
 
 @Injectable()
@@ -24,6 +27,7 @@ export class ReportsService {
     private readonly redisHelper: RedisService,
     private readonly logger: LoggerService,
     private readonly cloudinaryService: CloudinaryService,
+    @Optional() private readonly incidents?: IncidentRepository,
   ) {
     this.logger.setServiceName(ReportsService.name);
   }
@@ -98,7 +102,7 @@ export class ReportsService {
     return evidences.map((item) => item.url);
   }
 
-  async createReport(createReportDto: CreateReportDto, userId: number) {
+  async createReport(createReportDto: CreateReportDto, userId: number, requestKey?: string) {
     this.logger.debug("[CREATE REPORT] - Creating new report");
 
     const {
@@ -113,7 +117,10 @@ export class ReportsService {
     const coordinates = this.normalizeCoordinates(createReportDto);
 
     const report = this.reportRepository.create({
-      ...reportFields,
+      description: reportFields.description,
+      province: reportFields.province, ward: reportFields.ward, addressLine: reportFields.addressLine,
+      isUrgent: reportFields.isUrgent === true || String(reportFields.isUrgent) === "true",
+      severity: Number.isFinite(Number(reportFields.severity)) ? Number(reportFields.severity) : 0,
       ...coordinates,
       category: createReportDto.category ?? [],
       evidences,
@@ -121,7 +128,19 @@ export class ReportsService {
       userId: userId,
     });
 
-    const savedReport = await this.reportRepository.save(report);
+    const savedReport = this.incidents?.ready
+      ? await this.incidents.db.transaction(async q => {
+          await this.incidents.lock(q);
+          const create = async () => {
+            const saved = await q.getRepository(ReportEntity).save(report);
+            await this.incidents.capture(q, saved);
+            return saved;
+          };
+          return requestKey
+            ? this.incidents.idempotent(q, { userId, role: 'citizen' }, 'report.create', requestKey, { ...report, userId }, create)
+            : create();
+        })
+      : await this.reportRepository.save(report);
 
     await this.redisHelper.set(
       `report:${savedReport.id}`,
@@ -147,9 +166,8 @@ export class ReportsService {
   async getAllReports() {
     this.logger.debug("[GET ALL REPORTS] - Find all reports");
 
-    return this.reportRepository.find({
-      order: { createdAt: "DESC" },
-    });
+    const rows = await this.reportRepository.find({ order: { createdAt: "DESC" } });
+    return this.incidents ? this.incidents.visible(rows) : rows;
   }
 
   async getAllReportsByUserId(userId: number): Promise<ReportEntity[]> {
@@ -160,7 +178,7 @@ export class ReportsService {
       order: { createdAt: "DESC" },
     });
 
-    return report;
+    return this.incidents ? this.incidents.visible(report) : report;
   }
 
   async getRecentVerifiedFloodAreas(): Promise<{
@@ -233,6 +251,7 @@ export class ReportsService {
 
     this.logger.debug(`[FIND REPORT] - Finding report via ID: ${id}`);
 
+    if ((await this.incidents?.retained(id))?.archived_at) throw new NotFoundException("Report archived");
     const cacheReport = await this.redisHelper.get(`report:${id}`);
     if (cacheReport) {
       this.logger.debug(`[FIND REPORT] - Found report from cache: ${id}`);
@@ -241,7 +260,7 @@ export class ReportsService {
 
     const report = await this.reportRepository.findOne({
       where: { id },
-      relations: ["user"],
+
     });
 
     if (!report) {
@@ -269,6 +288,8 @@ export class ReportsService {
     this.logger.debug(
       `[UPDATE REPORT] - Updating report with ID: ${id}, userId: ${userId}`,
     );
+
+    if (this.incidents?.ready) return this.updateWithRetention(id, userId, updateReportDto);
 
     const existedReports = await this.getAllReportsByUserId(userId);
 
@@ -353,7 +374,16 @@ export class ReportsService {
       throw new NotFoundException(`Report not found for ID: ${id}`);
     }
 
-    await this.reportRepository.update(id, { status });
+    if (this.incidents?.ready) {
+      await this.incidents.db.transaction(async q => {
+        await this.incidents.lock(q);
+        const [before] = await q.query('SELECT * FROM public.reports WHERE id=$1 FOR UPDATE', [id]);
+        if ((await this.incidents.retained(id,q))?.archived_at) throw new NotFoundException('Report archived');
+        await this.incidents.capture(q,before);
+        await q.getRepository(ReportEntity).update(id,{status});
+        await this.incidents.capture(q,await q.getRepository(ReportEntity).findOneBy({id}));
+      });
+    } else await this.reportRepository.update(id, { status });
 
     await this.redisHelper.del(`report:${id}`);
 
@@ -371,7 +401,7 @@ export class ReportsService {
     };
   }
 
-  async deleteReport(id: number, userId: number) {
+  async deleteReport(id: number, userId: number, actor?: Actor) {
     if (!id) {
       throw new BadRequestException("Invalid ID");
     }
@@ -388,6 +418,11 @@ export class ReportsService {
 
     if (report.userId != userId) {
       throw new NotFoundException(`Report not found for user: ${userId}`);
+    }
+
+    if (await this.incidents?.archive(id,userId,actor)) {
+      await this.redisHelper.del(`report:${id}`);
+      return { success: true, message: "Report archived; incident evidence retained", reportId: id, archived: true };
     }
 
     const publicIds =
@@ -408,4 +443,24 @@ export class ReportsService {
       reportId: id,
     };
   }
+  private async updateWithRetention(id: number, userId: number, dto: UpdateReportDto) {
+    const report = await this.incidents.db.transaction(async q => {
+      await this.incidents.lock(q);
+      const [before] = await q.query('SELECT * FROM public.reports WHERE id=$1 AND "userId"=$2 FOR UPDATE',[id,userId]);
+      if (!before || (await this.incidents.retained(id,q))?.archived_at) throw new NotFoundException('Report not found');
+      await this.incidents.capture(q,before);
+      const fields: any = {};
+      for (const field of ['description','province','ward','addressLine','category','isUrgent','severity'])
+        if (dto[field] !== undefined) fields[field] = dto[field];
+      if(fields.isUrgent !== undefined) fields.isUrgent = fields.isUrgent === true || fields.isUrgent === 'true';
+      const evidences = this.mergeEvidences(before.evidences,this.normalizeEvidences(dto.evidences));
+      await q.getRepository(ReportEntity).update(id,{...fields,...this.normalizeCoordinates(dto),evidences,images:this.evidenceUrls(evidences)});
+      const current = await q.getRepository(ReportEntity).findOneBy({id});
+      await this.incidents.capture(q,current);
+      return current;
+    });
+    await this.redisHelper.del(`report:${id}`);
+    return {success:true,message:'Update report successfully',reportId:id,evidences:report.evidences,images:report.images,report};
+  }
+
 }

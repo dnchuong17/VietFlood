@@ -16,7 +16,7 @@ export class ReportsController {
   async create(@Payload() payload: any) {
     try {
       this.logger.debug(`[CREATE REPORT] - Creating report`);
-      return this.reportsService.createReport(payload, payload.userId);
+      return this.reportsService.createReport(payload, payload.userId, payload._incidentRequestKey);
     } catch (error) {
       throw new RpcException(error);
     }
@@ -92,7 +92,7 @@ export class ReportsController {
   async delete(@Payload() payload) {
     try {
       this.logger.debug(`[DELETE REPORT] - ID: ${payload}`);
-      return this.reportsService.deleteReport(payload.id, payload.userId);
+      return this.reportsService.deleteReport(payload.id, payload.userId, payload.actor);
     } catch (error) {
       throw new RpcException(error);
     }

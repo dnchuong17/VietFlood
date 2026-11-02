@@ -8,6 +8,7 @@ import { ReportsModule } from "./reports/reports.module";
 import { TrackingModule } from "./tracking/tracking.module";
 import { LocationsModule } from "./locations/locations.module";
 import { ChatModule } from "./chat/chat.module";
+import { IncidentsModule } from './incidents/incident.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { ChatModule } from "./chat/chat.module";
     TrackingModule,
     LocationsModule,
     ChatModule,
+    IncidentsModule,
   ],
   controllers: [ApiGatewayController],
   providers: [ApiGatewayService, LoggerService],

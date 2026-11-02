@@ -61,7 +61,7 @@ echo ""
 
 # Start API Gateway in background
 echo -e "${GREEN}► Starting API Gateway (port 8081)...${NC}"
-node dist/api-gateway/main.js &
+node dist/apps/api-gateway/main.js &
 API_GATEWAY_PID=$!
 
 # Give API Gateway time to start
@@ -69,12 +69,12 @@ sleep 2
 
 # Start Auth Service in background
 echo -e "${GREEN}► Starting Auth Service (RabbitMQ consumer)...${NC}"
-node dist/auth-service/main.js &
+node dist/apps/auth-service/main.js &
 AUTH_SERVICE_PID=$!
 
 # Start Reports Service in background
 echo -e "${GREEN}► Starting Reports Service (RabbitMQ consumer)...${NC}"
-node dist/reports-service/main.js &
+node dist/apps/reports-service/main.js &
 REPORTS_SERVICE_PID=$!
 
 # Ensure all processes survived initial boot before declaring success.

@@ -1,0 +1,1242 @@
+{
+  "version": "synthetic-held-out-v1",
+  "note": "Synthetic Vietnamese labels; do not describe this as field validation. Thresholds were fixed before evaluating these cases.",
+  "cases": [
+    {
+      "id": "positive-1-1",
+      "sameIncident": true,
+      "report": {
+        "description": "duong ngap 50cm xe may chet may k di dc",
+        "lat": 16.0471,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Đường ngập 50 cm, xe máy chết máy không thể qua.",
+        "lat": 16.047,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-1-2",
+      "sameIncident": true,
+      "report": {
+        "description": "Xe máy bị tắt máy vì nước ngập nửa mét trên đường.",
+        "lat": 16.0471,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Đường ngập 50 cm, xe máy chết máy không thể qua.",
+        "lat": 16.047,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-1-3",
+      "sameIncident": true,
+      "report": {
+        "description": "Nước ngập 0,5 m, xe máy không thể đi tiếp.",
+        "lat": 16.0471,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Đường ngập 50 cm, xe máy chết máy không thể qua.",
+        "lat": 16.047,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-1-4",
+      "sameIncident": true,
+      "report": {
+        "description": "duong ngp 50 cm, xe chet may roi",
+        "lat": 16.0471,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Đường ngập 50 cm, xe máy chết máy không thể qua.",
+        "lat": 16.047,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-1-5",
+      "sameIncident": true,
+      "report": {
+        "description": "Đoạn đường này nước sâu 50 cm, xe máy không đi được.",
+        "lat": 16.0471,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Đường ngập 50 cm, xe máy chết máy không thể qua.",
+        "lat": 16.047,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-1-far_same_street",
+      "sameIncident": false,
+      "report": {
+        "description": "duong ngap 50cm xe may chet may k di dc",
+        "lat": 16.147000000000002,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Đường ngập 50 cm, xe máy chết máy không thể qua.",
+        "lat": 16.047,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-1-different_day",
+      "sameIncident": false,
+      "report": {
+        "description": "Xe máy bị tắt máy vì nước ngập nửa mét trên đường.",
+        "lat": 16.047,
+        "lng": 108.206,
+        "createdAt": "2026-11-03T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Đường ngập 50 cm, xe máy chết máy không thể qua.",
+        "lat": 16.047,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-1-negated_flood",
+      "sameIncident": false,
+      "report": {
+        "description": "Không có ngập. Đường vẫn đi lại bình thường.",
+        "lat": 16.047,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Đường ngập 50 cm, xe máy chết máy không thể qua.",
+        "lat": 16.047,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-1-missing_gps",
+      "sameIncident": false,
+      "report": {
+        "description": "Nước ngập 0,5 m, xe máy không thể đi tiếp.",
+        "lat": null,
+        "lng": null,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Đường ngập 50 cm, xe máy chết máy không thể qua.",
+        "lat": 16.047,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-1-resolved_event",
+      "sameIncident": false,
+      "report": {
+        "description": "duong ngp 50 cm, xe chet may roi",
+        "lat": 16.047,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Đường ngập 50 cm, xe máy chết máy không thể qua.",
+        "lat": 16.047,
+        "lng": 108.206,
+        "status": "RESOLVED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-1-ambiguous_candidates",
+      "sameIncident": false,
+      "report": {
+        "description": "Đoạn đường này nước sâu 50 cm, xe máy không đi được.",
+        "lat": 16.047,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Đường ngập 50 cm, xe máy chết máy không thể qua.",
+        "lat": 16.047,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      },
+      "runnerUp": {
+        "description": "Đoạn đường này nước sâu 50 cm, xe máy không đi được.",
+        "lat": 16.047,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-2-1",
+      "sameIncident": true,
+      "report": {
+        "description": "nuoc tran vao nha ngap toi dau goi",
+        "lat": 16.0671,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Nước tràn vào nhà, ngập tới đầu gối.",
+        "lat": 16.067,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-2-2",
+      "sameIncident": true,
+      "report": {
+        "description": "Nhà bị nước ngập tới đầu gối.",
+        "lat": 16.0671,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Nước tràn vào nhà, ngập tới đầu gối.",
+        "lat": 16.067,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-2-3",
+      "sameIncident": true,
+      "report": {
+        "description": "Nước lũ đã vào trong nhà, cao đến đầu gối.",
+        "lat": 16.0671,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Nước tràn vào nhà, ngập tới đầu gối.",
+        "lat": 16.067,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-2-4",
+      "sameIncident": true,
+      "report": {
+        "description": "nha bi ngap, nuoc toi dau goi",
+        "lat": 16.0671,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Nước tràn vào nhà, ngập tới đầu gối.",
+        "lat": 16.067,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-2-5",
+      "sameIncident": true,
+      "report": {
+        "description": "Ngập trong nhà khoảng ngang đầu gối.",
+        "lat": 16.0671,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Nước tràn vào nhà, ngập tới đầu gối.",
+        "lat": 16.067,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-2-far_same_street",
+      "sameIncident": false,
+      "report": {
+        "description": "nuoc tran vao nha ngap toi dau goi",
+        "lat": 16.167,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Nước tràn vào nhà, ngập tới đầu gối.",
+        "lat": 16.067,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-2-different_day",
+      "sameIncident": false,
+      "report": {
+        "description": "Nhà bị nước ngập tới đầu gối.",
+        "lat": 16.067,
+        "lng": 108.206,
+        "createdAt": "2026-11-03T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Nước tràn vào nhà, ngập tới đầu gối.",
+        "lat": 16.067,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-2-negated_flood",
+      "sameIncident": false,
+      "report": {
+        "description": "Không có ngập. Đường vẫn đi lại bình thường.",
+        "lat": 16.067,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Nước tràn vào nhà, ngập tới đầu gối.",
+        "lat": 16.067,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-2-missing_gps",
+      "sameIncident": false,
+      "report": {
+        "description": "Nước lũ đã vào trong nhà, cao đến đầu gối.",
+        "lat": null,
+        "lng": null,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Nước tràn vào nhà, ngập tới đầu gối.",
+        "lat": 16.067,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-2-resolved_event",
+      "sameIncident": false,
+      "report": {
+        "description": "nha bi ngap, nuoc toi dau goi",
+        "lat": 16.067,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Nước tràn vào nhà, ngập tới đầu gối.",
+        "lat": 16.067,
+        "lng": 108.206,
+        "status": "RESOLVED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-2-ambiguous_candidates",
+      "sameIncident": false,
+      "report": {
+        "description": "Ngập trong nhà khoảng ngang đầu gối.",
+        "lat": 16.067,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Nước tràn vào nhà, ngập tới đầu gối.",
+        "lat": 16.067,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      },
+      "runnerUp": {
+        "description": "Ngập trong nhà khoảng ngang đầu gối.",
+        "lat": 16.067,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-3-1",
+      "sameIncident": true,
+      "report": {
+        "description": "duong bi chia cat do ngap khong the qua cau",
+        "lat": 16.0871,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Đường bị chia cắt do ngập, không thể qua cầu.",
+        "lat": 16.087,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-3-2",
+      "sameIncident": true,
+      "report": {
+        "description": "Cầu không đi qua được vì đường ngập nước.",
+        "lat": 16.0871,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Đường bị chia cắt do ngập, không thể qua cầu.",
+        "lat": 16.087,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-3-3",
+      "sameIncident": true,
+      "report": {
+        "description": "Nước ngập làm đường vào cầu bị chặn.",
+        "lat": 16.0871,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Đường bị chia cắt do ngập, không thể qua cầu.",
+        "lat": 16.087,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-3-4",
+      "sameIncident": true,
+      "report": {
+        "description": "ngap duong, k qua cau dc",
+        "lat": 16.0871,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Đường bị chia cắt do ngập, không thể qua cầu.",
+        "lat": 16.087,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-3-5",
+      "sameIncident": true,
+      "report": {
+        "description": "Đường đến cầu bị ngập và không thể lưu thông.",
+        "lat": 16.0871,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Đường bị chia cắt do ngập, không thể qua cầu.",
+        "lat": 16.087,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-3-far_same_street",
+      "sameIncident": false,
+      "report": {
+        "description": "duong bi chia cat do ngap khong the qua cau",
+        "lat": 16.187,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Đường bị chia cắt do ngập, không thể qua cầu.",
+        "lat": 16.087,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-3-different_day",
+      "sameIncident": false,
+      "report": {
+        "description": "Cầu không đi qua được vì đường ngập nước.",
+        "lat": 16.087,
+        "lng": 108.206,
+        "createdAt": "2026-11-03T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Đường bị chia cắt do ngập, không thể qua cầu.",
+        "lat": 16.087,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-3-negated_flood",
+      "sameIncident": false,
+      "report": {
+        "description": "Không có ngập. Đường vẫn đi lại bình thường.",
+        "lat": 16.087,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Đường bị chia cắt do ngập, không thể qua cầu.",
+        "lat": 16.087,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-3-missing_gps",
+      "sameIncident": false,
+      "report": {
+        "description": "Nước ngập làm đường vào cầu bị chặn.",
+        "lat": null,
+        "lng": null,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Đường bị chia cắt do ngập, không thể qua cầu.",
+        "lat": 16.087,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-3-resolved_event",
+      "sameIncident": false,
+      "report": {
+        "description": "ngap duong, k qua cau dc",
+        "lat": 16.087,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Đường bị chia cắt do ngập, không thể qua cầu.",
+        "lat": 16.087,
+        "lng": 108.206,
+        "status": "RESOLVED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-3-ambiguous_candidates",
+      "sameIncident": false,
+      "report": {
+        "description": "Đường đến cầu bị ngập và không thể lưu thông.",
+        "lat": 16.087,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Đường bị chia cắt do ngập, không thể qua cầu.",
+        "lat": 16.087,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      },
+      "runnerUp": {
+        "description": "Đường đến cầu bị ngập và không thể lưu thông.",
+        "lat": 16.087,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-4-1",
+      "sameIncident": true,
+      "report": {
+        "description": "nguoi gia mac ket trong nha ngap can cuu ho",
+        "lat": 16.1071,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Có người già mắc kẹt trong nhà ngập, cần cứu hộ.",
+        "lat": 16.107,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-4-2",
+      "sameIncident": true,
+      "report": {
+        "description": "Cần cứu người cao tuổi mắc kẹt do nhà bị ngập.",
+        "lat": 16.1071,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Có người già mắc kẹt trong nhà ngập, cần cứu hộ.",
+        "lat": 16.107,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-4-3",
+      "sameIncident": true,
+      "report": {
+        "description": "Nhà ngập nước, có người già không ra được, cần cứu trợ.",
+        "lat": 16.1071,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Có người già mắc kẹt trong nhà ngập, cần cứu hộ.",
+        "lat": 16.107,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-4-4",
+      "sameIncident": true,
+      "report": {
+        "description": "nha ngap nguoi gia mac ket cuu voi",
+        "lat": 16.1071,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Có người già mắc kẹt trong nhà ngập, cần cứu hộ.",
+        "lat": 16.107,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-4-5",
+      "sameIncident": true,
+      "report": {
+        "description": "Có người cao tuổi bị kẹt trong căn nhà ngập nước.",
+        "lat": 16.1071,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Có người già mắc kẹt trong nhà ngập, cần cứu hộ.",
+        "lat": 16.107,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-4-far_same_street",
+      "sameIncident": false,
+      "report": {
+        "description": "nguoi gia mac ket trong nha ngap can cuu ho",
+        "lat": 16.207,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Có người già mắc kẹt trong nhà ngập, cần cứu hộ.",
+        "lat": 16.107,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-4-different_day",
+      "sameIncident": false,
+      "report": {
+        "description": "Cần cứu người cao tuổi mắc kẹt do nhà bị ngập.",
+        "lat": 16.107,
+        "lng": 108.206,
+        "createdAt": "2026-11-03T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Có người già mắc kẹt trong nhà ngập, cần cứu hộ.",
+        "lat": 16.107,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-4-negated_flood",
+      "sameIncident": false,
+      "report": {
+        "description": "Không có ngập. Đường vẫn đi lại bình thường.",
+        "lat": 16.107,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Có người già mắc kẹt trong nhà ngập, cần cứu hộ.",
+        "lat": 16.107,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-4-missing_gps",
+      "sameIncident": false,
+      "report": {
+        "description": "Nhà ngập nước, có người già không ra được, cần cứu trợ.",
+        "lat": null,
+        "lng": null,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Có người già mắc kẹt trong nhà ngập, cần cứu hộ.",
+        "lat": 16.107,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-4-resolved_event",
+      "sameIncident": false,
+      "report": {
+        "description": "nha ngap nguoi gia mac ket cuu voi",
+        "lat": 16.107,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Có người già mắc kẹt trong nhà ngập, cần cứu hộ.",
+        "lat": 16.107,
+        "lng": 108.206,
+        "status": "RESOLVED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-4-ambiguous_candidates",
+      "sameIncident": false,
+      "report": {
+        "description": "Có người cao tuổi bị kẹt trong căn nhà ngập nước.",
+        "lat": 16.107,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Có người già mắc kẹt trong nhà ngập, cần cứu hộ.",
+        "lat": 16.107,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      },
+      "runnerUp": {
+        "description": "Có người cao tuổi bị kẹt trong căn nhà ngập nước.",
+        "lat": 16.107,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-5-1",
+      "sameIncident": true,
+      "report": {
+        "description": "hem ngap 80cm o to bi ket",
+        "lat": 16.1271,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Ngập nước 80 cm ở hẻm, ô tô bị kẹt.",
+        "lat": 16.127,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-5-2",
+      "sameIncident": true,
+      "report": {
+        "description": "Ô tô mắc kẹt vì hẻm ngập nước tám mươi cm.",
+        "lat": 16.1271,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Ngập nước 80 cm ở hẻm, ô tô bị kẹt.",
+        "lat": 16.127,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-5-3",
+      "sameIncident": true,
+      "report": {
+        "description": "Hẻm bị ngập 0,8 m khiến xe ô tô không ra được.",
+        "lat": 16.1271,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Ngập nước 80 cm ở hẻm, ô tô bị kẹt.",
+        "lat": 16.127,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-5-4",
+      "sameIncident": true,
+      "report": {
+        "description": "ngap hem 80 cm, xe oto mac ket",
+        "lat": 16.1271,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Ngập nước 80 cm ở hẻm, ô tô bị kẹt.",
+        "lat": 16.127,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-5-5",
+      "sameIncident": true,
+      "report": {
+        "description": "Nước sâu 80 cm trong hẻm, có ô tô kẹt lại.",
+        "lat": 16.1271,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Ngập nước 80 cm ở hẻm, ô tô bị kẹt.",
+        "lat": 16.127,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-5-far_same_street",
+      "sameIncident": false,
+      "report": {
+        "description": "hem ngap 80cm o to bi ket",
+        "lat": 16.227,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Ngập nước 80 cm ở hẻm, ô tô bị kẹt.",
+        "lat": 16.127,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-5-different_day",
+      "sameIncident": false,
+      "report": {
+        "description": "Ô tô mắc kẹt vì hẻm ngập nước tám mươi cm.",
+        "lat": 16.127,
+        "lng": 108.206,
+        "createdAt": "2026-11-03T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Ngập nước 80 cm ở hẻm, ô tô bị kẹt.",
+        "lat": 16.127,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-5-negated_flood",
+      "sameIncident": false,
+      "report": {
+        "description": "Không có ngập. Đường vẫn đi lại bình thường.",
+        "lat": 16.127,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Ngập nước 80 cm ở hẻm, ô tô bị kẹt.",
+        "lat": 16.127,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-5-missing_gps",
+      "sameIncident": false,
+      "report": {
+        "description": "Hẻm bị ngập 0,8 m khiến xe ô tô không ra được.",
+        "lat": null,
+        "lng": null,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Ngập nước 80 cm ở hẻm, ô tô bị kẹt.",
+        "lat": 16.127,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-5-resolved_event",
+      "sameIncident": false,
+      "report": {
+        "description": "ngap hem 80 cm, xe oto mac ket",
+        "lat": 16.127,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Ngập nước 80 cm ở hẻm, ô tô bị kẹt.",
+        "lat": 16.127,
+        "lng": 108.206,
+        "status": "RESOLVED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-5-ambiguous_candidates",
+      "sameIncident": false,
+      "report": {
+        "description": "Nước sâu 80 cm trong hẻm, có ô tô kẹt lại.",
+        "lat": 16.127,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Ngập nước 80 cm ở hẻm, ô tô bị kẹt.",
+        "lat": 16.127,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      },
+      "runnerUp": {
+        "description": "Nước sâu 80 cm trong hẻm, có ô tô kẹt lại.",
+        "lat": 16.127,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-6-1",
+      "sameIncident": true,
+      "report": {
+        "description": "nuoc len nhanh san truong ngap 30cm",
+        "lat": 16.147100000000002,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Nước đang lên nhanh, sân trường ngập 30 cm.",
+        "lat": 16.147000000000002,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-6-2",
+      "sameIncident": true,
+      "report": {
+        "description": "Sân trường bị ngập 0,3 m, nước tiếp tục lên.",
+        "lat": 16.147100000000002,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Nước đang lên nhanh, sân trường ngập 30 cm.",
+        "lat": 16.147000000000002,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-6-3",
+      "sameIncident": true,
+      "report": {
+        "description": "Nước ngập sân trường 30 cm và đang dâng.",
+        "lat": 16.147100000000002,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Nước đang lên nhanh, sân trường ngập 30 cm.",
+        "lat": 16.147000000000002,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-6-4",
+      "sameIncident": true,
+      "report": {
+        "description": "san truong ngap 30 cm nuoc dang len",
+        "lat": 16.147100000000002,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Nước đang lên nhanh, sân trường ngập 30 cm.",
+        "lat": 16.147000000000002,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "positive-6-5",
+      "sameIncident": true,
+      "report": {
+        "description": "Ngập 30 cm tại sân trường, mực nước tăng nhanh.",
+        "lat": 16.147100000000002,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Nước đang lên nhanh, sân trường ngập 30 cm.",
+        "lat": 16.147000000000002,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-6-far_same_street",
+      "sameIncident": false,
+      "report": {
+        "description": "nuoc len nhanh san truong ngap 30cm",
+        "lat": 16.247000000000003,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Nước đang lên nhanh, sân trường ngập 30 cm.",
+        "lat": 16.147000000000002,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-6-different_day",
+      "sameIncident": false,
+      "report": {
+        "description": "Sân trường bị ngập 0,3 m, nước tiếp tục lên.",
+        "lat": 16.147000000000002,
+        "lng": 108.206,
+        "createdAt": "2026-11-03T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Nước đang lên nhanh, sân trường ngập 30 cm.",
+        "lat": 16.147000000000002,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-6-negated_flood",
+      "sameIncident": false,
+      "report": {
+        "description": "Không có ngập. Đường vẫn đi lại bình thường.",
+        "lat": 16.147000000000002,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Nước đang lên nhanh, sân trường ngập 30 cm.",
+        "lat": 16.147000000000002,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-6-missing_gps",
+      "sameIncident": false,
+      "report": {
+        "description": "Nước ngập sân trường 30 cm và đang dâng.",
+        "lat": null,
+        "lng": null,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Nước đang lên nhanh, sân trường ngập 30 cm.",
+        "lat": 16.147000000000002,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-6-resolved_event",
+      "sameIncident": false,
+      "report": {
+        "description": "san truong ngap 30 cm nuoc dang len",
+        "lat": 16.147000000000002,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Nước đang lên nhanh, sân trường ngập 30 cm.",
+        "lat": 16.147000000000002,
+        "lng": 108.206,
+        "status": "RESOLVED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    },
+    {
+      "id": "negative-6-ambiguous_candidates",
+      "sameIncident": false,
+      "report": {
+        "description": "Ngập 30 cm tại sân trường, mực nước tăng nhanh.",
+        "lat": 16.147000000000002,
+        "lng": 108.206,
+        "createdAt": "2026-11-01T10:00:00Z"
+      },
+      "candidate": {
+        "description": "Nước đang lên nhanh, sân trường ngập 30 cm.",
+        "lat": 16.147000000000002,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      },
+      "runnerUp": {
+        "description": "Ngập 30 cm tại sân trường, mực nước tăng nhanh.",
+        "lat": 16.147000000000002,
+        "lng": 108.206,
+        "status": "DETECTED",
+        "first_reported_at": "2026-11-01T09:00:00Z",
+        "latest_reported_at": "2026-11-01T09:30:00Z"
+      }
+    }
+  ]
+}

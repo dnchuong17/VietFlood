@@ -39,7 +39,8 @@ WORKDIR /app
 
 RUN apk add --no-cache dumb-init
 
-COPY --from=builder /app/dist/apps/reports-service ./dist
+COPY --from=builder /app/dist/apps/reports-service ./dist/apps/reports-service
+COPY shared ./shared
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=prod-deps /app/package.json ./
 
@@ -49,4 +50,6 @@ USER nobody
 
 ENTRYPOINT ["dumb-init", "--"]
 
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/apps/reports-service/main.js"]
+COPY db/migrations/20261101_incidents.sql ./db/migrations/
+COPY scripts/migrate-incidents.js ./scripts/

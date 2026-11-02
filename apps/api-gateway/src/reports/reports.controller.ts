@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   Param,
   ParseIntPipe,
   Patch,
@@ -36,11 +37,13 @@ export class ReportsController {
     @Body() createReportDto: CreateReportDto,
     @UploadedFiles() files: Express.Multer.File[],
     @Req() req: any,
+    @Headers("idempotency-key") idempotencyKey?: string,
   ) {
     return this.reportsService.createReport(
       createReportDto,
       req.user.userId,
       files,
+      idempotencyKey,
     );
   }
 
@@ -124,8 +127,9 @@ export class ReportsController {
   async deleteReport(
     @Param("id", ParseIntPipe) id: number,
     @Param("userId", ParseIntPipe) userId: number,
+    @Req() req: { user: { userId: number; role: string } },
   ) {
-    return this.reportsService.deleteReport(id, userId);
+    return this.reportsService.deleteReport(id, userId, req.user);
   }
 
   @Delete("relief/:id/user/:userId")
@@ -134,13 +138,14 @@ export class ReportsController {
   async deleteReportForRelief(
     @Param("id", ParseIntPipe) id: number,
     @Param("userId", ParseIntPipe) userId: number,
+    @Req() req: { user: { userId: number; role: string } },
   ) {
-    return this.reportsService.deleteReport(id, userId);
+    return this.reportsService.deleteReport(id, userId, req.user);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete(":id")
   async deleteReportByUser(@Param("id", ParseIntPipe) id: number, @Req() req) {
-    return this.reportsService.deleteReport(id, req.user.userId);
+    return this.reportsService.deleteReport(id, req.user.userId, req.user);
   }
 }

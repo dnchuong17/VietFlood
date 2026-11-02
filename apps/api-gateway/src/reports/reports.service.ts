@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
 import { ClientProxy } from "@nestjs/microservices";
 import { lastValueFrom, of } from "rxjs";
@@ -31,6 +32,7 @@ export class ReportsService {
     createReportDto: CreateReportDto,
     userId: number,
     files?: Express.Multer.File[],
+    idempotencyKey?: string,
   ) {
     this.logger.debug("[CREATE REPORT][GATEWAY] - Start upload files");
 
@@ -63,8 +65,9 @@ export class ReportsService {
       userId,
     };
 
+    const requestKey = idempotencyKey || randomUUID();
     const data = await lastValueFrom(
-      this.reportsClient.send("create", payload).pipe(
+      this.reportsClient.send("create", { ...payload, _incidentRequestKey: requestKey }).pipe(
         timeout(10000),
         retry(3),
         catchError((error) =>
@@ -234,9 +237,9 @@ export class ReportsService {
     return data;
   }
 
-  async deleteReport(id: number, userId: number) {
+  async deleteReport(id: number, userId: number, actor?: { userId: number; role: string }) {
     const data = await lastValueFrom(
-      this.reportsClient.send("delete", { id, userId }).pipe(
+      this.reportsClient.send("delete", { id, userId, actor }).pipe(
         timeout(5000),
         retry(3),
         catchError((error) => {

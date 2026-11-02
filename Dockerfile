@@ -41,9 +41,8 @@ RUN npm ci --omit=dev --no-audit --loglevel=error \
   && npm cache clean --force \
   && rm -f .npmrc
 
-COPY --from=build /app/dist/apps/api-gateway ./dist/api-gateway
-COPY --from=build /app/dist/apps/auth-service ./dist/auth-service
-COPY --from=build /app/dist/apps/reports-service ./dist/reports-service
+COPY --from=build /app/dist ./dist
+COPY shared ./shared
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 COPY db/migrations/20261009_chat_history.sql db/migrations/20261009_chat_action_kind.sql ./db/migrations/
 COPY scripts/migrate-chat-history.js scripts/rotate-chat-history-key.js scripts/check-chat-runtime.js scripts/check-openai-runtime.js ./scripts/
@@ -59,3 +58,6 @@ USER nobody
 
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["/docker-entrypoint.sh"]
+
+COPY db/migrations/20261101_incidents.sql ./db/migrations/
+COPY scripts/migrate-incidents.js ./scripts/

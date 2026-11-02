@@ -12,6 +12,9 @@ import {
 import { ReportEntity } from "./entity/report.entity";
 import { typeOrmConfigAsync } from "./config/typeorm.config";
 import { TrackingModule } from "./tracking/tracking.module";
+import { IncidentRepository } from './incidents/incident.repository';
+import { IncidentWorker } from './incidents/incident.worker';
+import { IncidentRpcController } from './incidents/incident.controller';
 
 @Module({
   imports: [
@@ -24,7 +27,7 @@ import { TrackingModule } from "./tracking/tracking.module";
     TypeOrmModule.forFeature([ReportEntity]),
     TrackingModule,
   ],
-  controllers: [ReportsController],
-  providers: [ReportsService, LoggerService, CloudinaryService],
+  controllers: [ReportsController, IncidentRpcController],
+  providers: [ReportsService, LoggerService, CloudinaryService, IncidentRepository, IncidentWorker],
 })
 export class ReportsServiceModule {}

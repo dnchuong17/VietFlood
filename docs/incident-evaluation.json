@@ -1,0 +1,555 @@
+{
+  "datasetVersion": "synthetic-held-out-v1",
+  "datasetHash": "bbaac4e395c87e2eb0cfdebd8296419d3f4fb34e51f08fde4d100e3b9b642c0c",
+  "pipeline": "incidents-v1",
+  "fingerprint": "9c3d6db6b6824573f70117e621eb46d69c294695320d77f5a338d99b303957ca",
+  "configHash": "ffb26c32185ea5dd16b86cf430bc119a1f33959cb2d6ac1351c8bd146e16b431",
+  "configuration": {
+    "radius": 300,
+    "gapHours": 6,
+    "spanHours": 24,
+    "similarity": 0.88,
+    "margin": 0.05
+  },
+  "precision": 0,
+  "recall": 0,
+  "positiveCases": 30,
+  "negativeCases": 36,
+  "gateViolations": 0,
+  "truePositive": 0,
+  "falsePositive": 0,
+  "falseNegative": 30,
+  "trueNegative": 36,
+  "evaluatedAt": "2026-11-01T17:55:57.052Z",
+  "decisions": [
+    {
+      "id": "positive-1-1",
+      "expected": true,
+      "predicted": false,
+      "score": 0.6901182928530052,
+      "margin": null,
+      "eligible": true
+    },
+    {
+      "id": "positive-1-2",
+      "expected": true,
+      "predicted": false,
+      "score": 0.6019840231554044,
+      "margin": null,
+      "eligible": true
+    },
+    {
+      "id": "positive-1-3",
+      "expected": true,
+      "predicted": false,
+      "score": 0.6930280996426468,
+      "margin": null,
+      "eligible": true
+    },
+    {
+      "id": "positive-1-4",
+      "expected": true,
+      "predicted": false,
+      "score": 0.6846125713678929,
+      "margin": null,
+      "eligible": true
+    },
+    {
+      "id": "positive-1-5",
+      "expected": true,
+      "predicted": false,
+      "score": 0.7699991337706245,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-1-far_same_street",
+      "expected": false,
+      "predicted": false,
+      "score": 0.6901182928530052,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-1-different_day",
+      "expected": false,
+      "predicted": false,
+      "score": 0.6019840231554044,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-1-negated_flood",
+      "expected": false,
+      "predicted": false,
+      "score": 0.4850058840365086,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-1-missing_gps",
+      "expected": false,
+      "predicted": false,
+      "score": 0.6930280996426468,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-1-resolved_event",
+      "expected": false,
+      "predicted": false,
+      "score": 0.6846125713678929,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-1-ambiguous_candidates",
+      "expected": false,
+      "predicted": false,
+      "score": 0.7699991337706245,
+      "margin": -0.23000086622937554,
+      "eligible": false
+    },
+    {
+      "id": "positive-2-1",
+      "expected": true,
+      "predicted": false,
+      "score": 0.4845855329445854,
+      "margin": null,
+      "eligible": true
+    },
+    {
+      "id": "positive-2-2",
+      "expected": true,
+      "predicted": false,
+      "score": 0.7193748320669336,
+      "margin": null,
+      "eligible": true
+    },
+    {
+      "id": "positive-2-3",
+      "expected": true,
+      "predicted": false,
+      "score": 0.7856076538092449,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "positive-2-4",
+      "expected": true,
+      "predicted": false,
+      "score": 0.5378434219678497,
+      "margin": null,
+      "eligible": true
+    },
+    {
+      "id": "positive-2-5",
+      "expected": true,
+      "predicted": false,
+      "score": 0.6582631438717983,
+      "margin": null,
+      "eligible": true
+    },
+    {
+      "id": "negative-2-far_same_street",
+      "expected": false,
+      "predicted": false,
+      "score": 0.4845855329445854,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-2-different_day",
+      "expected": false,
+      "predicted": false,
+      "score": 0.7193748320669336,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-2-negated_flood",
+      "expected": false,
+      "predicted": false,
+      "score": 0.48418439787297646,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-2-missing_gps",
+      "expected": false,
+      "predicted": false,
+      "score": 0.7856076538092449,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-2-resolved_event",
+      "expected": false,
+      "predicted": false,
+      "score": 0.5378434219678497,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-2-ambiguous_candidates",
+      "expected": false,
+      "predicted": false,
+      "score": 0.6582631438717983,
+      "margin": -0.3417368561282017,
+      "eligible": true
+    },
+    {
+      "id": "positive-3-1",
+      "expected": true,
+      "predicted": false,
+      "score": 0.6151437111077622,
+      "margin": null,
+      "eligible": true
+    },
+    {
+      "id": "positive-3-2",
+      "expected": true,
+      "predicted": false,
+      "score": 0.7307867569287756,
+      "margin": null,
+      "eligible": true
+    },
+    {
+      "id": "positive-3-3",
+      "expected": true,
+      "predicted": false,
+      "score": 0.6978314702840122,
+      "margin": null,
+      "eligible": true
+    },
+    {
+      "id": "positive-3-4",
+      "expected": true,
+      "predicted": false,
+      "score": 0.5449214282077764,
+      "margin": null,
+      "eligible": true
+    },
+    {
+      "id": "positive-3-5",
+      "expected": true,
+      "predicted": false,
+      "score": 0.769681173195374,
+      "margin": null,
+      "eligible": true
+    },
+    {
+      "id": "negative-3-far_same_street",
+      "expected": false,
+      "predicted": false,
+      "score": 0.6151437111077622,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-3-different_day",
+      "expected": false,
+      "predicted": false,
+      "score": 0.7307867569287756,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-3-negated_flood",
+      "expected": false,
+      "predicted": false,
+      "score": 0.5325358610867752,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-3-missing_gps",
+      "expected": false,
+      "predicted": false,
+      "score": 0.6978314702840122,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-3-resolved_event",
+      "expected": false,
+      "predicted": false,
+      "score": 0.5449214282077764,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-3-ambiguous_candidates",
+      "expected": false,
+      "predicted": false,
+      "score": 0.769681173195374,
+      "margin": -0.230318826804626,
+      "eligible": true
+    },
+    {
+      "id": "positive-4-1",
+      "expected": true,
+      "predicted": false,
+      "score": 0.5734285988416047,
+      "margin": null,
+      "eligible": true
+    },
+    {
+      "id": "positive-4-2",
+      "expected": true,
+      "predicted": false,
+      "score": 0.7798956068432852,
+      "margin": null,
+      "eligible": true
+    },
+    {
+      "id": "positive-4-3",
+      "expected": true,
+      "predicted": false,
+      "score": 0.7787302831073312,
+      "margin": null,
+      "eligible": true
+    },
+    {
+      "id": "positive-4-4",
+      "expected": true,
+      "predicted": false,
+      "score": 0.5481143258472946,
+      "margin": null,
+      "eligible": true
+    },
+    {
+      "id": "positive-4-5",
+      "expected": true,
+      "predicted": false,
+      "score": 0.6601431134480944,
+      "margin": null,
+      "eligible": true
+    },
+    {
+      "id": "negative-4-far_same_street",
+      "expected": false,
+      "predicted": false,
+      "score": 0.5734285988416047,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-4-different_day",
+      "expected": false,
+      "predicted": false,
+      "score": 0.7798956068432852,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-4-negated_flood",
+      "expected": false,
+      "predicted": false,
+      "score": 0.3846548871834538,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-4-missing_gps",
+      "expected": false,
+      "predicted": false,
+      "score": 0.7787302831073312,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-4-resolved_event",
+      "expected": false,
+      "predicted": false,
+      "score": 0.5481143258472946,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-4-ambiguous_candidates",
+      "expected": false,
+      "predicted": false,
+      "score": 0.6601431134480944,
+      "margin": -0.3398568865519056,
+      "eligible": true
+    },
+    {
+      "id": "positive-5-1",
+      "expected": true,
+      "predicted": false,
+      "score": 0.6346459789931258,
+      "margin": null,
+      "eligible": true
+    },
+    {
+      "id": "positive-5-2",
+      "expected": true,
+      "predicted": false,
+      "score": 0.7260817739504363,
+      "margin": null,
+      "eligible": true
+    },
+    {
+      "id": "positive-5-3",
+      "expected": true,
+      "predicted": false,
+      "score": 0.6882117831790652,
+      "margin": null,
+      "eligible": true
+    },
+    {
+      "id": "positive-5-4",
+      "expected": true,
+      "predicted": false,
+      "score": 0.7070258051009177,
+      "margin": null,
+      "eligible": true
+    },
+    {
+      "id": "positive-5-5",
+      "expected": true,
+      "predicted": false,
+      "score": 0.8162467508612682,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-5-far_same_street",
+      "expected": false,
+      "predicted": false,
+      "score": 0.6346459789931258,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-5-different_day",
+      "expected": false,
+      "predicted": false,
+      "score": 0.7260817739504363,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-5-negated_flood",
+      "expected": false,
+      "predicted": false,
+      "score": 0.41230999175554867,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-5-missing_gps",
+      "expected": false,
+      "predicted": false,
+      "score": 0.6882117831790652,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-5-resolved_event",
+      "expected": false,
+      "predicted": false,
+      "score": 0.7070258051009177,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-5-ambiguous_candidates",
+      "expected": false,
+      "predicted": false,
+      "score": 0.8162467508612682,
+      "margin": -0.1837532491387318,
+      "eligible": false
+    },
+    {
+      "id": "positive-6-1",
+      "expected": true,
+      "predicted": false,
+      "score": 0.6231819079083084,
+      "margin": null,
+      "eligible": true
+    },
+    {
+      "id": "positive-6-2",
+      "expected": true,
+      "predicted": false,
+      "score": 0.7571911279798317,
+      "margin": null,
+      "eligible": true
+    },
+    {
+      "id": "positive-6-3",
+      "expected": true,
+      "predicted": false,
+      "score": 0.8422909252834485,
+      "margin": null,
+      "eligible": true
+    },
+    {
+      "id": "positive-6-4",
+      "expected": true,
+      "predicted": false,
+      "score": 0.6646908664427682,
+      "margin": null,
+      "eligible": true
+    },
+    {
+      "id": "positive-6-5",
+      "expected": true,
+      "predicted": false,
+      "score": 0.8723145948373211,
+      "margin": null,
+      "eligible": true
+    },
+    {
+      "id": "negative-6-far_same_street",
+      "expected": false,
+      "predicted": false,
+      "score": 0.6231819079083084,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-6-different_day",
+      "expected": false,
+      "predicted": false,
+      "score": 0.7571911279798317,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-6-negated_flood",
+      "expected": false,
+      "predicted": false,
+      "score": 0.3964373759554998,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-6-missing_gps",
+      "expected": false,
+      "predicted": false,
+      "score": 0.8422909252834485,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-6-resolved_event",
+      "expected": false,
+      "predicted": false,
+      "score": 0.6646908664427682,
+      "margin": null,
+      "eligible": false
+    },
+    {
+      "id": "negative-6-ambiguous_candidates",
+      "expected": false,
+      "predicted": false,
+      "score": 0.8723145948373211,
+      "margin": -0.1276854051626789,
+      "eligible": true
+    }
+  ],
+  "qualifies": false
+}

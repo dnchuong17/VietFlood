@@ -210,6 +210,88 @@ describe.skipIf(!url)("incident PostgreSQL transactions", () => {
       )
     ).incidentId;
   }
+  it("recovers HTTP reads and database mutations after migration without restarting", async () => {
+    vi.unstubAllGlobals();
+    vi.stubEnv("INCIDENTS_ENABLED", "false");
+    const migration = readFileSync(
+      "db/migrations/20261101_incidents.sql",
+      "utf8",
+    );
+    const headers = {
+      Authorization: `Bearer ${signing.sign({ sub: relief.userId, role: relief.role, username: "fixture" })}`,
+    };
+    // The suite validates the isolated localhost database URL before connecting.
+    await db.query("DROP SCHEMA private_incidents CASCADE");
+    const writer = new IncidentRepository(db);
+    try {
+      await repo.onModuleInit();
+      await writer.onModuleInit();
+      expect(repo.ready).toBe(false);
+      for (const path of ["/incidents/emergencies", "/incidents/overview"]) {
+        const response = await fetch(base + path, { headers });
+        expect(response.status).toBe(503);
+        expect(await response.json()).toMatchObject({
+          statusCode: 503,
+          code: "incidents_unavailable",
+          message: "Incident service is unavailable",
+          requestId: expect.any(String),
+        });
+      }
+      await db.query(migration);
+      const feed = await fetch(base + "/incidents/emergencies", { headers });
+      expect(feed.status).toBe(200);
+      expect(await feed.json()).toEqual({ items: [], nextCursor: null });
+      const overview = await fetch(base + "/incidents/overview", { headers });
+      expect(overview.status).toBe(200);
+      expect(await overview.json()).toMatchObject({
+        totalIncidents: 0,
+        processingEnabled: false,
+      });
+      expect(repo.enabled).toBe(false);
+      expect(
+        await db.query("SELECT * FROM private_incidents.jobs"),
+      ).toHaveLength(0);
+      vi.stubEnv("INCIDENTS_ENABLED", "true");
+      const reportId = await create({
+        description: "Có người mắc kẹt, cứu với!",
+      });
+      vi.stubEnv("INCIDENTS_ENABLED", "false");
+      const populated = await fetch(base + "/incidents/emergencies", {
+        headers,
+      });
+      expect(populated.status).toBe(200);
+      expect((await populated.json()).items).toMatchObject([
+        { report_id: reportId },
+      ]);
+      expect(writer.ready).toBe(false);
+      await expect(
+        writer.mutate(admin, "resolve", String(reportId), {
+          action: "exclude",
+          expectedRevision: 1,
+          reason: "Isolated recovery test",
+        }),
+      ).resolves.toMatchObject({ reportId, excluded: true });
+      expect(writer.ready).toBe(true);
+      expect(
+        (
+          await db.query(
+            "SELECT review_state FROM private_incidents.retained_reports WHERE report_id=$1",
+            [reportId],
+          )
+        )[0].review_state,
+      ).toBe("excluded");
+      expect(
+        (
+          await (
+            await fetch(base + "/incidents/emergencies", { headers })
+          ).json()
+        ).items,
+      ).toEqual([]);
+    } finally {
+      await db.query(migration);
+      await repo.onModuleInit();
+    }
+  });
   it("retains reports and media through edits and archival", async () => {
     const id = await create({
       evidences: [

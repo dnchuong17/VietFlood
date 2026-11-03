@@ -24,26 +24,47 @@ export class IncidentRepository implements OnModuleInit {
   ready = false;
   postgis = false;
   postgisNamespace = '"public"';
+  private readinessRefresh?: Promise<void>;
   constructor(readonly db: DataSource) {}
   async onModuleInit() {
+    await this.refreshReadiness();
+    if (process.env.INCIDENTS_ENABLED === "true" && !this.ready)
+      throw new Error("Run the incident migration before enabling incidents");
+  }
+  private async refreshReadiness() {
+    if (!this.readinessRefresh)
+      this.readinessRefresh = this.probeReadiness().finally(() => {
+        this.readinessRefresh = undefined;
+      });
+    await this.readinessRefresh;
+  }
+  private async probeReadiness() {
     const [row] = await this.db.query(
       "SELECT to_regclass('private_incidents.incidents') IS NOT NULL AS ready, EXISTS(SELECT 1 FROM pg_extension WHERE extname='postgis') AS postgis",
     );
-    this.ready = !!row.ready;
-    this.postgis = !!row.postgis;
-    if (this.postgis) {
+    let namespace = '"public"';
+    if (row.postgis) {
       const [extension] = await this.db.query(
         "SELECT quote_ident(n.nspname) AS name FROM pg_extension e JOIN pg_namespace n ON n.oid=e.extnamespace WHERE e.extname='postgis'",
       );
-      this.postgisNamespace = extension.name;
+      namespace = extension.name;
     }
-    if (process.env.INCIDENTS_ENABLED === "true" && !this.ready)
-      throw new Error("Run the incident migration before enabling incidents");
+    // Publish readiness only after all capability metadata is available.
+    this.postgisNamespace = namespace;
+    this.postgis = !!row.postgis;
+    this.ready = !!row.ready;
   }
   get enabled() {
     return this.ready && process.env.INCIDENTS_ENABLED === "true";
   }
-  requireReady() {
+  async requireReady() {
+    if (this.ready) return;
+    try {
+      await this.refreshReadiness();
+    } catch {
+      // Connection/catalog errors must not expose database details to callers.
+      fail(503, "incidents_unavailable", "Incident storage is not configured");
+    }
     if (!this.ready)
       fail(503, "incidents_unavailable", "Incident storage is not configured");
   }
@@ -478,7 +499,7 @@ export class IncidentRepository implements OnModuleInit {
   }
   async read(actor: Actor, operation: string, id: string, input: any = {}) {
     authorize(actor);
-    this.requireReady();
+    await this.requireReady();
     if (operation === "list") return this.list(actor, input);
     if (operation === "overview") return this.overview(actor, input);
     if (operation === "detail") return this.detail(id);
@@ -577,7 +598,7 @@ export class IncidentRepository implements OnModuleInit {
     key?: string,
   ) {
     authorize(actor, operation !== "status");
-    this.requireReady();
+    await this.requireReady();
     return this.db.transaction(async (q) => {
       await this.lock(q);
       const run = async () => {

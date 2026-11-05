@@ -2,6 +2,7 @@ import PDFDocument from "pdfkit";
 import { accessSync, constants } from "node:fs";
 import { dirname, join } from "node:path";
 import { BadGatewayException, PayloadTooLargeException, ServiceUnavailableException } from "@nestjs/common";
+import { INCIDENT_FONT_BYTES } from "./incident-font";
 
 type Row = Record<string, unknown>;
 const record = (value: unknown): Row =>
@@ -70,10 +71,12 @@ export async function renderIncidentReportPdf(
   const fontPath = candidates.find(candidate => {
     try { accessSync(candidate, constants.R_OK); return true; } catch { return false; }
   });
-  if (!fontPath) throw new ServiceUnavailableException({ code: "incident_pdf_font_unavailable", message: "incident_pdf_font_unavailable" });
+  if (!fontPath && options.fontPath) throw new ServiceUnavailableException({ code: "incident_pdf_font_unavailable", message: "incident_pdf_font_unavailable" });
   const doc = new PDFDocument({
     size: "A4", margins: { top: 46, bottom: 48, left: 46, right: 46 },
-    font: fontPath, bufferPages: true, compress: true,
+    // The compiled artifact must work when an updater deploys dist/ alone.
+    // PDFKit accepts Buffer here at runtime; its options type only declares string.
+    font: (fontPath ?? INCIDENT_FONT_BYTES) as unknown as string, bufferPages: true, compress: true,
     info: { Title: "Báo cáo tổng hợp ngập lụt — VietFlood", Author: "VietFlood", Subject: "AI Flood Intelligence; thông tin cần xác minh" },
   });
   const chunks: Buffer[] = [];

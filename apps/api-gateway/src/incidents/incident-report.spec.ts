@@ -3,6 +3,8 @@ import PDFDocument from "pdfkit";
 import { renderIncidentReportPdf, redactReportText } from "./incident-report";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import fileSystem from "node:fs";
+import { INCIDENT_FONT_BYTES } from "./incident-font";
 
 function fixture(size = 1) {
   return {
@@ -84,5 +86,12 @@ describe("real Vietnamese incident PDF", () => {
     expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
     expect(pdf.toString("latin1")).toContain("/FontFile2");
     await expect(renderIncidentReportPdf(fixture(), {fontPath:"/does-not-exist/noto.ttf"})).rejects.toMatchObject({status:503});
+  });
+  it("ships the exact licensed font in the compiled module when runtime asset files are absent", async () => {
+    expect(INCIDENT_FONT_BYTES.equals(fileSystem.readFileSync("assets/fonts/NotoSans-Regular.ttf"))).toBe(true);
+    vi.spyOn(fileSystem, "accessSync").mockImplementation(() => {throw new Error("runtime contains only compiled modules");});
+    const pdf = await renderIncidentReportPdf(fixture(0));
+    expect(pdf.subarray(0,5).toString()).toBe("%PDF-");
+    expect(pdf.toString("latin1")).toContain("/FontFile2");
   });
 });

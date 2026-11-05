@@ -10,12 +10,27 @@ export type PriorityAssessment = {
   evidenceVersion: number;
 };
 // A positive life-threat claim is required; depth alone never establishes it.
+// Keep polarity aligned with RAG incident_processing.py: questions are not
+// observations, and only an explicit contrast resets shared negation/uncertainty.
 export function lifeThreat(text: string): boolean {
-  return fold(text).split(/[.!?;\n]/).some(sentence =>
-    [...sentence.matchAll(/\b(duoi nuoc|nguy kich|de doa tinh mang|sap chet|ngung tho|bat tinh|nuoc dang cuon|bi cuon troi)\b/g)].some(match => {
-      const clause = sentence.slice(0, match.index).split(/,|\b(?:nhung|tuy nhien|va)\b/).slice(-1)[0] ?? "";
-      return !/\b(?:khong|chua|ko|khong co|chua co)\b/.test(clause);
-    }));
+  const negation = /\b(?:khong|chua|chang|cha|dau co|ko|khg|khongg|khum|hok|hk|k0)\b/;
+  const uncertain = /\b(?:neu|gia su|nguy co|co the|canh bao|de phong|nghe noi|lieu|co phai|chua (?:duoc )?xac (?:minh|nhan))\b/;
+  for (const sentence of text.normalize("NFC").matchAll(/([^.!?;\n]+)([.!?;\n]|$)/g)) {
+    if (sentence[2] === "?") continue;
+    // Split before folding: 'những' must not become the contrast 'nhưng'.
+    for (const original of sentence[1].split(/\b(?:nhưng|tuy nhiên|tuy nhien)\b|,\s*nhung\b/i)) {
+      const scope = fold(original).replace(/\bk\s+(?=(?:di|qua|co|con|ai|the|duoc|ngap|bi|can|mac|duoi|nguy)\b)/g, "khong ");
+      for (const match of scope.matchAll(/\b(duoi nuoc|nguy kich|de doa tinh mang|sap chet|ngung tho|bat tinh|nuoc dang cuon|bi cuon troi)\b/g)) {
+        const prefix = scope.slice(0, match.index);
+        const suffix = scope.slice(match.index! + match[0].length);
+        if (negation.test(prefix) || uncertain.test(prefix + match[0])) continue;
+        if (/^\s*(?:khong|chua|la sai|khong dung|khong co that)\b/.test(suffix)) continue;
+        if (/^\s*,?\s*(?:la sai|khong dung|khong co that|chua (?:duoc )?xac (?:minh|nhan)|(?:chi la )?tin don)\b/.test(suffix)) continue;
+        return true;
+      }
+    }
+  }
+  return false;
 }
 export function assessPriority(rows: any[], evidenceVersion: number): PriorityAssessment {
   const result: PriorityAssessment = { value: "UNKNOWN", provenance: "estimate", requiresHumanDecision: true, reasonCodes: [], factIds: [], sourceReportIds: [], evidenceVersion };

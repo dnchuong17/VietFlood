@@ -78,4 +78,11 @@ describe("real Vietnamese incident PDF", () => {
     expect(spy.mock.calls.some(([value]) => String(value).includes("không khẳng định khu vực không có ngập"))).toBe(true);
     expect(redactReportText("+84 912 345 678; a@b.test\u0000")).toBe("[điện thoại]; [email]");
   });
+  it("resolves the packaged Vietnamese font independently of the service working directory", async () => {
+    vi.spyOn(process, "cwd").mockReturnValue("/nonexistent-service-working-directory");
+    const pdf = await renderIncidentReportPdf(fixture(0));
+    expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
+    expect(pdf.toString("latin1")).toContain("/FontFile2");
+    await expect(renderIncidentReportPdf(fixture(), {fontPath:"/does-not-exist/noto.ttf"})).rejects.toMatchObject({status:503});
+  });
 });

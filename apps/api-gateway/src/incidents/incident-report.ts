@@ -1,7 +1,7 @@
 import PDFDocument from "pdfkit";
 import { accessSync, constants } from "node:fs";
-import { join } from "node:path";
-import { BadGatewayException, PayloadTooLargeException } from "@nestjs/common";
+import { dirname, join } from "node:path";
+import { BadGatewayException, PayloadTooLargeException, ServiceUnavailableException } from "@nestjs/common";
 
 type Row = Record<string, unknown>;
 const record = (value: unknown): Row =>
@@ -55,9 +55,22 @@ export async function renderIncidentReportPdf(
     throw new BadGatewayException({ code: "invalid_incident_report", message: "Không nhận được bản chụp báo cáo đầy đủ." });
   }
   if (report.incidents.length > 1000 || Buffer.byteLength(JSON.stringify(report), "utf8") > 2_000_000) tooLarge();
-  const fontPath = options.fontPath ?? join(process.cwd(), "assets/fonts/NotoSans-Regular.ttf");
-  try { accessSync(fontPath, constants.R_OK); }
-  catch { throw new Error("incident_pdf_font_unavailable"); }
+  // Service runners may start from dist/ rather than the Docker WORKDIR.
+  // Resolve only the packaged font, never a network font or Latin-only fallback.
+  const candidates = options.fontPath ? [options.fontPath] : [join(process.cwd(), "assets/fonts/NotoSans-Regular.ttf")];
+  if (!options.fontPath) {
+    let directory = __dirname;
+    for (let level = 0; level < 6; level++) {
+      candidates.push(join(directory, "assets/fonts/NotoSans-Regular.ttf"));
+      const parent = dirname(directory);
+      if (parent === directory) break;
+      directory = parent;
+    }
+  }
+  const fontPath = candidates.find(candidate => {
+    try { accessSync(candidate, constants.R_OK); return true; } catch { return false; }
+  });
+  if (!fontPath) throw new ServiceUnavailableException({ code: "incident_pdf_font_unavailable", message: "incident_pdf_font_unavailable" });
   const doc = new PDFDocument({
     size: "A4", margins: { top: 46, bottom: 48, left: 46, right: 46 },
     font: fontPath, bufferPages: true, compress: true,

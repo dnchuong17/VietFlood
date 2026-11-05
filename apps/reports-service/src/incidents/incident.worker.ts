@@ -21,6 +21,8 @@ import {
   SUMMARY_SCHEMA,
 } from "./incident-summary";
 
+import { relationSignals } from "./incident-matching";
+
 export function automaticAllowed(fingerprint: string) {
   if (process.env.INCIDENT_MATCH_MODE !== "automatic") return false;
   try {
@@ -238,6 +240,8 @@ export class IncidentWorker implements OnModuleInit, OnModuleDestroy {
     return end < ids.length ? "pending" : "succeeded";
   }
   async analyze(job: any): Promise<string> {
+    await this.repo.requireIntelligence();
+    if (job.payload.pipeline && job.payload.pipeline !== PIPELINE) return "obsolete";
     const { reportId, revision } = job.payload;
     const [r] = await this.repo.db.query(
       "SELECT snapshot FROM private_incidents.report_revisions WHERE report_id=$1 AND revision=$2",
@@ -271,6 +275,10 @@ export class IncidentWorker implements OnModuleInit, OnModuleDestroy {
     const result = await response.json();
     if (
       result.pipeline !== PIPELINE ||
+      typeof result.normalizedText !== "string" || result.normalizedText.length > 24000 ||
+      typeof result.matchingText !== "string" || result.matchingText.length > 24000 ||
+      typeof result.normalizationVersion !== "string" || !result.normalizationVersion ||
+      ["hasFloodEvidence", "ambiguousLocation", "blockedRoad", "strandedPeople", "strandedVehicles"].some(key => typeof result[key] !== "boolean") ||
       typeof result.fingerprint !== "string" ||
       !Array.isArray(result.embedding) ||
       result.embedding.length !== 1536 ||
@@ -372,6 +380,7 @@ export class IncidentWorker implements OnModuleInit, OnModuleDestroy {
           version: candidate.version,
           title: candidate.title,
           score,
+          ...relationSignals({ ...report, matchingText: analysis.matchingText }, await this.repo.ledger(candidate.id, q)),
           distanceMeters: Math.round(distance(report, candidate)),
         });
       }
@@ -418,6 +427,7 @@ export class IncidentWorker implements OnModuleInit, OnModuleDestroy {
     });
   }
   async summarize(job: any): Promise<string> {
+    await this.repo.requireIntelligence();
     const { incidentId, evidenceVersion } = job.payload;
     const [incident] = await this.repo.db.query(
       "SELECT * FROM private_incidents.incidents WHERE id=$1",

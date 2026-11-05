@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Headers,
   HttpCode,
   Param,
@@ -12,6 +13,7 @@ import {
   Post,
   Query,
   Req,
+  StreamableFile,
   UseFilters,
   UseGuards,
   UsePipes,
@@ -28,15 +30,18 @@ import {
 import {
   AssignmentChange,
   IncidentQuery,
+  IncidentIntelligenceQuery,
   MergeChange,
   ProcessRequest,
   ResolveChange,
   SeverityChange,
   SplitChange,
   StatusChange,
+  SummaryEditChange,
   VerifyChange,
   VersionedChange,
 } from "./incident.dto";
+import { renderIncidentReportPdf } from "./incident-report";
 
 export function requireKey(value: string) {
   if (!/^[a-zA-Z0-9_-]{8,100}$/.test(value ?? ""))
@@ -63,6 +68,27 @@ export class IncidentsController {
   }
   @Get("overview") overview(@Req() req: any, @Query() q: IncidentQuery) {
     return this.gateway.read(req, "overview", "", q);
+  }
+  @Get("analytics")
+  @Header("Cache-Control", "private, no-store")
+  analytics(@Req() req: any, @Query() q: IncidentIntelligenceQuery) {
+    return this.gateway.read(req, "analytics", "", q);
+  }
+  @Get("report")
+  @Header("Cache-Control", "private, no-store")
+  report(@Req() req: any, @Query() q: IncidentIntelligenceQuery) {
+    return this.gateway.read(req, "report", "", q);
+  }
+  @Get("report.pdf")
+  @Header("Cache-Control", "private, no-store")
+  async reportPdf(@Req() req: any, @Query() q: IncidentIntelligenceQuery) {
+    const report = await this.gateway.read(req, "report", "", q);
+    const bytes = await renderIncidentReportPdf(report);
+    return new StreamableFile(bytes, {
+      type: "application/pdf",
+      disposition: 'attachment; filename="vietflood-incident-report.pdf"',
+      length: bytes.length,
+    });
   }
   @Get("emergencies") emergencies(@Req() req: any, @Query() q: IncidentQuery) {
     return this.gateway.read(req, "emergencies", "", q);
@@ -142,6 +168,24 @@ export class IncidentsController {
     @Query() q: IncidentQuery,
   ) {
     return this.gateway.read(req, "history", id, q);
+  }
+  @Get(":id/summary-edits") summaryEdits(
+    @Req() req: any,
+    @Param("id", new ParseUUIDPipe()) id: string,
+    @Query() q: IncidentQuery,
+  ) {
+    return this.gateway.read(req, "summary-edits", id, q);
+  }
+  @Post(":id/summary-edits")
+  @HttpCode(200)
+  @Roles(UserRole.ADMIN)
+  editSummary(
+    @Req() req: any,
+    @Param("id", new ParseUUIDPipe()) id: string,
+    @Body() body: SummaryEditChange,
+    @Headers("idempotency-key") key: string,
+  ) {
+    return this.gateway.mutate(req, "edit-summary", id, body, requireKey(key));
   }
   @Post(":id/verify")
   @HttpCode(200)

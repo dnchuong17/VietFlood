@@ -51,5 +51,5 @@ USER nobody
 ENTRYPOINT ["dumb-init", "--"]
 
 CMD ["node", "dist/apps/reports-service/main.js"]
-COPY db/migrations/20261101_incidents.sql ./db/migrations/
+COPY db/migrations/20261101_incidents.sql db/migrations/20261106_incident_intelligence.sql ./db/migrations/
 COPY scripts/migrate-incidents.js ./scripts/

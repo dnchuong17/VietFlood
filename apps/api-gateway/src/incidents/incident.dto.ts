@@ -104,3 +104,12 @@ export class ProcessRequest {
   @IsOptional() @IsISO8601() from?: string;
   @IsOptional() @IsISO8601() to?: string;
 }
+
+export class IncidentIntelligenceQuery extends IncidentQuery {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(1000) mapLimit?: number;
+}
+
+export class SummaryEditChange extends VersionedChange {
+  @IsString() @MinLength(3) @MaxLength(200) title: string;
+  @IsString() @MinLength(3) @MaxLength(12000) body: string;
+}

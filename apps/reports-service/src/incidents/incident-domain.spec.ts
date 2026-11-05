@@ -8,6 +8,7 @@ import {
   checkStatus,
   matchingConfig,
   hash,
+  PIPELINE,
 } from "./incident-domain";
 import { renderSummary } from "./incident-summary";
 import { automaticAllowed } from "./incident.worker";
@@ -139,7 +140,7 @@ describe("incident matching and grounding invariants", () => {
       vi.stubEnv("INCIDENT_EVALUATION_PATH", path);
       expect(automaticAllowed("model")).toBe(false);
       const result = {
-        pipeline: "incidents-v1",
+        pipeline: PIPELINE,
         fingerprint: "model",
         configHash: hash(matchingConfig()),
         precision: 0.99,

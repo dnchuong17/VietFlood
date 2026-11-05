@@ -63,10 +63,21 @@
             "type": "integer"
           },
           "needsVerification": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Evidence or verification pipeline changed."
           },
           "summaryStale": {
             "type": "boolean"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/PriorityAssessment"
+          },
+          "editorialSummary": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "Separate Admin edition, evidence version/pipeline, author and stale marker."
           }
         }
       },
@@ -123,6 +134,178 @@
           },
           "reportCount": {
             "type": "integer"
+          }
+        }
+      },
+      "PriorityAssessment": {
+        "type": "object",
+        "description": "Estimate, never official severity. CRITICAL requires explicit positive life-threat evidence.",
+        "properties": {
+          "value": {
+            "type": "string",
+            "enum": [
+              "UNKNOWN",
+              "LOW",
+              "MODERATE",
+              "HIGH",
+              "CRITICAL"
+            ]
+          },
+          "provenance": {
+            "const": "estimate"
+          },
+          "requiresHumanDecision": {
+            "const": true
+          },
+          "reasonCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "factIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "description": "reportId:revision:incidents-v2:index"
+            }
+          },
+          "sourceReportIds": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "evidenceVersion": {
+            "type": "integer"
+          }
+        }
+      },
+      "IncidentAnalytics": {
+        "type": "object",
+        "description": "Totals cover all filtered records, not list page. Ungrouped/missing GPS counted. Bounded map is not a verified flood boundary.",
+        "properties": {
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "filters": {
+            "type": "object"
+          },
+          "totalIncidents": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "totalReports": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "linkedReports": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "ungroupedReports": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "missingGpsReports": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "bySeverity": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "byStatus": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "dailyReports": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "topAreas": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "map": {
+            "type": "object",
+            "properties": {
+              "incidentTotal": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "incidentReturned": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "densityReportTotal": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "truncated": {
+                "type": "boolean"
+              },
+              "incidents": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              },
+              "density": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "IncidentReport": {
+        "type": "object",
+        "properties": {
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "filters": {
+            "type": "object"
+          },
+          "analytics": {
+            "$ref": "#/components/schemas/IncidentAnalytics"
+          },
+          "incidents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Incident"
+            }
+          },
+          "coverage": {
+            "type": "object",
+            "properties": {
+              "complete": {
+                "const": true
+              },
+              "incidentCount": {
+                "type": "integer"
+              },
+              "maximumIncidents": {
+                "const": 1000
+              }
+            }
           }
         }
       }
@@ -2594,6 +2777,698 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/incidents/analytics": {
+      "get": {
+        "summary": "Filtered analytics and bounded map",
+        "description": "Admin or relief; citizens denied. Vietnam date-only from/to or ISO timezone timestamps; date-only to includes that day, timestamp to is exclusive. At most 31 calendar days; latest seven days by default. Read-only snapshot, no model calls. Private, no-store. JSON report snapshots are limited to 2,000,000 UTF-8 bytes and 1,000 incidents; over-limit requests return 422.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "province",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "ward",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "severity",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "assignedToMe",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mapLimit",
+            "description": "Map point/density cap only; does not limit analytics totals or exported incident list.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 500
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentAnalytics"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/incidents/report": {
+      "get": {
+        "summary": "Consistent report snapshot",
+        "description": "Admin or relief; citizens denied. Vietnam date-only from/to or ISO timezone timestamps; date-only to includes that day, timestamp to is exclusive. At most 31 calendar days; latest seven days by default. Read-only snapshot, no model calls. Private, no-store. JSON report snapshots are limited to 2,000,000 UTF-8 bytes and 1,000 incidents; over-limit requests return 422.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "province",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "ward",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "severity",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "assignedToMe",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mapLimit",
+            "description": "Map point/density cap only; does not limit analytics totals or exported incident list.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 500
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncidentReport"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Report exceeds 1000 incidents or size limit; narrow filters, never silently truncate."
+          }
+        }
+      }
+    },
+    "/incidents/report.pdf": {
+      "get": {
+        "summary": "Vietnamese PDF export",
+        "description": "Admin or relief; citizens denied. Vietnam date-only from/to or ISO timezone timestamps; date-only to includes that day, timestamp to is exclusive. At most 31 calendar days; latest seven days by default. Read-only snapshot, no model calls. Private, no-store. JSON report snapshots are limited to 2,000,000 UTF-8 bytes and 1,000 incidents; over-limit requests return 422.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "province",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "ward",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "severity",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "assignedToMe",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mapLimit",
+            "description": "Map point/density cap only; does not limit analytics totals or exported incident list.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 500
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Report exceeds 1000 incidents or size limit; narrow filters, never silently truncate."
+          }
+        }
+      }
+    },
+    "/incidents/{id}/summary-edits": {
+      "get": {
+        "summary": "Append-only Admin summary edit history",
+        "description": "Admin or relief. Progress changes require the active assignment for relief users.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 25,
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Append Admin editorial summary, preserving AI JSON and source originals",
+        "description": "Admin only.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_-]{8,100}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "expectedVersion",
+                  "reason",
+                  "title",
+                  "body"
+                ],
+                "properties": {
+                  "expectedVersion": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 1000
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 200
+                  },
+                  "body": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 12000
+                  }
                 }
               }
             }

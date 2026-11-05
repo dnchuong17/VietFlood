@@ -1,5 +1,18 @@
 # Incident implementation verification
 
+## AI Flood Intelligence rev-8 release checks — 2026-11-06 (Vietnam time)
+
+This release is distinct from the earlier 503 repair. The user subsequently authorized scoped code publication, read-only production Playwright tests, and a separately confirmed backed-up additive migration. Operational mutations, automatic matching activation and historical processing remain excluded.
+
+- Backend parent rerun: **305 passed, 47 opt-in skipped**; isolated incident suite: **86 passed**. Both service builds, TypeScript and whitespace checks passed. Evidence logs: `~/.hermes/cache/scratch/incident-intelligence-backend-final/`.
+- Real local authenticated DB/HTTP generated a seven-page Vietnamese PDF at `~/.hermes/cache/scratch/incident-intelligence-http-QFiBQ0/`; macOS PDFKit verified extracted Vietnamese, page footers and absence of sensitive test text, and rendered first/last pages for inspection. Broker/Redis/model/tile doubles are not production verification.
+- RAG parent rerun: **45 passed** using the isolated `vietflood-incident-tests` Python runtime. Includes v2 normalization/fingerprints, uncertainty/negation, token denial and sanitized provider failures. No real citizen/provider calls.
+- Production target matched all 26 authenticated report IDs before migration. Private backup at `~/.hermes/backups/intelligence-2026-11-05T18-07-06-108Z/` covers `public`, `private_chat`, `private_incidents`; checksum, table-data catalog and complete archive decoding validated over verified TLS. No full restore drill was performed.
+- Additive migration read-back: **14 incident tables**, all RLS-enabled, editorial table and verification-pipeline column present. All 26 original reports' digest and incident/job/retention counts unchanged. No historical processing or automatic-mode change requested.
+- Web acceptance and live deployment/Playwright results are pending and must be recorded separately; a successful push/image build alone is not a live production pass.
+
+See [the eight-function matrix](ai-flood-intelligence.md) for implemented surfaces and limits. No field-quality or production automatic-matching eligibility is inferred from synthetic tests.
+
 Initial implementation checks below were recorded on 2026-11-02 before the first source commits. No production migration or automatic-mode activation had been performed at that point. The later emergency-feed repair is recorded separately below; pre-existing report/chat/mobile work remains outside its scope.
 
 | Check | Result |

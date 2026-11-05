@@ -1,4 +1,6 @@
-import { redact } from "./incident-domain";
+import { PIPELINE, redact } from "./incident-domain";
+
+import { assessPriority } from "./incident-priority";
 
 export const SUMMARY_SCHEMA = {
   type: "object",
@@ -29,7 +31,7 @@ export const SUMMARY_SCHEMA = {
     },
     suggestedSeverity: {
       type: "string",
-      enum: ["UNKNOWN", "LOW", "MODERATE", "HIGH"],
+      enum: ["UNKNOWN", "LOW", "MODERATE", "HIGH", "CRITICAL"],
     },
     recommendedActions: {
       type: "array",
@@ -93,6 +95,8 @@ export function renderSummary(
   ];
   if (selected.some((id) => !map.has(id)))
     throw new Error("unsupported_summary_reference");
+  if (selection.suggestedSeverity === "CRITICAL" && assessPriority(rows, incident.evidence_version).value !== "CRITICAL")
+    throw new Error("unsupported_summary_assessment");
   const emergency = rows.some((r) => r.emergency),
     blocked = rows.some((r) => r.result?.blockedRoad === true);
   if (
@@ -122,7 +126,7 @@ export function renderSummary(
     throw new Error("unsupported_summary_action");
   if (
     !title ||
-    !["UNKNOWN", "LOW", "MODERATE", "HIGH"].includes(
+    !["UNKNOWN", "LOW", "MODERATE", "HIGH", "CRITICAL"].includes(
       selection.suggestedSeverity,
     )
   )
@@ -157,6 +161,8 @@ export function renderSummary(
       provenance: "recommendation",
       requiresHumanDecision: true,
     })),
+    pipeline: PIPELINE,
+    priority: assessPriority(rows, incident.evidence_version),
     generatedAt: new Date().toISOString(),
     evidenceVersion: incident.evidence_version,
   };

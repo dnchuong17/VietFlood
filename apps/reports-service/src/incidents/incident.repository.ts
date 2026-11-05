@@ -19,6 +19,9 @@ import {
   redact,
 } from "./incident-domain";
 
+import { assessPriority } from "./incident-priority";
+import { readIncidentAnalytics, readIncidentReport } from "./incident-analytics";
+
 @Injectable()
 export class IncidentRepository implements OnModuleInit {
   ready = false;
@@ -67,6 +70,19 @@ export class IncidentRepository implements OnModuleInit {
     }
     if (!this.ready)
       fail(503, "incidents_unavailable", "Incident storage is not configured");
+  }
+  async intelligenceAvailable(q: Sql = this.db) {
+    const [row] = await q.query(`SELECT to_regclass('private_incidents.summary_edits') IS NOT NULL AND EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='private_incidents' AND table_name='incidents' AND column_name='verified_pipeline') AS available`);
+    return row?.available === true;
+  }
+  async requireIntelligence() {
+    if (!(await this.intelligenceAvailable())) fail(503, "incident_intelligence_migration_required", "Run the incident intelligence migration; emergency reads remain available");
+  }
+  private editorial(row: any, incident: any) {
+    return row ? { id: Number(row.id), title: row.title, body: row.body, reason: row.reason, actorId: row.actor_id, createdAt: new Date(row.created_at).toISOString(), evidenceVersion: row.evidence_version, pipeline: row.pipeline, stale: row.pipeline !== PIPELINE || row.evidence_version !== incident.evidence_version } : null;
+  }
+  private analysisView(result: any) {
+    return result ? { pipeline: PIPELINE, normalizedText: result.normalizedText ?? "", matchingText: result.matchingText ?? "", ...(result.normalizationVersion ? { normalizationVersion: result.normalizationVersion } : {}) } : null;
   }
   async lock(q: Sql) {
     await q.query("SELECT pg_advisory_xact_lock($1)", [CLUSTER_LOCK]);
@@ -286,7 +302,7 @@ export class IncidentRepository implements OnModuleInit {
       [id, PIPELINE],
     );
     if (this.enabled)
-      await this.job(q, "summary", `summary:${id}:${i.evidence_version}`, {
+      await this.job(q, "summary", `summary:${id}:${i.evidence_version}:${PIPELINE}`, {
         incidentId: id,
         evidenceVersion: i.evidence_version,
       });
@@ -348,10 +364,11 @@ export class IncidentRepository implements OnModuleInit {
   }
   async ledger(id: string, q: Sql = this.db) {
     return q.query(
-      `SELECT t.report_id,t.revision,t.emergency,t.archived_at,r.snapshot,a.result,a.fingerprint,a.embedding
+      `SELECT t.report_id,t.revision,t.emergency,t.archived_at,r.snapshot,a.result,a.fingerprint,a.embedding,legacy.result AS legacy_result,legacy.pipeline AS legacy_pipeline
       FROM private_incidents.memberships m JOIN private_incidents.retained_reports t ON t.report_id=m.report_id
       JOIN private_incidents.report_revisions r ON r.report_id=t.report_id AND r.revision=t.revision
       LEFT JOIN private_incidents.analysis a ON a.report_id=t.report_id AND a.revision=t.revision AND a.pipeline=$2
+      LEFT JOIN LATERAL (SELECT result,pipeline FROM private_incidents.analysis old WHERE old.report_id=t.report_id AND old.revision=t.revision AND old.pipeline<>$2 ORDER BY old.created_at DESC LIMIT 1) legacy ON a.result IS NULL
       WHERE m.incident_id=$1 AND m.left_at IS NULL ORDER BY (r.snapshot->>'createdAt')::timestamptz,t.report_id`,
       [id, PIPELINE],
     );
@@ -360,9 +377,10 @@ export class IncidentRepository implements OnModuleInit {
     return rows.flatMap((row) =>
       (row.result?.facts ?? []).map((f: any, index: number) => ({
         ...f,
-        id: `${row.report_id}:${row.revision}:${index}`,
+        id: `${row.report_id}:${row.revision}:${PIPELINE}:${index}`,
         reportId: row.report_id,
         revision: row.revision,
+        pipeline: PIPELINE, stale: false,
         reportedAt: row.snapshot.updatedAt ?? row.snapshot.createdAt,
         provenance: "citizen_reported",
         text: redact(f.text),
@@ -391,9 +409,11 @@ export class IncidentRepository implements OnModuleInit {
       "SELECT status,failure_code,updated_at FROM private_incidents.jobs WHERE kind='summary' AND payload->>'incidentId'=$1 ORDER BY created_at DESC LIMIT 1",
       [id],
     );
+    const available = await this.intelligenceAvailable();
+    const [edit] = available ? await this.db.query("SELECT * FROM private_incidents.summary_edits WHERE incident_id=$1 ORDER BY id DESC LIMIT 1", [id]) : [];
     const facts = this.facts(rows).map((f) => ({
       ...f,
-      provenance: i.verified_facts.includes(f.id)
+      provenance: i.verified_pipeline === PIPELINE && i.verified_evidence_version === i.evidence_version && i.verified_facts.includes(f.id)
         ? "verified"
         : "citizen_reported",
     }));
@@ -409,11 +429,14 @@ export class IncidentRepository implements OnModuleInit {
         (r) => r.result?.strandedVehicles === true,
       ).length,
       isUrgent: rows.some((r) => r.emergency),
-      needsVerification: i.verified_evidence_version !== i.evidence_version,
+      needsVerification: i.verified_pipeline !== PIPELINE || i.verified_evidence_version !== i.evidence_version,
       summary: summary?.content ?? null,
-      summaryStale: summary?.evidence_version !== i.evidence_version,
+      summaryStale: !summary || summary.content?.pipeline !== PIPELINE || summary.evidence_version !== i.evidence_version,
+      priority: assessPriority(rows, i.evidence_version), editorialSummary: this.editorial(edit, i),
+      analysisRequired: rows.some(r => !r.result), intelligenceMigrationRequired: !available,
+      legacyFacts: rows.flatMap(row => (row.legacy_result?.facts ?? []).map((fact: any, index: number) => ({ ...fact, text: redact(fact.text), id: `${row.report_id}:${row.revision}:${row.legacy_pipeline}:${index}`, reportId: row.report_id, pipeline: row.legacy_pipeline, stale: true, provenance: "citizen_reported" }))),
       summaryJob: lastJob ?? null,
-      facts,
+      facts: [...facts, ...rows.flatMap(row => (row.legacy_result?.facts ?? []).map((fact: any, index: number) => ({ ...fact, text: redact(fact.text), id: `${row.report_id}:${row.revision}:${row.legacy_pipeline}:${index}`, reportId: row.report_id, revision: row.revision, reportedAt: row.snapshot.updatedAt ?? row.snapshot.createdAt, pipeline: row.legacy_pipeline, stale: true, provenance: "citizen_reported" })))],
     };
   }
   private filters(input: any, actor: Actor) {
@@ -459,7 +482,7 @@ export class IncidentRepository implements OnModuleInit {
     f.values.push(limit + 1);
     const items = await this.db.query(
       `SELECT i.*, (SELECT count(*)::int FROM private_incidents.memberships m WHERE m.incident_id=i.id AND m.left_at IS NULL) AS "reportCount",
-      i.verified_evidence_version IS DISTINCT FROM i.evidence_version AS "needsVerification",
+      (i.verified_evidence_version IS DISTINCT FROM i.evidence_version OR to_jsonb(i)->>'verified_pipeline' IS DISTINCT FROM 'incidents-v2') AS "needsVerification",
       EXISTS(SELECT 1 FROM private_incidents.memberships m JOIN private_incidents.retained_reports t ON t.report_id=m.report_id WHERE m.incident_id=i.id AND m.left_at IS NULL AND t.emergency) AS "isUrgent"
       FROM private_incidents.incidents i WHERE ${f.clauses.join(" AND ")} ORDER BY i.updated_at DESC,i.id DESC LIMIT $${f.values.length}`,
       f.values,
@@ -480,7 +503,7 @@ export class IncidentRepository implements OnModuleInit {
     const f = this.filters(input, actor);
     const [stats] = await this.db.query(
       `SELECT count(*)::int AS "totalIncidents",count(*) FILTER(WHERE severity IN ('HIGH','CRITICAL') OR EXISTS(SELECT 1 FROM private_incidents.memberships m JOIN private_incidents.retained_reports r ON r.report_id=m.report_id WHERE m.incident_id=i.id AND m.left_at IS NULL AND r.emergency))::int AS "highPriority",
-      count(*) FILTER(WHERE verified_evidence_version IS DISTINCT FROM evidence_version)::int AS "awaitingVerification",count(*) FILTER(WHERE updated_at>=now()-interval '24 hours')::int AS "recentlyUpdated" FROM private_incidents.incidents i WHERE ${f.clauses.join(" AND ")}`,
+      count(*) FILTER(WHERE verified_evidence_version IS DISTINCT FROM evidence_version OR to_jsonb(i)->>'verified_pipeline' IS DISTINCT FROM 'incidents-v2')::int AS "awaitingVerification",count(*) FILTER(WHERE updated_at>=now()-interval '24 hours')::int AS "recentlyUpdated" FROM private_incidents.incidents i WHERE ${f.clauses.join(" AND ")}`,
       f.values,
     );
     const [counts] = await this.db
@@ -500,6 +523,11 @@ export class IncidentRepository implements OnModuleInit {
   async read(actor: Actor, operation: string, id: string, input: any = {}) {
     authorize(actor);
     await this.requireReady();
+    if (operation === "analytics") return readIncidentAnalytics(this.db, actor, input);
+    if (operation === "report") {
+      await this.requireIntelligence();
+      return readIncidentReport(this.db, actor, input);
+    }
     if (operation === "list") return this.list(actor, input);
     if (operation === "overview") return this.overview(actor, input);
     if (operation === "detail") return this.detail(id);
@@ -530,10 +558,10 @@ export class IncidentRepository implements OnModuleInit {
     if (operation === "review") {
       authorize(actor, true);
       const rows: { report_id: number }[] = await this.db.query(
-        `SELECT v.*,r.snapshot FROM private_incidents.reviews v JOIN private_incidents.report_revisions r USING(report_id,revision) WHERE v.report_id>$1 ORDER BY v.report_id LIMIT $2`,
+        `SELECT v.*,r.snapshot,a.result AS analysis FROM private_incidents.reviews v JOIN private_incidents.report_revisions r USING(report_id,revision) LEFT JOIN private_incidents.analysis a ON a.report_id=v.report_id AND a.revision=v.revision AND a.pipeline='incidents-v2' WHERE v.report_id>$1 ORDER BY v.report_id LIMIT $2`,
         [p.after, p.limit + 1],
       );
-      return pageResult(rows, p.limit, (r) => r.report_id);
+      return pageResult(rows.map((row: any) => ({ ...row, ...(operation === "review" ? { analysis: this.analysisView(row.analysis) } : {}) })), p.limit, (r) => r.report_id);
     }
     if (operation === "emergencies") {
       const rows: { report_id: number }[] = await this.db.query(
@@ -544,13 +572,19 @@ export class IncidentRepository implements OnModuleInit {
       );
       return pageResult(rows, p.limit, (r) => r.report_id);
     }
-    if (!["reports", "history", "source", "revisions"].includes(operation))
+    if (!["reports", "history", "source", "revisions", "summary-edits"].includes(operation))
       fail(404, "not_found", "Unknown incident operation");
     const [exists] = await this.db.query(
       "SELECT id FROM private_incidents.incidents WHERE id=$1",
       [id],
     );
     if (!exists) fail(404, "incident_not_found", "Incident not found");
+    if (operation === "summary-edits") {
+      await this.requireIntelligence();
+      const [incident] = await this.db.query("SELECT evidence_version FROM private_incidents.incidents WHERE id=$1", [id]);
+      const edits = await this.db.query("SELECT * FROM private_incidents.summary_edits WHERE incident_id=$1 AND id>$2 ORDER BY id LIMIT $3", [id, p.after, p.limit + 1]);
+      return pageResult(edits.map((row: any) => this.editorial(row, incident)), p.limit);
+    }
     if (operation === "history")
       return pageResult(
         await this.db.query(
@@ -577,9 +611,10 @@ export class IncidentRepository implements OnModuleInit {
         );
     }
     const rows = await this.db.query(
-      `SELECT m.report_id AS id,m.manual,t.archived_at,r.snapshot,
+      `SELECT m.report_id AS id,m.manual,t.archived_at,r.snapshot,a.result AS analysis,
       t.revision AS "revisionCount",(SELECT snapshot FROM private_incidents.report_revisions v WHERE v.report_id=m.report_id AND v.revision=1) AS "originalSnapshot"
       FROM private_incidents.memberships m JOIN private_incidents.retained_reports t USING(report_id) JOIN private_incidents.report_revisions r USING(report_id,revision)
+      LEFT JOIN private_incidents.analysis a ON a.report_id=t.report_id AND a.revision=t.revision AND a.pipeline='incidents-v2'
       WHERE m.incident_id=$1 AND m.left_at IS NULL AND m.report_id>$2 AND ($4::int IS NULL OR m.report_id=$4) ORDER BY m.report_id LIMIT $3`,
       [
         id,
@@ -588,7 +623,8 @@ export class IncidentRepository implements OnModuleInit {
         operation === "source" ? input.reportId : null,
       ],
     );
-    return operation === "source" ? rows[0] : pageResult(rows, p.limit);
+    const sources = rows.map((row: any) => ({ ...row, analysis: this.analysisView(row.analysis) }));
+    return operation === "source" ? sources[0] : pageResult(sources, p.limit);
   }
   async mutate(
     actor: Actor,
@@ -599,6 +635,15 @@ export class IncidentRepository implements OnModuleInit {
   ) {
     authorize(actor, operation !== "status");
     await this.requireReady();
+    if (["edit-summary", "verify", "regenerate", "process"].includes(operation)) await this.requireIntelligence();
+    if (operation === "edit-summary") {
+      if (!key) fail(400, "idempotency_key_required", "Provide an Idempotency-Key");
+      if (!Number.isSafeInteger(body.expectedVersion) || body.expectedVersion < 1 ||
+        typeof body.title !== "string" || !body.title.trim() || body.title.length > 200 ||
+        typeof body.body !== "string" || !body.body.trim() || body.body.length > 12000 ||
+        typeof body.reason !== "string" || !body.reason.trim() || body.reason.length > 1000)
+        fail(400, "invalid_summary_edit", "Provide version, title, body and reason within the supported limits");
+    }
     return this.db.transaction(async (q) => {
       await this.lock(q);
       const run = async () => {
@@ -607,6 +652,13 @@ export class IncidentRepository implements OnModuleInit {
           return this.resolve(q, actor, Number(id), body);
         if (operation === "merge") return this.merge(q, actor, body);
         const i = await this.incident(q, id, body.expectedVersion);
+        if (operation === "edit-summary") {
+          const [edit] = await q.query(`INSERT INTO private_incidents.summary_edits(incident_id,title,body,reason,actor_id,evidence_version,pipeline) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`, [id, body.title.trim(), body.body.trim(), body.reason.trim(), actor.userId, i.evidence_version, PIPELINE]);
+          await q.query("UPDATE private_incidents.incidents SET version=version+1,updated_at=now() WHERE id=$1", [id]);
+          await this.audit(q, id, actor, "summary.edited", body.reason, { editId: Number(edit.id), evidenceVersion: i.evidence_version, pipeline: PIPELINE });
+          await this.event(q, "incident.updated", { incidentId: id });
+          return this.editorial(edit, i);
+        }
         if (operation === "split") return this.split(q, actor, i, body);
         if (operation === "regenerate") {
           if (!this.enabled)
@@ -682,9 +734,9 @@ export class IncidentRepository implements OnModuleInit {
             [id, body.assigneeId],
           );
         } else if (operation === "verify") {
-          const facts = new Set(
-            this.facts(await this.ledger(id, q)).map((f) => f.id),
-          );
+          const ledger = await this.ledger(id, q);
+          if (!ledger.length || ledger.some(row => !row.result)) fail(409, "analysis_required", "Current pipeline analysis is required before verification");
+          const facts = new Set(this.facts(ledger).map((f) => f.id));
           if (body.factIds.some((f: string) => !facts.has(f)))
             fail(
               400,
@@ -692,7 +744,7 @@ export class IncidentRepository implements OnModuleInit {
               "A verified fact must refer to current evidence",
             );
           await q.query(
-            "UPDATE private_incidents.incidents SET verified_evidence_version=evidence_version,verified_facts=$2,status=CASE WHEN status IN ('DETECTED','UNDER_REVIEW') THEN 'VERIFIED' ELSE status END WHERE id=$1",
+            "UPDATE private_incidents.incidents SET verified_evidence_version=evidence_version,verified_pipeline='incidents-v2',verified_facts=$2,status=CASE WHEN status IN ('DETECTED','UNDER_REVIEW') THEN 'VERIFIED' ELSE status END WHERE id=$1",
             [id, JSON.stringify(body.factIds)],
           );
         } else fail(404, "not_found", "Unknown incident operation");

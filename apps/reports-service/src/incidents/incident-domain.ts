@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-export const PIPELINE = "incidents-v1";
+export const PIPELINE = "incidents-v2";
 export const CLUSTER_LOCK = 20261101;
 export const STATUSES = [
   "DETECTED",

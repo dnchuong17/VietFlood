@@ -9,13 +9,16 @@ import {
   vi,
 } from "vitest";
 import { DataSource } from "typeorm";
-import { readFileSync } from "node:fs";
+import { readFileSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { randomUUID } from "node:crypto";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { createRequire } from "node:module";
 import { IncidentRepository } from "./incident.repository";
 import { IncidentWorker } from "./incident.worker";
 import { ReportEntity } from "../entity/report.entity";
 import { ReportsService } from "../reports-service.service";
-import { PIPELINE } from "./incident-domain";
+import { PIPELINE, hash, matchingConfig } from "./incident-domain";
 import "reflect-metadata";
 import { Module } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
@@ -75,6 +78,7 @@ describe.skipIf(!url)("incident PostgreSQL transactions", () => {
     await db.query(
       readFileSync("db/migrations/20261101_incidents.sql", "utf8"),
     );
+    await db.query(readFileSync("db/migrations/20261106_incident_intelligence.sql", "utf8"));
     repo = new IncidentRepository(db);
     await repo.onModuleInit();
     reports = new ReportsService(
@@ -151,6 +155,7 @@ describe.skipIf(!url)("incident PostgreSQL transactions", () => {
           json: async () => ({
             pipeline: PIPELINE,
             fingerprint: "fixture-model",
+            normalizedText: input.description, matchingText: input.description, normalizationVersion: "fixture-v2",
             embedding: [1, ...new Array(1535).fill(0)],
             facts: [{ kind: "condition", text: input.description }],
             hasFloodEvidence: true,
@@ -209,6 +214,21 @@ describe.skipIf(!url)("incident PostgreSQL transactions", () => {
         randomUUID(),
       )
     ).incidentId;
+  }
+  const range = () => ({
+    from: new Date(Date.now() - 86400000).toISOString(),
+    to: new Date(Date.now() + 86400000).toISOString(),
+  });
+  function http(path: string, actor: any = admin, method = "GET", body?: any, key?: string) {
+    return fetch(base + path, {
+      method,
+      headers: {
+        ...(actor ? { Authorization: `Bearer ${signing.sign({ sub: actor.userId, role: actor.role, username: "isolated-fixture" })}` } : {}),
+        "Content-Type": "application/json",
+        ...(key ? { "Idempotency-Key": key } : {}),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
   }
   it("recovers HTTP reads and database mutations after migration without restarting", async () => {
     vi.unstubAllGlobals();
@@ -289,6 +309,7 @@ describe.skipIf(!url)("incident PostgreSQL transactions", () => {
       ).toEqual([]);
     } finally {
       await db.query(migration);
+      await db.query(readFileSync("db/migrations/20261106_incident_intelligence.sql", "utf8"));
       await repo.onModuleInit();
     }
   });
@@ -668,7 +689,7 @@ describe.skipIf(!url)("incident PostgreSQL transactions", () => {
     const id = job.payload.incidentId;
     const selection = {
       titleKind: "FLOOD",
-      conditionFactIds: [`${reportId}:1:0`],
+      conditionFactIds: [`${reportId}:1:${PIPELINE}:0`],
       updateFactIds: [],
       suggestedSeverity: "MODERATE",
       recommendedActions: ["VERIFY_ON_SITE"],
@@ -867,6 +888,238 @@ describe.skipIf(!url)("incident PostgreSQL transactions", () => {
       (await repo.read(admin, "source", incident.id, { reportId: id }))
         .archived_at,
     ).toBeTruthy();
+  });
+  it("executes calibrated automatic attachment and exposes normalization/relation without changing originals", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "incident-calibration-"));
+    try {
+      const evaluation = join(dir, "evaluation.json");
+      writeFileSync(evaluation, JSON.stringify({ pipeline: PIPELINE, fingerprint: "fixture-model", configHash: hash(matchingConfig()), precision: 0.99, recall: 0.9, gateViolations: 0, positiveCases: 30, negativeCases: 30 }));
+      vi.stubEnv("INCIDENT_MATCH_MODE", "automatic");
+      vi.stubEnv("INCIDENT_EVALUATION_PATH", evaluation);
+      const a = await create();
+      await analyzeOne();
+      await db.query("UPDATE private_incidents.jobs SET status='obsolete' WHERE kind='summary'");
+      const b = await create();
+      await analyzeOne();
+      const [incident] = (await repo.list(admin, {})).items;
+      expect(incident.reportCount).toBe(2);
+      expect((await repo.read(admin, "review", "")).items).toEqual([]);
+      expect(await db.query("SELECT manual FROM private_incidents.memberships WHERE report_id=$1", [b])).toEqual([{ manual: false }]);
+      const sources = await repo.read(admin, "reports", incident.id);
+      expect(sources.items[0]).toMatchObject({ id: a, snapshot: { description: "Đường ngập 50 cm", lat: 16.047, lng: 108.206 }, analysis: { pipeline: PIPELINE, normalizedText: "Đường ngập 50 cm", matchingText: "Đường ngập 50 cm" } });
+      vi.stubEnv("INCIDENT_MATCH_MODE", "review");
+      await db.query("UPDATE private_incidents.jobs SET status='obsolete' WHERE kind='summary'");
+      await create();
+      await analyzeOne();
+      expect((await repo.read(admin, "review", "")).items[0].candidates[0]).toMatchObject({ relation: "possible_duplicate", matchingReportIds: [a, b], distanceMeters: 0 });
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+  it.each(["missing GPS", "negated evidence", "different time", "different location", "different model", "invalid calibration"])("blocks automatic matching for %s", async (gate) => {
+    const dir = mkdtempSync(join(tmpdir(), "incident-calibration-gates-"));
+    try {
+      const evaluation = join(dir, "evaluation.json");
+      writeFileSync(evaluation, JSON.stringify({ pipeline: PIPELINE, fingerprint: "fixture-model", configHash: hash(matchingConfig()), precision: gate === "invalid calibration" ? 0.5 : 0.99, recall: 0.9, gateViolations: 0, positiveCases: 30, negativeCases: 30 }));
+      vi.stubEnv("INCIDENT_MATCH_MODE", "automatic");
+      vi.stubEnv("INCIDENT_EVALUATION_PATH", evaluation);
+      await create(); await analyzeOne();
+      const [target] = (await repo.list(admin, {})).items;
+      await db.query("UPDATE private_incidents.jobs SET status='obsolete' WHERE kind='summary'");
+      if (gate === "different time") await db.query("UPDATE private_incidents.incidents SET first_reported_at=now()-interval '7 days',latest_reported_at=now()-interval '7 days' WHERE id=$1", [target.id]);
+      const second = await create(gate === "missing GPS" ? { lat: undefined, lng: undefined } : gate === "different location" ? { lat: 17.047 } : gate === "negated evidence" ? { description: "Không có ngập" } : {});
+      if (gate === "different model" || gate === "negated evidence") {
+        const original = globalThis.fetch;
+        vi.stubGlobal("fetch", vi.fn(async (...args: any[]) => {
+          const response = await (original as any)(...args), result = await response.json();
+          return { ok: true, json: async () => ({ ...result, ...(gate === "different model" ? { fingerprint: "other-model" } : { hasFloodEvidence: false }) }) };
+        }));
+      }
+      await analyzeOne();
+      expect((await repo.detail(target.id)).reportCount).toBe(1);
+      expect(await db.query("SELECT id FROM private_incidents.audit WHERE action='report.auto_attached' AND details->>'reportId'=$1", [String(second)])).toEqual([]);
+      if (["missing GPS", "negated evidence", "different model", "invalid calibration"].includes(gate)) expect((await repo.read(admin, "review", "")).items[0].report_id).toBe(second);
+      else expect((await repo.list(admin, {})).items).toHaveLength(2);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+  it("keeps Admin edits append-only, idempotent and stale after evidence changes while AI regeneration preserves them", async () => {
+    const reportId = await create(); await analyzeOne();
+    const job = await worker.claim(), id = job.payload.incidentId;
+    const mock = vi.spyOn(worker.model, "structured").mockResolvedValue({ titleKind: "FLOOD", conditionFactIds: [`${reportId}:1:${PIPELINE}:0`], updateFactIds: [], suggestedSeverity: "LOW", recommendedActions: [] });
+    try {
+      await worker.summarize(job);
+      await db.query("UPDATE private_incidents.jobs SET status='succeeded' WHERE id=$1", [job.id]);
+      const original = (await repo.detail(id)).summary;
+      vi.unstubAllGlobals();
+      const body = { expectedVersion: (await repo.detail(id)).version, title: "Admin xác nhận", body: "Bằng chứng cần kiểm tra. ".repeat(240), reason: "Đã kiểm tra nội dung" };
+      const key = randomUUID();
+      for (const actor of [relief, { userId: 3, role: "citizen" }]) expect((await http(`/incidents/${id}/summary-edits`, actor, "POST", body, key)).status).toBe(403);
+      expect((await http(`/incidents/${id}/summary-edits`, admin, "POST", body)).status).toBe(400);
+      const first = await http(`/incidents/${id}/summary-edits`, admin, "POST", body, key);
+      expect(first.status).toBe(200);
+      const edit = await first.json();
+      expect(edit).toMatchObject({ title: body.title, body: body.body.trim(), reason: body.reason, actorId: 1, pipeline: PIPELINE, stale: false });
+      expect(await (await http(`/incidents/${id}/summary-edits`, admin, "POST", body, key)).json()).toEqual(edit);
+      expect((await http(`/incidents/${id}/summary-edits`, admin, "POST", { ...body, title: "Khác nội dung" }, key)).status).toBe(409);
+      expect((await http(`/incidents/${id}/summary-edits`, admin, "POST", body, randomUUID())).status).toBe(409);
+      expect((await (await http(`/incidents/${id}/summary-edits`, relief)).json()).items).toHaveLength(1);
+      await expect(db.query("UPDATE private_incidents.summary_edits SET body='changed' WHERE incident_id=$1", [id])).rejects.toThrow("append-only");
+      await expect(db.query("DELETE FROM private_incidents.summary_edits WHERE incident_id=$1", [id])).rejects.toThrow("append-only");
+      expect((await repo.detail(id)).summary).toEqual(original);
+      await repo.mutate(admin, "regenerate", id, { expectedVersion: (await repo.detail(id)).version, reason: "Kiểm tra tạo lại" }, randomUUID());
+      expect(await worker.summarize(await worker.claim())).toBe("succeeded");
+      expect((await repo.detail(id)).editorialSummary.id).toBe(edit.id);
+      await reports.updateReport(reportId, 3, { description: "Có người bất tỉnh, cần cứu hộ ngay" });
+      expect(await repo.detail(id)).toMatchObject({ severity: "UNKNOWN", summaryStale: true, editorialSummary: { id: edit.id, stale: true }, priority: { value: "CRITICAL", sourceReportIds: [reportId], factIds: [] } });
+    } finally { mock.mockRestore(); }
+  });
+  it("upgrades legacy verification/analysis without promoting facts, reprocessing history or destroying originals", async () => {
+    const reportId = await create(), id = await link(reportId);
+    await db.query("INSERT INTO private_incidents.analysis(report_id,revision,pipeline,result,embedding,fingerprint) VALUES($1,1,'incidents-v1',$2,$3,'old-model')", [reportId, JSON.stringify({ facts: [{ kind: "condition", text: "Đường ngập 50 cm" }] }), [1]]);
+    const content = { pipeline: "incidents-v1", title: "Tóm tắt cũ", conditions: [] };
+    await db.query("INSERT INTO private_incidents.summaries(incident_id,evidence_version,job_id,content,model) SELECT id,evidence_version,$2,$3,'old-model' FROM private_incidents.incidents WHERE id=$1", [id, randomUUID(), JSON.stringify(content)]);
+    await db.query("UPDATE private_incidents.incidents SET verified_evidence_version=evidence_version,verified_facts=$2 WHERE id=$1", [id, JSON.stringify([`${reportId}:1:0`])]);
+    await db.query("TRUNCATE private_incidents.jobs CASCADE");
+    await db.query("DROP TABLE private_incidents.summary_edits; ALTER TABLE private_incidents.incidents DROP COLUMN verified_pipeline");
+    try {
+      const fixtureFetch = globalThis.fetch;
+      vi.unstubAllGlobals();
+      expect((await http("/incidents/report?" + new URLSearchParams(range()))).status).toBe(503);
+      const require = createRequire(import.meta.url);
+      const { applyIncidentMigrations } = require("../../../../scripts/migrate-incidents.js");
+      const { Pool } = require("pg"), pool = new Pool({ connectionString: url, max: 1 });
+      try { await applyIncidentMigrations(pool); await applyIncidentMigrations(pool); } finally { await pool.end(); }
+      const detail = await repo.detail(id);
+      expect(detail).toMatchObject({ needsVerification: true, analysisRequired: true, summary: content, summaryStale: true, facts: [{ pipeline: "incidents-v1", stale: true, provenance: "citizen_reported" }] });
+      expect(await db.query("SELECT id FROM private_incidents.jobs")).toEqual([]);
+      await expect(repo.mutate(admin, "verify", id, { expectedVersion: detail.version, factIds: [`${reportId}:1:0`], reason: "Cũ" }, randomUUID())).rejects.toMatchObject({ code: "analysis_required" });
+      const queued = await repo.mutate(admin, "process", "", { reportIds: [reportId] }, randomUUID());
+      const batch = await worker.claim(); expect(batch.id).toBe(queued.jobId);
+      await worker.backfill(batch);
+      expect(await db.query("SELECT pipeline FROM private_incidents.analysis")).toEqual([{ pipeline: "incidents-v1" }]);
+      expect(await db.query("SELECT payload->>'pipeline' AS pipeline FROM private_incidents.jobs WHERE kind='analyze'")).toEqual([{ pipeline: PIPELINE }]);
+      vi.stubGlobal("fetch", fixtureFetch);
+      await analyzeOne();
+      const current = await repo.detail(id);
+      const currentId = `${reportId}:1:${PIPELINE}:0`;
+      expect(current.facts.find((fact: any) => fact.id === currentId)).toMatchObject({ provenance: "citizen_reported", stale: false });
+      await expect(repo.mutate(admin, "verify", id, { expectedVersion: current.version, factIds: [`${reportId}:1:0`], reason: "Mã cũ không hợp lệ" }, randomUUID())).rejects.toMatchObject({ code: "invalid_fact" });
+      await repo.mutate(admin, "verify", id, { expectedVersion: current.version, factIds: [currentId], reason: "Xác minh bằng chứng hiện tại" }, randomUUID());
+      expect((await repo.detail(id)).facts.find((fact: any) => fact.id === currentId).provenance).toBe("verified");
+      expect((await repo.detail(id)).needsVerification).toBe(false);
+      await reports.updateReport(reportId, 3, { description: "Nước đã rút" });
+      expect((await repo.detail(id)).needsVerification).toBe(true);
+      expect(await db.query("SELECT pipeline FROM private_incidents.analysis ORDER BY pipeline")).toEqual([{ pipeline: "incidents-v1" }, { pipeline: PIPELINE }]);
+    } finally { await db.query(readFileSync("db/migrations/20261106_incident_intelligence.sql", "utf8")); }
+  });
+  it("computes real filtered analytics across pages, preserves ungrouped/missing GPS and bounds map coverage", async () => {
+    for (let n = 0; n < 4; n++) {
+      const id = await link(await create());
+      await db.query("UPDATE private_incidents.incidents SET severity=$2,status=$3,assignee_id=$4 WHERE id=$1", [id, n < 2 ? "HIGH" : "LOW", n < 2 ? "VERIFIED" : "UNDER_REVIEW", n < 2 ? 2 : 4]);
+    }
+    await create(); await create({ lat: undefined, lng: undefined });
+    await create({ province: "Huế" });
+    const archived = await create(); await reports.deleteReport(archived, 3);
+    // An original that has never been captured is counted too.
+    await db.query(`INSERT INTO reports(description,province,ward,"addressLine","userId") VALUES('Chưa xử lý','Đà Nẵng','Hải Châu','A',3)`);
+    vi.unstubAllGlobals();
+    const q = new URLSearchParams({ ...range(), province: "Đà Nẵng", mapLimit: "1" });
+    const response = await http("/incidents/analytics?" + q, relief);
+    expect(response.status).toBe(200);
+    const result = await response.json();
+    expect(result).toMatchObject({ totalIncidents: 4, totalReports: 7, linkedReports: 4, ungroupedReports: 3, missingGpsReports: 2, map: { incidentTotal: 4, incidentReturned: 1, densityReportTotal: 5, truncated: true, limit: 1 } });
+    expect(result.dailyReports.reduce((n: number, d: any) => n + d.count, 0)).toBe(7);
+    let cursor: string | null = null; const ids: string[] = [];
+    do {
+      const query = new URLSearchParams({ province: "Đà Nẵng", limit: "1" });
+      if (cursor) query.set("cursor", cursor);
+      const list = await (await http("/incidents?" + query)).json();
+      ids.push(...list.items.map((i: any) => i.id)); cursor = list.nextCursor;
+    } while (cursor);
+    expect(new Set(ids).size).toBe(4);
+    const assigned = await (await http("/incidents/analytics?" + new URLSearchParams({ ...range(), province: "Đà Nẵng", ward: "Hải Châu", severity: "HIGH", status: "VERIFIED", assignedToMe: "true" }), relief)).json();
+    expect(assigned).toMatchObject({ totalIncidents: 2, totalReports: 2, ungroupedReports: 0, missingGpsReports: 0 });
+    for (const path of ["analytics", "report", "report.pdf"]) {
+      expect((await http(`/incidents/${path}?${q}`, null)).status).toBe(401);
+      expect((await http(`/incidents/${path}?${q}`, { userId: 3, role: "citizen" })).status).toBe(403);
+    }
+    expect((await http("/incidents/analytics?mapLimit=1001")).status).toBe(400);
+    expect((await http("/incidents/report?from=2026-01-01&to=2026-03-01")).status).toBe(400);
+  });
+  it("uses a real repeatable-read report snapshot despite a concurrent evidence write", async () => {
+    const id = await link(await create());
+    const originalTransaction = db.transaction.bind(db);
+    let inserted = false;
+    const spy = vi.spyOn(db, "transaction").mockImplementation(async (isolation: any, callback?: any) => {
+      if (typeof isolation === "function") return originalTransaction(isolation);
+      return originalTransaction(isolation, async (manager) => {
+        const originalQuery = manager.query.bind(manager);
+        manager.query = (async (sql: string, parameters?: any[]) => {
+          const result = await originalQuery(sql, parameters);
+          if (!inserted && sql.includes('AS "totalIncidents"')) {
+            inserted = true;
+            await db.query(`INSERT INTO reports(description,province,ward,"addressLine","userId") VALUES('Sau khi chốt','Đà Nẵng','Hải Châu','A',3)`);
+            await db.query("INSERT INTO private_incidents.incidents(id,title,first_reported_at,latest_reported_at) VALUES($1,'Sự cố sau khi chốt',now(),now())", [randomUUID()]);
+          }
+          return result;
+        }) as any;
+        return callback(manager);
+      });
+    });
+    try {
+      const report = await repo.read(admin, "report", "", range());
+      expect(inserted).toBe(true);
+      expect(report.analytics.totalReports).toBe(1);
+      expect(report.analytics.totalIncidents).toBe(1);
+      expect(report.incidents.map((i: any) => i.id)).toEqual([id]);
+      expect(report.generatedAt).toBe(report.analytics.generatedAt);
+      expect(report.filters).toEqual(report.analytics.filters);
+      expect((await db.query("SELECT count(*)::int AS count FROM reports"))[0].count).toBe(2);
+      expect((await db.query("SELECT count(*)::int AS count FROM private_incidents.incidents"))[0].count).toBe(2);
+    } finally { spy.mockRestore(); }
+  });
+  it("rejects real report/PDF overflow rather than silently truncating and enforces UTF-8 payload size", async () => {
+    await db.query(`INSERT INTO private_incidents.incidents(id,title,first_reported_at,latest_reported_at) SELECT md5('overflow-' || n)::uuid,'Kiểm tra giới hạn',now(),now() FROM generate_series(1,1001) n`);
+    vi.unstubAllGlobals();
+    for (const path of ["report", "report.pdf"]) {
+      const response = await http(`/incidents/${path}?${new URLSearchParams(range())}`, relief);
+      expect(response.status).toBe(422); expect(await response.json()).toMatchObject({ code: "report_too_large" });
+    }
+    await db.query("TRUNCATE private_incidents.incidents CASCADE");
+    const id = await link(await create());
+    await db.query("INSERT INTO private_incidents.summaries(incident_id,evidence_version,job_id,content,model) VALUES($1,1,$2,$3,'fixture')", [id, randomUUID(), JSON.stringify({ pipeline: PIPELINE, title: "Nội dung lớn", conditions: [{ text: "ậ".repeat(700000) }] })]);
+    const response = await http(`/incidents/report?${new URLSearchParams(range())}`);
+    expect(response.status).toBe(422); expect(await response.json()).toMatchObject({ code: "report_too_large" });
+  });
+  it("serves an authenticated Vietnamese multi-page PDF from the local DB/HTTP report API", async () => {
+    const ids: string[] = [];
+    for (let n = 0; n < 12; n++) {
+      const reportId = await create({ description: "Có người bất tỉnh, cần cứu hộ ngay" });
+      const id = await link(reportId); ids.push(id);
+      await repo.mutate(admin, "edit-summary", id, { expectedVersion: (await repo.detail(id)).version, title: `Ngập lụt tại Hải Châu ${n + 1}`, body: "Đã ghi nhận nước dâng và người cần hỗ trợ. Cần xác minh tại hiện trường. ".repeat(10) + " Gọi 0912345678 hoặc secret@example.com", reason: "Tổng hợp bằng chứng tiếng Việt" }, randomUUID());
+      if (n === 0) {
+        await db.query("INSERT INTO private_incidents.summaries(incident_id,evidence_version,job_id,content,model) SELECT id,evidence_version,$2,$3,'fixture-legacy' FROM private_incidents.incidents WHERE id=$1", [id, randomUUID(), JSON.stringify({ pipeline: "incidents-v1", title: "Tóm tắt AI cũ", conditions: [{ id: `${reportId}:1:incidents-v1:0`, reportId, text: "Có người bất tỉnh, cần cứu hộ ngay" }], recommendations: [] })]);
+        await reports.updateReport(reportId, 3, { description: "Có người bất tỉnh, cần cứu hộ ngay. Nước đang dâng." });
+      }
+    }
+    vi.unstubAllGlobals();
+    const query = new URLSearchParams({ ...range(), province: "Đà Nẵng" });
+    const json = await (await http("/incidents/report?" + query, relief)).json();
+    expect(json).toMatchObject({ coverage: { complete: true, incidentCount: 12 }, analytics: { totalIncidents: 12, totalReports: 12 } });
+    expect(json.generatedAt).toBe(json.analytics.generatedAt);
+    expect(json.incidents[0].priority.value).toBe("CRITICAL");
+    expect(json.incidents.find((incident: any) => incident.id === ids[0])).toMatchObject({ summaryStale: true, editorialSummary: { stale: true }, summary: { pipeline: "incidents-v1" } });
+    expect(JSON.stringify(json)).not.toMatch(/0912345678|secret@example.com/);
+    const response = await http("/incidents/report.pdf?" + query, relief);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("application/pdf");
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    const bytes = Buffer.from(await response.arrayBuffer());
+    expect(bytes.subarray(0, 5).toString()).toBe("%PDF-");
+    expect(bytes.toString("latin1")).toContain("/FontFile2");
+    const directory = mkdtempSync(join(tmpdir(), "incident-intelligence-http-"));
+    writeFileSync(join(directory, "report.pdf"), bytes);
+    writeFileSync(join(directory, "report.json"), JSON.stringify(json, null, 2));
+    writeFileSync(join(directory, "evidence.json"), JSON.stringify({ boundary: "real PostgreSQL + local Nest HTTP/JWT; in-process RPC transport; model/broker not contacted", reportIds: ids, bytes: bytes.length, pdfStatus: response.status, font: "assets/fonts/NotoSans-Regular.ttf" }, null, 2));
+    console.log(`INCIDENT_PDF_EVIDENCE=${directory}`);
   });
   it("dead-letters repeatedly abandoned work instead of retrying forever", async () => {
     const id = await create();

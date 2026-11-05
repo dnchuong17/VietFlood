@@ -51,6 +51,7 @@ async function applyIncidentMigrations(pool) {
         "utf8",
       ),
     );
+    await client.query(readFileSync(path.join(__dirname, "../db/migrations/20261106_incident_intelligence.sql"), "utf8"));
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");

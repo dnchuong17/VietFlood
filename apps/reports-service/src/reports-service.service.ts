@@ -158,6 +158,8 @@ export class ReportsService {
       message: "Create report successfully",
       reportId: savedReport.id,
       category: savedReport.category,
+      lat: savedReport.lat,
+      lng: savedReport.lng,
       evidences: savedReport.evidences,
       images: savedReport.images,
     };

@@ -88,6 +88,10 @@ describe("ChatActionService", () => {
     expect(draft.action?.status).toBe("awaiting_confirmation");
     expect(draft.answer).toContain("Bạn kiểm tra lại thông tin trước khi tiếp tục");
     expect(draft.answer).toContain("tỉnh/thành: Đà Nẵng");
+    expect(draft.answer).toContain("GPS: kiểm tra lựa chọn trên thiết bị bên dưới");
+    expect(draft.answer).toContain("chỉ được gửi khi bạn xác nhận");
+    expect(draft.answer).not.toContain("GPS: chưa cung cấp");
+    expect(draft.answer).not.toContain("..");
     expect(draft.answer).not.toContain("actionId");
     expect(draft.answer).not.toContain("province:");
     expect(reports.createReport).not.toHaveBeenCalled();
@@ -135,7 +139,7 @@ describe("ChatActionService", () => {
     const complete = await service.handle(citizen, sessionId, "Hải Châu, đường A");
     expect(complete.action?.status).toBe("awaiting_confirmation");
     expect(complete.action?.intent).toBe("create_report");
-    expect(complete.answer).toContain("GPS: chưa cung cấp (tùy chọn)");
+    expect(complete.answer).toContain("GPS: kiểm tra lựa chọn trên thiết bị bên dưới (tùy chọn)");
     expect(complete.answer).toContain("phường/xã: Hải Châu;");
     expect(complete.answer).not.toContain("Hải Châu, đường A");
     expect(reports.createReport).not.toHaveBeenCalled();
@@ -191,7 +195,7 @@ describe("ChatActionService", () => {
     expect(draft.answer).toContain("QA không khẩn cấp");
     expect(draft.answer).toContain("ngập lụt, hạ tầng");
     expect(draft.answer).not.toContain("cần hỗ trợ khẩn cấp:");
-    expect(draft.answer).toContain("GPS: chưa cung cấp");
+    expect(draft.answer).toContain("GPS: kiểm tra lựa chọn trên thiết bị bên dưới");
     expect(ollama.understandAction).not.toHaveBeenCalled();
     expect(reports.createReport).not.toHaveBeenCalled();
   });

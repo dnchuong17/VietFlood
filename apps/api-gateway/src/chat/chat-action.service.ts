@@ -500,7 +500,7 @@ export class ChatActionService {
       .map(([key, value]) => `${this.actionFieldLabel(key)}: ${this.displayField(key, value)}`)
       .join("; ");
     const optionalReportDetails = action.intent === "create_report"
-      ? ` GPS: ${action.arguments.lat !== undefined && action.arguments.lng !== undefined ? `${this.display(action.arguments.lat)}, ${this.display(action.arguments.lng)}` : "chưa cung cấp (tùy chọn)"}; ảnh minh chứng có thể đính kèm bên dưới (tùy chọn).`
+      ? `; GPS: ${action.arguments.lat !== undefined && action.arguments.lng !== undefined ? `${this.display(action.arguments.lat)}, ${this.display(action.arguments.lng)}` : "kiểm tra lựa chọn trên thiết bị bên dưới (tùy chọn)"}; GPS và ảnh đã chọn trên thiết bị chỉ được gửi khi bạn xác nhận`
       : "";
     return (
       "Bạn kiểm tra lại thông tin trước khi tiếp tục: " +
